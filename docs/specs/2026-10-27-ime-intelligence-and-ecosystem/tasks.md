@@ -1,0 +1,31 @@
+# Execution Tasks: IME Intelligence, Secure Input, Ecosystem Compatibility & Adaptive Learning (`2026-10-27-ime-intelligence-and-ecosystem`)
+
+---
+
+## Task 1: Secure Input, Launcher Overlay Detection & English Auto-Restore (`REQ-001`, `REQ-002`, `REQ-004`)
+- [x] **1.1**: Update `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/VietnameseEngine.swift` (`checkRestoreIfWrongSpelling`) so `KEY_D` with `TONE_MASK` (`đ`) and any modified vowel/consonant restores raw `keyStates` when `tempDisableKey` (`!spellingOK || !spellingVowelOK`) is true (`REQ-004`, `ADR-004`).
+- [x] **1.2**: Update `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/EventTapCoordinator.swift` to:
+  - Add `isSecureInput: Bool = false` to `KeyEventContext` and `EventTapCoordinator.isSecureEventInputActive()` querying `IsSecureEventInputEnabled()`, bypassing Vietnamese composition and clearing candidates when `isSecureInput == true` (`REQ-001`, `ADR-001`).
+  - Add `EventTapCoordinator.isLauncherApp(bundleId:)` and extend `isSpotlightOverlayVisible(frontmostBundleId:)` to detect Spotlight, Raycast (`com.raycast.macos`), and Alfred (`com.runningwithcrayons.Alfred*`) (`REQ-002`, `ADR-002`).
+  - Add `passThroughTrailingKey: Bool = false` to `EventTapAction.replaceKeystroke` populated from `snapshot.shouldSendControlKey` (`REQ-004`, `ADR-004`).
+
+## Task 2: Adaptive Candidate Frequency Learning & Custom Shorthands (`REQ-005`, `REQ-006`)
+- [x] **2.1**: Update `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/AutoWordingEngine.swift` to:
+  - Expand `shorthandTable` with `k`, `j`, `bh`, `mn`, `cty`, `nv`, `gd`, `sdt`, `tks` and check `customShorthands[lower]` before `shorthandTable[lower]` (`REQ-006`, `ADR-005`).
+  - Implement `userFrequencies: [String: Int]`, `recordCandidateAcceptance(text:)`, `resetLearnedFrequencies()`, and frequency-boosted ranking in `computeCurrentWordCandidates` and `computeNextWordCandidates` (`REQ-005`, `ADR-005`).
+- [x] **2.2**: Update `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/OpenKeySettingsStore.swift` to persist `customShorthands: [String: String]` (`"CustomShorthandsData"`), `setCustomShorthand(trigger:replacement:)`, and `removeCustomShorthand(trigger:)` (`REQ-006`, `ADR-005`).
+
+## Task 3: Electron/Chromium Caret Accessibility, Multi-Monitor Clamping & Settings UI (`REQ-003`, `REQ-005`, `REQ-006`)
+- [x] **3.1**: Update `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftApp/CandidateBarController.swift` to:
+  - Implement `CaretPositionResolver.enableManualAccessibilityIfNeeded(for:pid:)` setting `"AXManualAccessibility" = kCFBooleanTrue` once per PID (`REQ-003`, `ADR-003`).
+  - Implement `CaretPositionResolver.screenContaining(point:)` and use it for multi-monitor candidate bar clamping (`REQ-003`, `ADR-003`).
+  - Record candidate acceptance via `AutoWordingEngine.shared.recordCandidateAcceptance(text:)` when a candidate is clicked (`REQ-005`).
+- [x] **3.2**: Update `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftApp/SettingsView.swift` to add custom shorthand management (add/delete trigger & replacement) and a button to reset learned word frequencies (`REQ-005`, `REQ-006`).
+
+## Task 4: Automated Test Suite, App Bundle Deployment & Verification Evidence (`REQ-001`..`REQ-006`)
+- [x] **4.1**: Add unit tests in `Sources/OpenKey/macOS-Swift/Tests/OpenKeySwiftTests/OpenKeySwiftTests.swift` covering `REQ-001` through `REQ-006` and run `rtk swift test --package-path Sources/OpenKey/macOS-Swift`.
+- [x] **4.2**: Rebuild and deploy `/Applications/OpenKeySwift.app` via `build-app.sh` and record verbatim test/build evidence in `docs/specs/2026-10-27-ime-intelligence-and-ecosystem/verification.md`.
+
+## Task 5: Multi-Delete, Diphthong Tone Replacement & Subsequent Character Entry State Integrity (`REQ-007`)
+- [x] **5.1**: Update `VietnameseEngine.swift`, `AutoWordingEngine.swift`, and `EventTapCoordinator.swift` to fix all multi-delete, diphthong tone replacement (`"tiiếng"`), and subsequent character entry state bugs (`handleModernMark()`/`handleOldMark()` `hookOutput` purity & Rule 3.1 check, `insertMark` `canModifyFlag == false` guard, `CHR(_:)` bounds & `KEY_EMPTY`, `keyStates`/`stateIndex` synchronization on `KEY_DELETE` & `restoreLastTypingState()`, `resetSession()`/`startNewSessionInternal()`/`KEY_SPACE` state preservation, `checkGrammar` phonotactic repair guard, and asynchronous candidate bar updates) (`REQ-007`, `ADR-006`).
+- [x] **5.2**: Add TDD regression and simulated screen buffer tests in `OpenKeySwiftTests.swift` for `REQ-007` (`"kiểm tra tiếng v, "` screen simulation with zero `"tiiếng"` duplication, toned word multi-delete pass-through, partial delete + new character entry, multi-word cross-space delete + re-typing, and post-shorthand delete + re-typing), run `rtk swift test`, rebuild `/Applications/OpenKeySwift.app`, and update `verification.md`.

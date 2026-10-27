@@ -1,0 +1,20 @@
+# Execution Tasks (`2026-10-26-auto-wording`)
+
+- [x] **Task 1: Write Failing TDD Unit Tests for Auto Wording, Phonotactic Repair & Candidate Selection** (`REQ-001`, `REQ-002`, `REQ-003`, `REQ-004`, `REQ-005`)
+  - [x] Add unit tests in `Sources/OpenKey/macOS-Swift/Tests/OpenKeySwiftTests/OpenKeySwiftTests.swift` covering:
+    1. Phonotactic syllable repair (`tiengs` → `tiếng`, `viets` → `viết`, `nghiengf` → `nghiềng`, `truowngf` → `trường`) and verifying repair is disabled when `grammarRepairEnabled == false` (`REQ-002`).
+    2. Shorthand expansion on `Space` (`ko ` → `không `, `dc ` → `được `, `Ko ` → `Không `, `KO ` → `KHÔNG `, `vn ` → `Việt Nam `) and verifying expansion is disabled when `shorthandExpansionEnabled == false` (`REQ-003`).
+    3. Multi-thousand-word `VietnameseDictionary` verification (`>= 3,500` syllables and `>= 1,500` compound pairs, `>= 5,000` total entries), wrong-syntax / transposition candidate generation (`tineg` → includes `tiếng`, `veit` → includes `việt`, `ngheing` → includes `nghiêng`, `thanh` → includes `thành`), and compound next-word prediction after `Space` (`thành ` → `["phố", "công", "viên"]`, `nghiên ` → `["cứu", ...]`) (`REQ-004`).
+    4. Pure `EventTapCoordinator.evaluateKeyEvent` routing for `Tab` (accepts candidate `#1`), `Ctrl+2` (accepts candidate `#2`), and `Esc` (dismisses candidates when active, passes through when empty) (`REQ-005`).
+    5. `OpenKeySettingsStore` persistence of `autoWordingEnabled`, `grammarRepairEnabled`, `shorthandExpansionEnabled`, and `candidateSuggestionsEnabled` (`REQ-001`).
+- [x] **Task 2: Implement 5,000+ Word `VietnameseDictionary.swift`, `AutoWordingEngine.swift` & Integrate Phonotactic Repair + Shorthand Expansion in `VietnameseEngine.swift`** (`REQ-001`, `REQ-002`, `REQ-003`, `REQ-004`)
+  - [x] Create `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/VietnameseDictionary.swift` containing `>= 3,500` valid Vietnamese syllables and `>= 1,500` compound words (`>= 5,000` entries) with in-memory `stemToWords`, `telexSignatureToWords` (anagram/transposition index), and `compoundBigrams` lookup tables (`REQ-004`).
+  - [x] Create `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/AutoWordingEngine.swift` with shorthand dictionary, wrong-syntax transposition/stem candidate generator backed by `VietnameseDictionary`, and Vietnamese compound bigram predictor (`REQ-003`, `REQ-004`).
+  - [x] Update `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/VietnameseEngine.swift` to support `ie`/`ye` + final consonant → `iê`/`yê` and `uow` → `ươ` phonotactic repair, atomic shorthand expansion on `KEY_SPACE`, and live candidate updates (`REQ-002`, `REQ-003`, `REQ-004`).
+  - [x] Update `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/OpenKeySettingsStore.swift` to persist and sync the 4 Auto Wording settings (`REQ-001`).
+- [x] **Task 3: Implement Candidate Acceptance in `EventTapCoordinator.swift` & Floating Liquid Glass `CandidateBarController.swift`** (`REQ-001`, `REQ-005`, `REQ-006`)
+  - [x] Update `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/EventTapCoordinator.swift` with `.acceptCandidate` and `.dismissCandidates` actions for `Tab`, `Ctrl+1..3`, and `Esc` (`REQ-005`).
+  - [x] Create `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftApp/CandidateBarController.swift` implementing the non-activating Liquid Glass `NSPanel` and `AXUIElement` caret position resolver (`REQ-006`).
+  - [x] Update `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftApp/OpenKeySwiftApp.swift` and `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftApp/SettingsView.swift` with the experimental Auto Wording menu toggle and Settings section (`REQ-001`, `REQ-006`).
+- [x] **Task 4: Verify Full Test Suite, Rebuild `/Applications/OpenKeySwift.app` & Capture `verification.md`** (`REQ-001`..`REQ-006`)
+  - [x] Run `rtk swift test --package-path Sources/OpenKey/macOS-Swift`, rebuild and deploy `/Applications/OpenKeySwift.app`, and write verbatim evidence to `docs/specs/2026-10-26-auto-wording/verification.md` (`REQ-001`..`REQ-006`).

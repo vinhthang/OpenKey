@@ -1,0 +1,62 @@
+{
+  "spec_hash": "32024121f386204011f89102734d10fe2a8474afb398e84803dd586ca6a9ab95",
+  "evidence_hash": "9719dc97d3b15247d7151c469c03689a3e345c42115c5efdf56e21639aa1df91",
+  "auditor_model": "gemini-4-argon-high",
+  "verdict": "PASS",
+  "requirements_evaluated": {
+    "REQ-001": {
+      "design_aligned": true,
+      "design_rationale": "Section 2 specifies adding autoWordingEnabled, grammarRepairEnabled, shorthandExpansionEnabled, and candidateSuggestionsEnabled keys to OpenKeySettingsStore.Keys (defaulting to true), syncing them to VietnameseEngine and AutoWordingEngine in syncToEngine(), while Section 5 details the status bar dropdown menu item and SettingsView grouped Form section.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 1 covers OpenKeySettingsStore persistence unit tests, Task 2 covers setting storage implementation and sync wiring, and Task 3 covers status bar menu and SettingsView UI integration.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 1 ('REQ-001: Auto wording settings store persistence and sync' passed in 0.001s), Section 2 (status bar menu item and settings form section confirmed), and Section 3."
+    },
+    "REQ-002": {
+      "design_aligned": true,
+      "design_rationale": "Section 3 details VietnameseEngine phonotactic repair via repairPhonotacticClusterIfNeeded() called before checkSpelling() and inside checkGrammar(), implementing Rule 1 (ie/ye + final consonant promotion to iê/yê via TONE_MASK on KEY_E) and Rule 2 (uow/uwo + final consonant horn normalization to ư + ơ via TONEW_MASK on KEY_U and KEY_O).",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 1 defines unit tests for tiengs, viets, nghiengf, and truowngf with toggle bypass assertions, and Task 2 covers VietnameseEngine implementation.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 1 ('REQ-002: Phonotactic syllable repair' passed in 0.001s, confirming fast typing tiengs -> tiếng, viets -> viết, nghiengf -> nghiềng, truowngf -> trường, and toggle bypass) and Section 2."
+    },
+    "REQ-003": {
+      "design_aligned": true,
+      "design_rationale": "Section 4 defines AutoWordingEngine shorthand expansion dictionary covering all normative tokens with casing-preserving logic (lowercase, title case, uppercase) triggered atomically on KEY_SPACE inside VietnameseEngine.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 1 specifies unit tests for exact shorthand expansions and case preservation, and Task 2 implements the shorthand dictionary and engine hook.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 1 ('REQ-003: Shorthand auto-expansion on Space' passed in 0.001s, confirming ko -> không, dc -> được, Ko -> Không, KO -> KHÔNG, vn -> Việt Nam, and toggle bypass) and Section 2."
+    },
+    "REQ-004": {
+      "design_aligned": true,
+      "design_rationale": "Section 4 designs VietnameseDictionary.swift with >= 3,500 syllables and >= 1,500 compound pairs indexed via syllableSet, stemToWords, telexSignatureToWords, and compoundBigrams, and AutoWordingEngine.swift implementing computeCurrentWordCandidates and computeNextWordCandidates in < 0.1ms.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 1 includes unit tests asserting dictionary volume (>= 5,000 entries), transposition candidate ranking, and bigram predictions, while Task 2 implements the dictionary and engine.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 1 ('REQ-004: Multi-thousand-word dictionary and candidate generation' passed in 0.001s, verifying 15,738 syllables, 1,573 compound word pairs, transposition repair for tineg/veit/ngheing/thanh/duoc, and compound predictions) and Section 2."
+    },
+    "REQ-005": {
+      "design_aligned": true,
+      "design_rationale": "Section 5 details EventTapAction additions (.acceptCandidate and .dismissCandidates), KeyEventContext extensions, and pure evaluateKeyEvent routing logic for Tab (candidate #1), Control+1..3 (candidates #1..#3), and Esc dismissal.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 1 implements pure unit tests for evaluateKeyEvent candidate selection and dismissal paths, and Task 3 implements EventTapCoordinator actions and event tap wiring.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 1 ('REQ-005: Candidate selection keyboard routing Tab, Ctrl+1..3, Esc' passed in 0.001s, confirming Tab, Ctrl+1..3 candidate acceptance, Esc dismissal, and Esc empty-candidate passthrough) and Section 2."
+    },
+    "REQ-006": {
+      "design_aligned": true,
+      "design_rationale": "Section 5 specifies CandidateBarController managing a non-activating borderless NSPanel at level .popUpMenu, CandidateBarView with .glassEffect(.regular, in: .capsule), and CaretPositionResolver querying AXUIElement parameterized attribute kAXBoundsForRangeParameterizedAttribute with mouse location fallback.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 3 specifies creating CandidateBarController.swift and CaretPositionResolver, while Task 4 verifies full build packaging into /Applications/OpenKeySwift.app.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2, Section 3 (release bundle build and codesign verification for /Applications/OpenKeySwift.app), and live process inspection (PID=64875)."
+    }
+  }
+}

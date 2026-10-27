@@ -1,0 +1,143 @@
+{
+  "spec_hash": "624381345dabf3dd2c8a404fc60b6317e9214f4c0fc5d3b2aa8e12e14b5f386e",
+  "evidence_hash": "943c217421729320a7c0e037159eac24b01853593edfd56d3df4538b6c531bb3",
+  "auditor_model": "gemini-4-argon-high",
+  "verdict": "PASS",
+  "requirements_evaluated": {
+    "REQ-001": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.1 and Section 12.1 establish Sources/OpenKey/macOS-Swift/ compiling clean engine entry points (OKEngineInit, OKEngineSyncConfig, OKEngineHandleKeyEvent, OKEngineResetSession, OKEngineKeyCodeToChar, OKHookSnapshot) to Swift and unit tests without code duplication.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 2 establishes package scaffold, Task 4 produces executable .app bundle, and Task 8 ports engine directly into OpenKeySwiftCore.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.1, Section 2.2, and Section 2.8 (release bundle build and packaging)."
+    },
+    "REQ-002": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.2 specifies an unsandboxed application bundle (OpenKeySwift.entitlements omitting sandbox), 1.0s accessibility polling via AXIsProcessTrusted(), automatic event tap registration upon trust, timeout/wake recovery (NSWorkspace.didWakeNotification), and private CGEventSource tagging (0xBEEF) to prevent feedback loops.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 2 specifies unsandboxed entitlements, Task 3 implements EventTapCoordinator.swift with AXIsProcessTrusted polling, self-event tagging (0xBEEF), and timeout recovery, and Task 7 hardens sleep/wake recovery.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.2, Section 2.3, Section 2.5 (live WindowServer tap PID=96707), Section 2.6 (tap ID=1424268980), and Section 2.10 (deployed process PID=97778)."
+    },
+    "REQ-003": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.3 and Section 12.1 define OpenKeySettingsStore synchronization of engine globals supporting strictly Telex (0) and VNI (1), precomposed Unicode only (vCodeTable = 0), and auto-restore on invalid Vietnamese sequences via vRestore and vRestoreAndStartNewSession.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 3 wires OpenKeySettingsStore.swift, Task 5 verifies composition and auto-restore, Task 6 clamps inputType to Telex/VNI, Task 7 flattens codeTable, and Task 8 ports full syllable composition to Swift.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.1 (Telex/VNI syllable composition tests pass), Section 2.5 (live typing 'tiếng việt'), and Section 2.7 (13/13 tests pass)."
+    },
+    "REQ-004": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.4 specifies EventTapCoordinator bypassing Vietnamese composition on Spotlight overlay (width >= 200 && height >= 40), terminal emulators, VM/remote-desktop apps, and Cmd+Tab / modifier shortcuts, with app-aware U+200C (Sublime Text) vs U+202F breaker in KeystrokeInjector when extCode != 4.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 3 implements KeystrokeInjector and EventTapCoordinator, Task 6 implements terminal/Spotlight bypass, and Task 7 adds VM bundle IDs, dimension-filtered Spotlight detection, and app-aware U+200C vs U+202F breaker.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.1, Section 2.5 (live TailTap captures U+202F breaker), and Section 2.7 (terminal app detection test passes)."
+    },
+    "REQ-005": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.5 and Section 12.1 design configurable per-app smart language switching (useSmartSwitchKey, default true), synchronization of manual toggles to OKSetAppInputMethodStatus and UserDefaults, and bounds-checked deserialization in SmartSwitchKey.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 1 adds bounds checking, Task 3 wires focus tracking, Task 6 fixes language revert, Task 7 verifies per-app vs global switching, and Task 8 ports SmartSwitchKey to pure Swift.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.1 (bounds-checked deserialization on truncated buffers passes), Section 2.4 (bounds check git diff), and Section 2.7 (SmartSwitchKey persistence and lookup passes)."
+    },
+    "REQ-006": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.6 specifies leak-free TISCopyCurrentKeyboardInputSource() handling, InputSourceGuard notification caching (kTISNotifySelectedKeyboardInputSourceChanged), and non-QWERTY rejection (Dvorak, Colemak, AZERTY).",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 1 fixes TISCopyCurrentKeyboardInputSource leak in OpenKey.mm, Task 3 implements InputSourceGuard.swift, and Task 7 adds notification caching and non-QWERTY layout rejection.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.1, Section 2.4, and Section 2.7 (InputSourceGuard repeated invocation safety passes 1,000 iterations)."
+    },
+    "REQ-007": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.7 designs HotKeyMatcher with default Option + Z (0x7A000206), auto-repeat suppression, matching keyUp swallowing, and safe modifier-only clean-release state machine.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 3 implements HotKeyMatcher.swift, Task 4 provides shortcut recorder UI, and Task 7 implements auto-repeat suppression, keyUp swallowing, and modifier-only clean-release state machine.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.1 and Section 2.7 (HotKeyMatcher default and custom patterns pass)."
+    },
+    "REQ-008": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.8 specifies OpenKeySwiftApp with cached monochrome template icons, checkable per-app memory menu item, grouped Form SettingsView, interactive shortcut recorder, and SMAppService.mainApp error recovery.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 4 implements OpenKeySwiftApp.swift and SettingsView.swift, Task 6 adds cached monochrome icons, and Task 7 adds top-section per-app toggle, interactive recorder, and Launch-at-Login rollback.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.1, Section 2.2, Section 2.7 (OpenKeySettingsStore persistence and sync pass), and Section 2.8 (app bundle packaging)."
+    },
+    "REQ-009": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.9 specifies build-app.sh Keychain signing identity auto-detection, --setup-cert helper for local certificate generation, and signing with --identifier com.tuyenmai.openkey.swift and designated requirement.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 7 explicitly updates build-app.sh with identity auto-detection, --setup-cert, and explicit designated requirement.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.2, Section 2.3, and Section 2.8 (codesign verification with designated requirement)."
+    },
+    "REQ-010": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.10 specifies EventTapCoordinator ordering fast path in strict O(1) order: self-event filtering, mouse reset, hotkey processing, modifier shortcut bypass, non-keyDown return, and English mode immediate return before any IPC checks, with 0.15s TTL + dimension-filtered Spotlight detection.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 7 explicitly implements zero-IPC fast-path ordering, 0.15s TTL + dimension-filtered Spotlight detection, and activeAppBundleId caching.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.5 (zero-IPC live event processing) and Section 2.7 (swift test passes with fast-path routing)."
+    },
+    "REQ-011": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.10 specifies EventTapCoordinator.evaluateKeyEvent(_ context: KeyEventContext) -> EventTapAction pure value-type routing function handling all bypasses, hotkey swallowing, modifier-only tap transitions, and engine dispatch without live CGEventTap dependencies.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 7 explicitly implements evaluateKeyEvent with KeyEventContext and EventTapAction, and unit tests covering every routing branch.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.7 (Pure Event Routing Pipeline evaluateKeyEvent test passes)."
+    },
+    "REQ-012": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.1 and Section 2.3 specify deleting ConvertTool.h/.cpp and Macro.h/.cpp from Sources/OpenKey/engine/, flattening _codeTable to single Precomposed Unicode map, and stripping all dead globals and dead branches across Engine.h/.cpp and OpenKeyEngineBridge.mm.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 7 explicitly deletes ConvertTool and Macro files, flattens Vietnamese _codeTable, and strips dead globals and dead branches across C++ engine and bridge.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.9 (git status showing deletion of ConvertTool and Macro and simplification of DataType/Engine/Vietnamese)."
+    },
+    "REQ-013": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.8 and ADR-010 specify Package.swift targeting .macOS(\"26.0\"), Info.plist LSMinimumSystemVersion = 26.0, OpenKeySettingsStore @Observable migration with zero Combine dependencies, and SettingsView Form with .formStyle(.grouped) and macOS 26 Liquid Glass modifiers.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 7 explicitly directs upgrading Package.swift and Info.plist to macOS 26.0, migrating OpenKeySettingsStore to @Observable, and refactoring SettingsView with grouped Form and Liquid Glass styling.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.7 (swift test clean run on macOS 26), Section 2.8 (release bundle build with LSMinimumSystemVersion = 26.0), and Section 2.10 (deployed process lifecycle)."
+    },
+    "REQ-014": {
+      "design_aligned": true,
+      "design_rationale": "Section 12.1 specifies converting all C++ engine code into pure Swift 6 inside OpenKeySwiftCore (VietnameseData.swift defining OKHookSnapshot, virtual keycodes, bitmasks, phonotactic tables; and VietnameseEngine.swift implementing full syllable state buffer, Telex/VNI syllable composition, checkSpelling, checkRestoreIfWrongSpelling, SmartSwitchKey binary serialization/lookup, and public entry points), deleting OpenKeyEngineBridge, and removing cxxLanguageStandard from Package.swift.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 8 explicitly directs writing characterization unit tests, implementing VietnameseData.swift and VietnameseEngine.swift in 100% Pure Swift 6 with provenance headers, deleting Sources/OpenKey/macOS-Swift/Sources/OpenKeyEngineBridge/, and updating Package.swift and core imports.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.7 (pure Swift test suite execution) and Section 2.9 (C++ engine cleanup baseline before Swift port)."
+    },
+    "REQ-015": {
+      "design_aligned": true,
+      "design_rationale": "Section 12.2 specifies adding a dedicated 'Giới thiệu (About)' section in SettingsView with explicit attribution to Mai Vũ Tuyên's original C++ OpenKey project, adding a status bar menu item in OpenKeySwiftApp, updating NSHumanReadableCopyright in Info.plist, and adding provenance headers to VietnameseData.swift, VietnameseEngine.swift, and README.md.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 8 explicitly directs adding explicit Pure Swift 6 conversion attribution to SettingsView.swift ('Giới thiệu' section), OpenKeySwiftApp.swift (status bar menu item), Info.plist (NSHumanReadableCopyright), and README.md.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 2.8 (Info.plist metadata inspection) and Section 2.10 (deployed OpenKeySwift process lifecycle)."
+    }
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "status": "PASS",
+  "verdict": "PASS",
+  "spec_hash": "30db4f7c8c3295c07803a743ed582e33048900de05a24340237ae250fa4b7c47",
+  "evidence_hash": "8317f78562fe7a9dcf1a11c7bf17886d49b40f99ff171fb7010465a5fbebb6e1",
+  "auditor_model": "gemini-4-argon-high",
+  "audited_requirements": [
+    "REQ-001",
+    "REQ-002",
+    "REQ-003",
+    "REQ-004",
+    "REQ-005",
+    "REQ-006",
+    "REQ-007"
+  ],
+  "audited_decisions": [
+    "ADR-001",
+    "ADR-002",
+    "ADR-003",
+    "ADR-004",
+    "ADR-005",
+    "ADR-006"
+  ],
+  "semantic_findings": [],
+  "requirements_evaluated": {
+    "REQ-001": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.1 details importing Carbon, adding isSecureInput to KeyEventContext, implementing EventTapCoordinator.isSecureEventInputActive() via IsSecureEventInputEnabled(), and routing evaluateKeyEvent to clearCandidates() and return .passThrough(resetSession: true) when isSecureInput is true.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 1 (subtask 1.2) explicitly implements isSecureInput and isSecureEventInputActive() in EventTapCoordinator.swift, and Task 4 (subtask 4.1) specifies automated unit tests.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 1 & Section 2 test 'REQ-001: Secure Input bypasses Vietnamese composition and clears candidate bar' passed after 0.001s."
+    },
+    "REQ-002": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.1 designs EventTapCoordinator.isLauncherApp(bundleId:) for Spotlight, Raycast, and Alfred bundle IDs, and updates isSpotlightOverlayVisible to inspect on-screen window layers (kCGWindowLayer > 0) owned by Spotlight, Raycast, or Alfred, returning .passThrough(resetSession: true) in evaluateKeyEvent.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 1 (subtask 1.2) implements launcher detection and window layer inspection in EventTapCoordinator.swift, and Task 4 (subtask 4.1) provides regression unit tests.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 1 & Section 2 test 'REQ-002: Universal Launcher overlay detection (Spotlight, Raycast, Alfred)' passed after 0.001s."
+    },
+    "REQ-003": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.2 specifies CaretPositionResolver maintaining a thread-safe enabledAccessibilityPIDs cache to set AXManualAccessibility on target PIDs once, and implementing screenContaining(point:) to clamp floating panel coordinates to the active NSScreen.visibleFrame.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 3 (subtask 3.1) directs implementation of enableManualAccessibilityIfNeeded and screenContaining in CandidateBarController.swift, validated in Task 4.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 1 & Section 2 test 'REQ-003: Caret accessibility activation and screen resolution' passed after 0.003s."
+    },
+    "REQ-004": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.3 removes the !isConsonant(CHR(ii)) restriction in VietnameseEngine.checkRestoreIfWrongSpelling to inspect all syllable positions for TONE_MASK (including KEY_D / đ) and MARK_MASK / TONEW_MASK, while Section 2.1 extends EventTapAction.replaceKeystroke with passThroughTrailingKey to preserve trailing control keys.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 1 (subtask 1.1) implements the checkRestoreIfWrongSpelling logic, subtask 1.2 wires passThroughTrailingKey in EventTapCoordinator.swift, and Task 4 provides unit test coverage for dead/added/window.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 1 & Section 2 test 'REQ-004: English word auto-restore without skipping KEY_D and trailing key pass-through' passed after 0.001s."
+    },
+    "REQ-005": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.4 specifies AutoWordingEngine tracking userFrequencies in UserDefaults, implementing recordCandidateAcceptance(text:) and resetLearnedFrequencies(), boosting candidate sorting before truncating to top 3, while Section 2.1, 2.2, and SettingsView UI wire acceptance triggers and reset controls.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 2 (subtask 2.1) implements frequency storage and sorting in AutoWordingEngine.swift, Task 3 adds click tracking and SettingsView reset UI, and Task 4 covers unit tests.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 1 & Section 2 test 'REQ-005: Adaptive candidate frequency learning and ranking boost' passed after 0.001s."
+    },
+    "REQ-006": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.4 specifies expanding AutoWordingEngine.shorthandTable with high-frequency shorthands (k, j, bh, mn, cty, nv, gd, sdt, tks), adding customShorthands dictionary in OpenKeySettingsStore persisted under CustomShorthandsData, evaluating custom entries prior to built-in entries, and adding inline management controls in SettingsView.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 2 (subtask 2.1 & 2.2) implements the expanded and custom shorthand tables and store persistence, Task 3 (subtask 3.2) provides SettingsView UI, and Task 4 verifies with unit tests.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 1 & Section 2 test 'REQ-006: Expanded built-in and custom shorthand table persistence' passed after 0.001s, along with production build and active deployment verification (PID 66185)."
+    },
+    "REQ-007": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.3 specifies bounds checking in CHR(_:) (guard idx >= 0 && idx < Int(index) && idx < maxBuff else return KEY_EMPTY), guarding hookOutput mutations in insertMark behind if canModifyFlag, clearing hookOutput on handleKeyEvent entry and returning zeroed backspaceCount/newCharCount when hookOutput.code is doNothing, synchronizing keyStates and stateIndex on KEY_DELETE and restoreLastTypingState(), clearing typingStates on resetSession() and shorthand expansion, and restricting repairPhonotacticClusterIfNeeded in checkGrammar to forward keystrokes (deltaBackSpace <= 0).",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 5 (subtasks 5.1 and 5.2) details the 5 multi-delete fixes in VietnameseEngine.swift and EventTapCoordinator.swift, plus TDD regression tests for toned word delete pass-through, partial delete + new character entry, multi-word cross-space delete, and post-shorthand delete.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 1 & Section 2 test 'REQ-007: Multi-Delete and Subsequent Character Entry State Integrity' passed after 0.002s (26/26 tests passed)."
+    }
+  }
+}

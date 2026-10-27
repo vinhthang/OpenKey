@@ -1,5 +1,11 @@
 
-# [OpenKey](http://open-key.org)
+# [OpenKeySwift](https://github.com/tuyenvm/OpenKey)
+
+> [!NOTE]
+> **OpenKeySwift — 100% Pure Swift 6 Conversion**
+> OpenKeySwift là bản chuyển đổi 100% bằng ngôn ngữ Swift 6 nguyên bản (macOS 26 Tahoe) từ bộ gõ tiếng Việt mã nguồn mở **OpenKey** (C++/Objective-C++) của tác giả **Mai Vũ Tuyên**. Toàn bộ state machine xử lý Telex/VNI, bảng luật âm vị học tiếng Việt và cơ chế đồng bộ theo ứng dụng (SmartSwitchKey) đã được viết lại hoàn toàn bằng Swift 6 với hiệu năng cao, thread-safe và giao diện SwiftUI Liquid Glass hiện đại.
+> Copyright © 2019-2026 Mai Vũ Tuyên. Phát hành theo giấy phép GNU General Public License v3.0.
+
 ### [Download bản mới nhất](https://github.com/tuyenvm/OpenKey/releases)
 [![GitHub release](https://img.shields.io/github/v/release/tuyenvm/OpenKey.svg)](https://github.com/tuyenvm/OpenKey/releases/latest)
 
