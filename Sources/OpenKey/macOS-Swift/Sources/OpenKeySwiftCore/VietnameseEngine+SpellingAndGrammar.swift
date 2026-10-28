@@ -222,43 +222,34 @@ extension VietnameseEngineState {
             isCorrect = false
             return
         }
-        
-        let count = charset[i].count
-        var l = Int(index) - 1
-        var k = count - 1
-        
-        while k >= 0 {
-            if l < 0 {
+        var k = Int(index) - 1
+        for j in stride(from: charset[i].count - 1, through: 0, by: -1) {
+            let ch = charset[i][j]
+            if (ch & END_CONSONANT_MASK) != 0 {
                 isCorrect = false
-                break
+                return
             }
-            if (charset[i][k] & CONSONANT_ALLOW_MASK) != 0 {
-                let mask = charset[i][k] & ~CONSONANT_ALLOW_MASK
-                let actual = CHR(l)
-                if actual != mask {
-                    isCorrect = false
-                    break
-                }
-            } else if (charset[i][k] & END_CONSONANT_MASK) != 0 {
-                let mask = charset[i][k] & ~END_CONSONANT_MASK
-                let actual = CHR(l)
-                if isMarkKey(markKey) && isKeyS(markKey) && isKeyJ(markKey) {
-                    isCorrect = false
-                    break
-                }
-                if actual != mask {
-                    isCorrect = false
-                    break
-                }
-            } else {
-                let actual = CHR(l)
-                if actual != charset[i][k] {
-                    isCorrect = false
-                    break
-                }
+            if ch != CHR(k) {
+                isCorrect = false
+                return
             }
-            l -= 1
             k -= 1
+            if k < 0 { break }
+        }
+        
+        // limit mark for end consonant: "C", "T"
+        if isCorrect && charset[i].count > 1 && (isKeyF(markKey) || isKeyX(markKey) || isKeyR(markKey)) {
+            if charset[i][1] == KEY_C || charset[i][1] == KEY_T {
+                isCorrect = false
+            } else if charset[i].count > 2 && charset[i][2] == KEY_T {
+                isCorrect = false
+            }
+        }
+        
+        if isCorrect && k >= 0 {
+            if (k > 0 && CHR(k) == CHR(k - 1)) || (k + 1 < Int(index) && CHR(k) == CHR(k + 1)) {
+                isCorrect = false
+            }
         }
     }
     
@@ -266,45 +257,46 @@ extension VietnameseEngineState {
         vowelCount = 0
         vowelStartIndex = 0
         vowelEndIndex = 0
-        
         guard index > 0 else { return }
         
-        var i = 0
-        while i < Int(index) {
-            if !isConsonant(CHR(i)) {
-                vowelStartIndex = UInt8(i)
-                break
+        for iii in stride(from: Int(index) - 1, through: 0, by: -1) {
+            if isConsonant(CHR(iii)) {
+                if vowelCount > 0 { break }
+            } else {
+                if vowelCount == 0 {
+                    vowelEndIndex = UInt8(iii)
+                }
+                if !forGrammar {
+                    if (iii - 1 >= 0 && (CHR(iii) == KEY_I && CHR(iii - 1) == KEY_G)) ||
+                       (iii - 1 >= 0 && (CHR(iii) == KEY_U && CHR(iii - 1) == KEY_Q)) {
+                        break
+                    }
+                }
+                vowelStartIndex = UInt8(iii)
+                vowelCount += 1
             }
-            i += 1
-        }
-        
-        guard i < Int(index) else { return }
-        
-        var j = i
-        while j < Int(index) {
-            if isConsonant(CHR(j)) { break }
-            vowelCount += 1
-            vowelEndIndex = UInt8(j)
-            j += 1
         }
         
         if vowelStartIndex > 0 && CHR(Int(vowelStartIndex)) == KEY_U && CHR(Int(vowelStartIndex) - 1) == KEY_Q {
             vowelStartIndex += 1
             vowelCount -= 1
-        } else if index >= 2 && CHR(0) == KEY_G && CHR(1) == KEY_I && !forGrammar {
-            if vowelCount > 1 {
-                vowelStartIndex = 1
-                vowelCount -= 1
-            }
         }
     }
     
     func canHasEndConsonant() -> Bool {
-        guard index > 0 else { return false }
-        let lastChar = CHR(Int(index) - 1)
-        for i in 0..<_endConsonantTable.count {
-            if _endConsonantTable[i].contains(lastChar) {
-                return true
+        guard let vo = _vowelCombine[CHR(Int(vowelStartIndex))] else { return false }
+        for ii in 0..<vo.count {
+            var kk = Int(vowelStartIndex)
+            var iii = 1
+            while iii < vo[ii].count {
+                if kk > Int(vowelEndIndex) || ((UInt32(CHR(kk)) | typingWord[kk].toneMark) != vo[ii][iii]) {
+                    break
+                }
+                kk += 1
+                iii += 1
+            }
+            if iii >= vo[ii].count {
+                return vo[ii][0] == 1
             }
         }
         return false

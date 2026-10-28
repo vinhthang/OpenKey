@@ -22,7 +22,7 @@ extension VietnameseEngineState {
             let markOffsets: [UInt32: Int] = [MARK1_MASK: 0, MARK2_MASK: 2, MARK3_MASK: 4, MARK4_MASK: 6, MARK5_MASK: 8]
             var markElem = (markOffsets[data & MARK_MASK] ?? -2) + capsElem
             let base = data.baseKey
-            if (base == KEY_A || base == KEY_O || base == KEY_U || base == KEY_E) && !data.hasToneMark { markElem += 4 }
+            if (base == KEY_A || base == KEY_O || base == KEY_U || base == KEY_E) && !data.hasCircumflexOrStroke && !data.hasHornOrBreve { markElem += 4 }
             if data.hasCircumflexOrStroke { key |= TONE_MASK }
             else if data.hasHornOrBreve { key |= TONEW_MASK }
             guard let table = _codeTable[key], markElem >= 0 && markElem < table.count else { return data }
@@ -134,10 +134,15 @@ extension VietnameseEngineState {
         }
         vowelCount = 0
         findAndCalculateVowel()
-        vowelWillSetMark = (vowelCount == 1) ? vowelEndIndex : 0
-        if vowelCount > 1 {
-            if vUseModernOrthography == 0 { handleOldMark() } else { handleModernMark() }
-            if typingWord[Int(vowelEndIndex)].hasToneMark { vowelWillSetMark = vowelEndIndex }
+        if vowelCount == 0 && index >= 1 && (CHR(Int(vowelEndIndex)) == KEY_I || CHR(Int(vowelEndIndex)) == KEY_U) {
+            vowelWillSetMark = vowelEndIndex
+            vowelStartIndex = vowelEndIndex
+        } else {
+            vowelWillSetMark = (vowelCount == 1) ? vowelEndIndex : 0
+            if vowelCount > 1 {
+                if vUseModernOrthography == 0 { handleOldMark() } else { handleModernMark() }
+                if typingWord[Int(vowelEndIndex)].hasToneMark { vowelWillSetMark = vowelEndIndex }
+            }
         }
         let vsi = Int(vowelStartIndex), vwsm = Int(vowelWillSetMark)
         var kk = Int(index) - 1 - vsi
@@ -224,7 +229,7 @@ extension VietnameseEngineState {
             let hasW1 = vsi + 1 < maxBuff && typingWord[vsi + 1].hasHornOrBreve
             let ch1 = vsi + 1 < maxBuff ? CHR(vsi + 1) : 0
             
-            if (hasW0 && hasW1) || (hasW0 && (ch1 == KEY_I || ch1 == KEY_A)) {
+            if (hasW0 && hasW1) || (hasW0 && (ch1 == KEY_I || ch1 == KEY_A)) || (hasW1 && (CHR(vsi) == KEY_I || CHR(vsi) == KEY_U || CHR(vsi) == KEY_O)) {
                 let autoTone = typingWord[vsi].isAutoTone || (vsi + 1 < maxBuff && typingWord[vsi + 1].isAutoTone)
                 hookOutput.code = autoTone ? HookCodeState.willProcess : HookCodeState.restore
                 for ii in vsi..<Int(index) {

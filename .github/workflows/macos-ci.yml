@@ -1,0 +1,71 @@
+name: macOS CI/CD
+
+on:
+  push:
+    branches: [ "master", "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-test:
+    name: Build, Test & Package (macOS 26 arm64)
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Swift & Xcode toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Verify < 500 line-count invariant (REQ-009)
+        run: |
+          OVER_LIMIT=$(find Sources/OpenKey/macOS-Swift/Sources Sources/OpenKey/macOS-Swift/Tests -name "*.swift" -exec wc -l {} + | grep -v " total$" | awk '$1 >= 500 { print $0 }')
+          if [[ -n "${OVER_LIMIT}" ]]; then
+            echo "Files exceeding 500-line limit:"
+            echo "${OVER_LIMIT}"
+            exit 1
+          fi
+          echo "All Swift source and test files are strictly under 500 lines."
+
+      - name: Run Swift 6 unit and load tests
+        run: swift test --package-path Sources/OpenKey/macOS-Swift
+
+      - name: Build and ad-hoc sign OpenKeySwift.app
+        run: |
+          bash Sources/OpenKey/macOS-Swift/build-app.sh
+          codesign --verify --deep --strict Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app
+
+      - name: Package OpenKeySwift.zip and OpenKeySwift.dmg
+        run: |
+          cd Sources/OpenKey/macOS-Swift/build
+          ditto -c -k --sequesterRsrc --keepParent OpenKeySwift.app OpenKeySwift-macOS-arm64.zip
+          mkdir -p dmg-root
+          cp -R OpenKeySwift.app dmg-root/
+          ln -s /Applications dmg-root/Applications
+          hdiutil create -volname "OpenKeySwift" -srcfolder dmg-root -ov -format UDZO OpenKeySwift.dmg
+          rm -rf dmg-root
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenKeySwift-macOS-arm64
+          path: |
+            Sources/OpenKey/macOS-Swift/build/OpenKeySwift-macOS-arm64.zip
+            Sources/OpenKey/macOS-Swift/build/OpenKeySwift.dmg
+
+      - name: Publish GitHub Release on Tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            Sources/OpenKey/macOS-Swift/build/OpenKeySwift-macOS-arm64.zip
+            Sources/OpenKey/macOS-Swift/build/OpenKeySwift.dmg

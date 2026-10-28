@@ -197,7 +197,7 @@ extension VietnameseEngineState {
         }
         
         if !isKeyD(keyCode) {
-            if hookOutput.code == HookCodeState.doNothing {
+            if hookOutput.code == HookCodeState.doNothing || (hookOutput.extCode == 4 && hookOutput.backspaceCount == 0 && hookOutput.newCharCount == 1) {
                 checkGrammar(deltaBackSpace: -1)
             } else {
                 checkGrammar(deltaBackSpace: 0)

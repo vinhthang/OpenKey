@@ -1,5 +1,7 @@
 # [OpenKeySwift](https://github.com/vinhthang/OpenKey)
 
+[![macOS CI/CD](https://github.com/vinhthang/OpenKey/actions/workflows/macos-ci.yml/badge.svg)](https://github.com/vinhthang/OpenKey/actions/workflows/macos-ci.yml)
+
 > [!NOTE]
 > **OpenKeySwift — 100% Pure Swift 6 Conversion (macOS 26 Tahoe)**
 > **OpenKeySwift** là bản chuyển đổi **100% bằng ngôn ngữ Swift 6 nguyên bản** (nhắm tới **macOS 26 Tahoe**) từ bộ gõ tiếng Việt mã nguồn mở [**OpenKey**](https://github.com/tuyenvm/OpenKey) (C++/Objective-C++) của tác giả **Mai Vũ Tuyên**. Toàn bộ state machine xử lý Telex/VNI, bảng luật âm vị học tiếng Việt, cơ chế ghi nhớ ngôn ngữ theo ứng dụng (`SmartSwitchKey`), cùng hệ thống **Auto Wording & Ngữ pháp thông minh** và giao diện **SwiftUI Liquid Glass** đã được thiết kế và viết lại hoàn toàn bằng Swift 6 hiện đại, không còn phụ thuộc vào bất kỳ thành phần C++ hay Objective-C++ nào.
@@ -13,6 +15,7 @@
 - **100% Pure Swift 6 & Kiến trúc Module hóa (`OpenKeySwiftCore` & `OpenKeySwiftApp`)**:
   - Loại bỏ hoàn toàn cầu nối C++/Objective-C++ (`OpenKeyEngineBridge`) và các mã nguồn cũ không còn sử dụng.
   - Toàn bộ bộ máy ghép vần tiếng Việt (`VietnameseEngine`, `VietnameseEngine+SpellingAndGrammar`, `VietnameseEngine+MarkAndTone`, `VietnameseEngine+KeyEventDispatcher`, `VietnameseData`, `VietnameseUnicodeTable`, `SmartSwitchStore`) hoạt động trực tiếp trên kiểu dữ liệu Swift 6 an toàn bộ nhớ, sử dụng hệ thống thuộc tính bitmask rõ nghĩa (`baseKey`, `isCaps`, `hasToneMark`, `hasCircumflexOrStroke`, `hasHornOrBreve`, `hasAnyDiacritic`) với mỗi file nguồn dưới 500 dòng.
+  - Tương thích 100% ngữ nghĩa C++ cho ranh giới nguyên âm `gi-` / `qu-` (`"giới"`, `"gièo"`, `"giường"`, `"giười"`), hoàn tác hai lần phím `w` (`gioiww`, `giowisw`), và tính toán chính xác độ lùi `Backspace` khi chèn nguyên âm đơn `ư`/`ơ`.
 - **Unsandboxed Quartz Event Tap (`CGEventTap`)**:
   - Sử dụng kỹ thuật `Backspace` qua `kCGSessionEventTap` để loại bỏ triệt để lỗi gạch chân (underline) của bộ gõ mặc định macOS.
   - Tối ưu đường nóng **Zero-IPC O(1)**, tự động khôi phục khi máy thức dậy (`didWakeNotification`) hoặc khi `CGEventTap` bị timeout, và gắn thẻ sự kiện nội bộ (`0xBEEF`) để tránh lặp vô hạn.
@@ -64,6 +67,8 @@ Khi thanh gợi ý từ Liquid Glass đang hiển thị dưới con trỏ văn b
 
 ```text
 OpenKey/
+├── .github/workflows/
+│   └── macos-ci.yml                   # GitHub Actions macOS 26 CI/CD (test, build, sign, .zip & .dmg)
 ├── Sources/OpenKey/macOS-Swift/
 │   ├── Package.swift                  # Swift 6 Package (macOS 26.0+)
 │   ├── Info.plist                     # Bundle metadata & copyright attribution
@@ -151,6 +156,13 @@ Khi mở `OpenKeySwift.app` lần đầu, vào **System Settings → Privacy & S
 cd Sources/OpenKey/macOS-Swift
 swift test
 ```
+
+### Tích hợp liên tục & Đóng gói tự động (GitHub Actions CI/CD)
+Dự án đi kèm workflow [`.github/workflows/macos-ci.yml`](.github/workflows/macos-ci.yml) chạy trên runner **`macos-26` (`arm64`, Xcode 26)**:
+- **Kiểm tra cấu trúc & Chất lượng mã (`REQ-009`)**: Tự động xác minh mọi file `.swift` trong `Sources/` và `Tests/` đều dưới `500` dòng.
+- **Kiểm thử tự động (`swift test`)**: Chạy toàn bộ bộ kiểm thử đơn vị và kiểm thử chịu tải (`OpenKeySwiftTests`).
+- **Đóng gói & Ký mã (`build-app.sh`)**: Biên dịch bản Release `OpenKeySwift.app`, kiểm tra chữ ký số nghiêm ngặt (`codesign --verify --deep --strict`), và đóng gói thành `OpenKeySwift-macOS-arm64.zip` cùng ảnh đĩa `OpenKeySwift.dmg`.
+- **Phát hành tự động (Artifacts & Releases)**: Tự động tải lên gói cài đặt trong mục **Actions → Artifacts** ở mỗi lần push/PR và tự động tạo **GitHub Release** khi đẩy tag phiên bản `v*` (ví dụ: `git tag v2.0.0 && git push origin v2.0.0`).
 
 ---
 

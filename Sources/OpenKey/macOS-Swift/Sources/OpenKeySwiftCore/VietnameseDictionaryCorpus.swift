@@ -16,7 +16,9 @@ public enum VietnameseDictionaryCorpus {
             "chính": 100, "chỉnh": 95, "chình": 90, "toàn": 100, "toán": 95, "toan": 90,
             "nghiêng": 100, "nghiên": 95, "nghiệm": 90, "chào": 100, "cháo": 95, "chao": 90,
             "chảo": 85, "cảm": 100, "cam": 95, "cầm": 90, "công": 100, "nghệ": 100, "phát": 100,
-            "triển": 100, "cứu": 100, "phố": 100, "viên": 95
+            "triển": 100, "cứu": 100, "phố": 100, "viên": 95,
+            "giới": 100, "giỏi": 95, "giời": 90, "giờ": 100, "giữ": 100, "giữa": 98, "giúp": 100,
+            "giải": 98, "giảm": 96, "giá": 100, "gia": 95, "giao": 95, "giàu": 92, "giấy": 95
     ]
 
     public static let rawSyllables: [String] = [

@@ -297,6 +297,14 @@ final class RealSystemTestRunner: NSObject {
         postString("nguwowif ")
         assertResult(name: "Telex 'nguwowif ' -> 'người '", expected: "người ")
         
+        clearTextView()
+        postString("thees giowis ")
+        assertResult(name: "Telex 'thees giowis ' -> 'thế giới '", expected: "thế giới ")
+        
+        clearTextView()
+        postString("giowis thieeuj ")
+        assertResult(name: "Telex 'giowis thieeuj ' -> 'giới thiệu '", expected: "giới thiệu ")
+        
         print("\n--- Test Suite 2: Sentence Composition ---")
         clearTextView()
         postString("tieengs vieetj ddepj ")

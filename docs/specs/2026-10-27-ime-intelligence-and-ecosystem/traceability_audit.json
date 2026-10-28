@@ -3,8 +3,8 @@
   "verdict": "PASS",
   "phase": 2,
   "evidence_verified": true,
-  "spec_hash": "ad44faca8818eb75148a318193c8d614c1c8e2cee8ed23a29a5e2f76a98e45fc",
-  "evidence_hash": "fae9de8b1b1f224d8ec6d0ee115305196bbd6e3720064caf9bbb8e10ac86eab8",
+  "spec_hash": "31f6d3dda17ee6f023ee4db20123537ee1030c44f7beedc5653344e8ed873377",
+  "evidence_hash": "25f76595c379ffee3319507bbd783365e5e89c00ab6c586637e23f6aee76c75d",
   "auditor_model": "gemini-4-argon-high",
   "audited_requirements": [
     "REQ-001",
@@ -15,7 +15,9 @@
     "REQ-006",
     "REQ-007",
     "REQ-008",
-    "REQ-009"
+    "REQ-009",
+    "REQ-010",
+    "REQ-011"
   ],
   "audited_decisions": [
     "ADR-001",
@@ -25,11 +27,13 @@
     "ADR-005",
     "ADR-006",
     "ADR-007",
-    "ADR-008"
+    "ADR-008",
+    "ADR-009",
+    "ADR-010"
   ],
   "findings": [],
   "semantic_findings": [],
-  "evidence_verified_count": 9,
+  "evidence_verified_count": 11,
   "requirements_evaluated": {
     "REQ-001": {
       "design_aligned": true,
@@ -111,6 +115,24 @@
       "decisions_consistent": true,
       "evidence_verified": true,
       "evidence_rationale": "Verified in verification.md Section 11: all 26 Swift files verified strictly < 500 lines via rtk wc -l; test 'REQ-009: Codebase modularization, UInt32 syllable bitmask helpers, and sub-500-line file invariant' passed after 0.011s; 33/33 unit/load tests passed and 10/10 real-system load tests passed on live daemon PID 66224."
+    },
+    "REQ-010": {
+      "design_aligned": true,
+      "design_rationale": "Section 2.5 details C++ parity for gi-/qu- vowel boundaries in findAndCalculateVowel (breaking on gi and qu when !forGrammar and adjusting qu so vowelStartIndex == 2 on gioi), canHasEndConsonant validation against _vowelCombine, checkCorrectVowel rejecting END_CONSONANT_MASK entries, enforcing -c/-t/-ch acute/underdot-only tone restrictions on f/r/x, and rejecting partial suffix matches when CHR(k) == CHR(k + 1); double-w undo on hasW1 for KEY_I/KEY_U/KEY_O in insertW; deltaBackSpace: -1 in handleCharacterKey for standalone character appends (extCode == 4, backspaceCount == 0, newCharCount == 1); and AutoWordingEngine candidate ranking prioritizing gioi/gi- words and preserving vowel modifiers.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 8 (subtasks 8.1 and 8.2) specifies TDD unit tests in OpenKeyEngineTests.swift and OpenKeyAutoWordingTests.swift, implementation across VietnameseEngine+SpellingAndGrammar.swift, VietnameseEngine+MarkAndTone.swift, VietnameseEngine+KeyEventDispatcher.swift, VietnameseDictionaryCorpus.swift, and AutoWordingEngine.swift, and verification with sub-500-line invariant, unit tests, and real-system load tests.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified in verification.md Section 12: unit tests for REQ-010 pass (35/35), real-system load tests pass (10/10) with thế giới / giới thiệu assertion, and all files remain < 500 lines."
+    },
+    "REQ-011": {
+      "design_aligned": true,
+      "design_rationale": "Section 8 details portable Swift Testing macro plugin resolution in Package.swift, replacing .github/workflows/msbuild.yml with .github/workflows/macos-ci.yml on macos-26 (arm64) to run line-count checks, swift test, build-app.sh, codesign verification, .zip/.dmg packaging, actions/upload-artifact@v4, and tag-based releases, plus updating README.md.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 9 (subtasks 9.1 through 9.3) specifies updating Package.swift, authoring .github/workflows/macos-ci.yml, removing msbuild.yml, updating README.md, and verifying both local and GitHub Actions executions.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified via Package.swift swift test execution, build-app.sh bundle verification, and .github/workflows/macos-ci.yml deployment."
     }
   }
 }

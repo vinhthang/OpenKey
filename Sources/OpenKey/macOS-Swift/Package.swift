@@ -1,5 +1,12 @@
 // swift-tools-version: 6.0
 import PackageDescription
+import Foundation
+
+let cltPluginPath = "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing"
+let isGitHubActions = ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
+let testSwiftSettings: [SwiftSetting] = (!isGitHubActions && FileManager.default.fileExists(atPath: cltPluginPath))
+    ? [.unsafeFlags(["-Xfrontend", "-plugin-path", "-Xfrontend", cltPluginPath])]
+    : []
 
 let package = Package(
     name: "OpenKeySwift",
@@ -28,12 +35,7 @@ let package = Package(
                 "OpenKeySwiftCore"
             ],
             path: "Tests/OpenKeySwiftTests",
-            swiftSettings: [
-                .unsafeFlags([
-                    "-Xfrontend", "-plugin-path",
-                    "-Xfrontend", "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing"
-                ])
-            ]
+            swiftSettings: testSwiftSettings
         )
     ]
 )

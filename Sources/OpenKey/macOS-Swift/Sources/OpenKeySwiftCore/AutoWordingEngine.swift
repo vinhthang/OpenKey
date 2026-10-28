@@ -161,13 +161,12 @@ public final class AutoWordingEngine: @unchecked Sendable {
         let dict = VietnameseDictionary.shared
         var results: [String] = []
         
-        // 1. Check unaccented stem lookup FIRST (REQ-008)
+        // 1. Check unaccented stem lookup FIRST (REQ-008, REQ-010)
         let stemSource = currentSyllable.isEmpty ? rawStem : currentSyllable
         let cleanStem = VietnameseDictionary.stripVietnameseDiacritics(stemSource).lowercased()
         let stemMatches = dict.stemToWords[cleanStem] ?? []
         for m in stemMatches where !results.contains(m) {
             results.append(m)
-            if results.count >= 8 { break }
         }
         
         // 2. Check sorted signature (O(1) transposition lookup) SECOND (REQ-008)
@@ -201,11 +200,22 @@ public final class AutoWordingEngine: @unchecked Sendable {
         let freqs = lock.withLock { _userFrequencies }
         let sortedByFreq = freqs.isEmpty ? results : results.sorted { (freqs[$0.lowercased()] ?? 0) > (freqs[$1.lowercased()] ?? 0) }
         
+        // Prioritize candidates preserving vowel modifiers present in currentSyllable (REQ-010, ADR-009)
+        let requiredModifiers = Self.extractVowelModifiers(from: currentSyllable)
+        let modifierRanked: [String]
+        if requiredModifiers.isEmpty {
+            modifierRanked = sortedByFreq
+        } else {
+            let matching = sortedByFreq.filter { requiredModifiers.isSubset(of: Self.extractVowelModifiers(from: $0)) }
+            let nonMatching = sortedByFreq.filter { !requiredModifiers.isSubset(of: Self.extractVowelModifiers(from: $0)) }
+            modifierRanked = matching + nonMatching
+        }
+        
         // Place candidates strictly equal to currentSyllable.lowercased() after distinct accented candidates (REQ-008)
         let currentLower = currentSyllable.lowercased()
         var distinctAccented: [String] = []
         var exactMatches: [String] = []
-        for word in sortedByFreq {
+        for word in modifierRanked {
             if !currentLower.isEmpty && word.lowercased() == currentLower {
                 exactMatches.append(word)
             } else {
@@ -412,5 +422,22 @@ public final class AutoWordingEngine: @unchecked Sendable {
         
         // Live syllable candidates during active typing (handles both willProcess and doNothing)
         updateLiveCandidates()
+    }
+    
+    static func extractVowelModifiers(from text: String) -> Set<Character> {
+        var mods = Set<Character>()
+        for ch in text.lowercased() {
+            switch ch {
+            case "ă", "ắ", "ằ", "ẳ", "ẵ", "ặ": mods.insert("ă")
+            case "â", "ấ", "ầ", "ẩ", "ẫ", "ậ": mods.insert("â")
+            case "ê", "ế", "ề", "ể", "ễ", "ệ": mods.insert("ê")
+            case "ô", "ố", "ồ", "ổ", "ỗ", "ộ": mods.insert("ô")
+            case "ơ", "ớ", "ờ", "ở", "ỡ", "ợ": mods.insert("ơ")
+            case "ư", "ứ", "ừ", "ử", "ữ", "ự": mods.insert("ư")
+            case "đ": mods.insert("đ")
+            default: break
+            }
+        }
+        return mods
     }
 }

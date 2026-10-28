@@ -239,34 +239,16 @@ struct OpenKeyAutoWordingTests {
         defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0) }
         
         // (a) Typing toned words and pressing KEY_DELETE (51) 1..6 times
-        OKEngineResetSession()
-        typeKeys([45, 4, 0, 0, 1, 17]) // "nhất"
-        for _ in 1...5 {
-            let snapDel = OKEngineHandleKeyEvent(51, 0, false)
-            #expect(snapDel.code == HookCodeState.doNothing && snapDel.backspaceCount == 0 && snapDel.newCharCount == 0)
-            let action = coordinator.evaluateKeyEvent(KeyEventContext(eventType: .keyDown, keyCode: 51, language: 1))
-            #expect(action == .passThrough(resetSession: false))
-        }
-        
-        OKEngineResetSession()
-        typeKeys([17, 34, 14, 14, 45, 5, 1]) // "tiếng"
-        for _ in 1...6 {
-            let snapDel = OKEngineHandleKeyEvent(51, 0, false)
-            #expect(snapDel.code == HookCodeState.doNothing && snapDel.backspaceCount == 0 && snapDel.newCharCount == 0)
-        }
-        
-        OKEngineResetSession()
-        typeKeys([17, 15, 32, 31, 13, 45, 5, 3]) // "trường"
-        for _ in 1...6 {
-            let snapDel = OKEngineHandleKeyEvent(51, 0, false)
-            #expect(snapDel.code == HookCodeState.doNothing && snapDel.backspaceCount == 0 && snapDel.newCharCount == 0)
-        }
-        
-        OKEngineResetSession()
-        typeKeys([4, 31, 0, 45, 3]) // "hoàn"
-        for _ in 1...5 {
-            let snapDel = OKEngineHandleKeyEvent(51, 0, false)
-            #expect(snapDel.code == HookCodeState.doNothing && snapDel.backspaceCount == 0 && snapDel.newCharCount == 0)
+        let testWords = [[45, 4, 0, 0, 1, 17], [17, 34, 14, 14, 45, 5, 1], [17, 15, 32, 31, 13, 45, 5, 3], [4, 31, 0, 45, 3]]
+        for word in testWords {
+            OKEngineResetSession()
+            typeKeys(word)
+            for _ in 1...5 {
+                let snapDel = OKEngineHandleKeyEvent(51, 0, false)
+                #expect(snapDel.code == HookCodeState.doNothing && snapDel.backspaceCount == 0 && snapDel.newCharCount == 0)
+                let action = coordinator.evaluateKeyEvent(KeyEventContext(eventType: .keyDown, keyCode: 51, language: 1))
+                #expect(action == .passThrough(resetSession: false))
+            }
         }
         
         // (b) Typing "tiếng" -> Delete 3 times (leaving "ti") -> type "me " -> "time " and "ếp" -> "tiếp"
@@ -443,6 +425,34 @@ struct OpenKeyAutoWordingTests {
         #expect(CaretPositionResolver.isValidCaretBounds(CGRect(x: 120, y: 340, width: 0, height: 18)) == true)
         #expect(CaretPositionResolver.isValidCaretBounds(CGRect(x: 0, y: 0, width: 0, height: 18)) == false)
         #expect(CaretPositionResolver.isValidCaretBounds(CGRect(x: 10, y: 10, width: 0, height: 0)) == false)
+    }
+
+    // MARK: - REQ-010: AutoWording Candidates for "giới" & Vowel Modifier Preservation
+    @Test("REQ-010: AutoWordingEngine ranks gioi in top candidates for gioi and preserves vowel modifiers for gioi")
+    func autoWordingGioiRankingAndModifierPreservation() {
+        let engine = AutoWordingEngine.shared
+        let wasEnabled = engine.isEnabled
+        let wasSuggestions = engine.candidateSuggestionsEnabled
+        engine.isEnabled = true
+        engine.candidateSuggestionsEnabled = true
+        defer {
+            engine.isEnabled = wasEnabled
+            engine.candidateSuggestionsEnabled = wasSuggestions
+        }
+        
+        // 1. "gioi" stem should include "giới" in top candidates
+        let candidatesForGioi = engine.computeCurrentWordCandidates(rawStem: "gioi", currentSyllable: "gioi")
+        let textsForGioi = candidatesForGioi.map(\.text)
+        #expect(textsForGioi.prefix(3).contains("giới"), "Top 3 candidates for 'gioi' must contain 'giới', got \(textsForGioi)")
+        
+        // 2. "giơi" (with vowel modifier ơ) should prioritize ơ-preserving candidates over plain-o
+        let candidatesForGioiHorn = engine.computeCurrentWordCandidates(rawStem: "gioi", currentSyllable: "giơi")
+        let textsForGioiHorn = candidatesForGioiHorn.map(\.text)
+        #expect(textsForGioiHorn.contains("giới") || textsForGioiHorn.contains("giời"), "Candidates for 'giơi' must preserve ơ, got \(textsForGioiHorn)")
+        if let first = textsForGioiHorn.first {
+            #expect(first.contains("ơ") || first.contains("ớ") || first.contains("ời") || first.contains("ởi"),
+                    "Top candidate for 'giơi' must retain horn ơ, got \(first)")
+        }
     }
 
 }

@@ -28,33 +28,19 @@ struct OpenKeyEngineTests {
         OKEngineInit()
         OKEngineResetSession()
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1)
-        defer {
-            OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
-        }
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0) }
         
         // Test "tiengs" -> "tiếng"
-        // Key codes: t=17, i=34, e=14, n=45, g=5, s=1
-        _ = OKEngineHandleKeyEvent(17, 0, false) // t
-        _ = OKEngineHandleKeyEvent(34, 0, false) // i
-        _ = OKEngineHandleKeyEvent(14, 0, false) // e
-        _ = OKEngineHandleKeyEvent(45, 0, false) // n
-        _ = OKEngineHandleKeyEvent(5, 0, false)  // g
+        typeKeys([17, 34, 14, 45, 5]) // t, i, e, n, g
         let snapS = OKEngineHandleKeyEvent(1, 0, false)  // s (acute mark)
-        
         #expect(snapS.code != 0, "Typing 's' in 'tieng' must trigger engine processing")
         #expect(snapS.backspaceCount >= 3, "Must send backspaces to replace syllable")
         #expect(snapS.decodedString.contains("ế") || snapS.decodedString.contains("é"), "Must output accented vowel: \(snapS.decodedString)")
         
         // Test "vieetj" -> "việt"
         OKEngineResetSession()
-        // v=9, i=34, e=14, e=14, t=17, j=38
-        _ = OKEngineHandleKeyEvent(9, 0, false)  // v
-        _ = OKEngineHandleKeyEvent(34, 0, false) // i
-        _ = OKEngineHandleKeyEvent(14, 0, false) // e
-        _ = OKEngineHandleKeyEvent(14, 0, false) // e -> ê
-        _ = OKEngineHandleKeyEvent(17, 0, false) // t
+        typeKeys([9, 34, 14, 14, 17]) // v, i, e, e, t
         let snapJ = OKEngineHandleKeyEvent(38, 0, false) // j -> dot below
-        
         #expect(snapJ.code != 0, "Typing 'j' in 'vieet' must trigger tone processing")
         #expect(snapJ.decodedString.contains("ệ"), "Must output 'ệ': \(snapJ.decodedString)")
     }
@@ -66,11 +52,7 @@ struct OpenKeyEngineTests {
         OKEngineResetSession()
         OKEngineSyncConfig(1, 1, 1, 1, 1, 1, 1)
         
-        // Test "vie6t5" -> "việt" in VNI
-        // v=9, i=34, e=14, 6=22, t=17, 5=23
-        _ = OKEngineHandleKeyEvent(9, 0, false)  // v
-        _ = OKEngineHandleKeyEvent(34, 0, false) // i
-        _ = OKEngineHandleKeyEvent(14, 0, false) // e
+        typeKeys([9, 34, 14]) // v, i, e
         let snap6 = OKEngineHandleKeyEvent(22, 0, false) // 6 -> circumflex
         #expect(snap6.code != 0, "Typing '6' after 'e' in VNI must add circumflex")
         _ = OKEngineHandleKeyEvent(17, 0, false) // t
@@ -146,64 +128,47 @@ struct OpenKeyEngineTests {
         // 1. "truong" Telex composition: t r u o w n g f -> trường
         OKEngineResetSession()
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1)
-        _ = OKEngineHandleKeyEvent(17, 0, false) // t
-        _ = OKEngineHandleKeyEvent(15, 0, false) // r
-        _ = OKEngineHandleKeyEvent(32, 0, false) // u
-        _ = OKEngineHandleKeyEvent(31, 0, false) // o
+        typeKeys([17, 15, 32, 31])
         let snapW = OKEngineHandleKeyEvent(13, 0, false) // w -> ươ
         #expect(snapW.code == HookCodeState.willProcess)
         #expect(snapW.backspaceCount >= 1)
-        _ = OKEngineHandleKeyEvent(45, 0, false) // n
-        _ = OKEngineHandleKeyEvent(5, 0, false)  // g
+        typeKeys([45, 5])
         let snapTruong = OKEngineHandleKeyEvent(3, 0, false) // f -> grave mark
         #expect(snapTruong.code == HookCodeState.willProcess)
         #expect(snapTruong.decodedString.contains("ườ"))
         
         // 2. "nghieng" Telex: n g h i e e n g -> nghiêng
         OKEngineResetSession()
-        _ = OKEngineHandleKeyEvent(45, 0, false) // n
-        _ = OKEngineHandleKeyEvent(5, 0, false)  // g
-        _ = OKEngineHandleKeyEvent(4, 0, false)  // h
-        _ = OKEngineHandleKeyEvent(34, 0, false) // i
-        _ = OKEngineHandleKeyEvent(14, 0, false) // e
+        typeKeys([45, 5, 4, 34, 14])
         let snapEE = OKEngineHandleKeyEvent(14, 0, false) // e -> ê
         #expect(snapEE.code == HookCodeState.willProcess)
         #expect(snapEE.decodedString.contains("ê"))
         
         // 3. "quoc" Telex: q u o c s -> quốc
         OKEngineResetSession()
-        _ = OKEngineHandleKeyEvent(12, 0, false) // q
-        _ = OKEngineHandleKeyEvent(32, 0, false) // u
-        _ = OKEngineHandleKeyEvent(31, 0, false) // o
-        _ = OKEngineHandleKeyEvent(8, 0, false)  // c
+        typeKeys([12, 32, 31, 8])
         let snapQuoc = OKEngineHandleKeyEvent(1, 0, false) // s -> sắc
         #expect(snapQuoc.code == HookCodeState.willProcess)
         #expect(snapQuoc.decodedString.contains("ố") || snapQuoc.decodedString.contains("ó"))
         
         // 4. "giu" Telex: g i u x -> giữ
         OKEngineResetSession()
-        _ = OKEngineHandleKeyEvent(5, 0, false)  // g
-        _ = OKEngineHandleKeyEvent(34, 0, false) // i
-        _ = OKEngineHandleKeyEvent(32, 0, false) // u
+        typeKeys([5, 34, 32])
         let snapGiu = OKEngineHandleKeyEvent(7, 0, false) // x -> ngã
         #expect(snapGiu.code == HookCodeState.willProcess)
         #expect(snapGiu.decodedString.contains("ữ") || snapGiu.decodedString.contains("ũ"))
         
         // 5. Modern vs Old Orthography ("oa" + f)
-        // Modern: vUseModernOrthography = 1 -> oà
         OKEngineResetSession()
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1)
-        _ = OKEngineHandleKeyEvent(31, 0, false) // o
-        _ = OKEngineHandleKeyEvent(0, 0, false)  // a
+        typeKeys([31, 0])
         let snapModernOa = OKEngineHandleKeyEvent(3, 0, false) // f
         #expect(snapModernOa.code == HookCodeState.willProcess)
         #expect(snapModernOa.decodedString.contains("à"))
         
-        // Old: vUseModernOrthography = 0 -> òa
         OKEngineResetSession()
         OKEngineSyncConfig(1, 0, 1, 0, 1, 1, 1)
-        _ = OKEngineHandleKeyEvent(31, 0, false) // o
-        _ = OKEngineHandleKeyEvent(0, 0, false)  // a
+        typeKeys([31, 0])
         let snapOldOa = OKEngineHandleKeyEvent(3, 0, false) // f
         #expect(snapOldOa.code == HookCodeState.willProcess)
         #expect(snapOldOa.decodedString.contains("ò"))
@@ -211,16 +176,13 @@ struct OpenKeyEngineTests {
         // 6. d/D -> đ/Đ
         OKEngineResetSession()
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1)
-        _ = OKEngineHandleKeyEvent(2, 0, false) // d
-        let snapLowerD = OKEngineHandleKeyEvent(2, 0, false) // d -> đ
-        #expect(snapLowerD.code == HookCodeState.willProcess)
-        #expect(snapLowerD.decodedString.contains("đ"))
-        
+        _ = OKEngineHandleKeyEvent(2, 0, false)
+        let snapLowerD = OKEngineHandleKeyEvent(2, 0, false)
+        #expect(snapLowerD.code == HookCodeState.willProcess && snapLowerD.decodedString.contains("đ"))
         OKEngineResetSession()
-        _ = OKEngineHandleKeyEvent(2, 1, false) // D (caps=1)
-        let snapUpperD = OKEngineHandleKeyEvent(2, 1, false) // D -> Đ
-        #expect(snapUpperD.code == HookCodeState.willProcess)
-        #expect(snapUpperD.decodedString.contains("Đ"))
+        _ = OKEngineHandleKeyEvent(2, 1, false)
+        let snapUpperD = OKEngineHandleKeyEvent(2, 1, false)
+        #expect(snapUpperD.code == HookCodeState.willProcess && snapUpperD.decodedString.contains("Đ"))
         
         // 7. Standalone w -> ư, ww -> w
         OKEngineResetSession()
@@ -242,29 +204,20 @@ struct OpenKeyEngineTests {
         
         // 9. Backspace Grammar Re-evaluation
         OKEngineResetSession()
-        _ = OKEngineHandleKeyEvent(17, 0, false) // t
-        _ = OKEngineHandleKeyEvent(14, 0, false) // e
-        _ = OKEngineHandleKeyEvent(14, 0, false) // e -> ê
-        _ = OKEngineHandleKeyEvent(17, 0, false) // t
+        typeKeys([17, 14, 14, 17])
         let snapDel = OKEngineHandleKeyEvent(51, 0, false) // delete key (backspace)
         #expect(snapDel.extCode == 2)
         
         // 10. Space Word Restore on Backspace
         OKEngineResetSession()
-        _ = OKEngineHandleKeyEvent(17, 0, false) // t
-        _ = OKEngineHandleKeyEvent(34, 0, false) // i
-        _ = OKEngineHandleKeyEvent(49, 0, false) // space
+        typeKeys([17, 34, 49])
         let snapSpaceDel = OKEngineHandleKeyEvent(51, 0, false) // backspace over space
         #expect(snapSpaceDel.extCode == 2)
         
         // 11. Invalid Spelling Auto-Restore (window -> restore on wrong letter)
         OKEngineResetSession()
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1)
-        _ = OKEngineHandleKeyEvent(13, 0, false) // w -> ư
-        _ = OKEngineHandleKeyEvent(34, 0, false) // i
-        _ = OKEngineHandleKeyEvent(45, 0, false) // n
-        _ = OKEngineHandleKeyEvent(2, 0, false)  // d
-        _ = OKEngineHandleKeyEvent(31, 0, false) // o
+        typeKeys([13, 34, 45, 2, 31])
         let snapRestore = OKEngineHandleKeyEvent(49, 0, false) // space terminates word
         #expect(snapRestore.code == HookCodeState.doNothing || snapRestore.code == HookCodeState.restore)
         
@@ -303,40 +256,22 @@ struct OpenKeyEngineTests {
         #expect(snapS.decodedString.contains("ế") || snapS.decodedString.contains("tiếng"), "Output must contain 'ế': \(snapS.decodedString)")
         
         // 2. "viets" -> "viết"
-        // v=9, i=34, e=14, t=17, s=1
         OKEngineResetSession()
-        _ = OKEngineHandleKeyEvent(9, 0, false)
-        _ = OKEngineHandleKeyEvent(34, 0, false)
-        _ = OKEngineHandleKeyEvent(14, 0, false)
-        _ = OKEngineHandleKeyEvent(17, 0, false)
+        typeKeys([9, 34, 14, 17])
         let snapViet = OKEngineHandleKeyEvent(1, 0, false)
         #expect(snapViet.code == HookCodeState.willProcess)
         #expect(snapViet.decodedString.contains("ế") || snapViet.decodedString.contains("viết"), "Output must contain 'ế': \(snapViet.decodedString)")
         
         // 3. "nghiengf" -> "nghiềng"
-        // n=45, g=5, h=4, i=34, e=14, n=45, g=5, f=3
         OKEngineResetSession()
-        _ = OKEngineHandleKeyEvent(45, 0, false)
-        _ = OKEngineHandleKeyEvent(5, 0, false)
-        _ = OKEngineHandleKeyEvent(4, 0, false)
-        _ = OKEngineHandleKeyEvent(34, 0, false)
-        _ = OKEngineHandleKeyEvent(14, 0, false)
-        _ = OKEngineHandleKeyEvent(45, 0, false)
-        _ = OKEngineHandleKeyEvent(5, 0, false)
+        typeKeys([45, 5, 4, 34, 14, 45, 5])
         let snapNghieng = OKEngineHandleKeyEvent(3, 0, false)
         #expect(snapNghieng.code == HookCodeState.willProcess)
         #expect(snapNghieng.decodedString.contains("ề") || snapNghieng.decodedString.contains("nghiềng"))
         
         // 4. "truowngf" -> "trường"
-        // t=17, r=15, u=32, o=31, w=13, n=45, g=5, f=3
         OKEngineResetSession()
-        _ = OKEngineHandleKeyEvent(17, 0, false)
-        _ = OKEngineHandleKeyEvent(15, 0, false)
-        _ = OKEngineHandleKeyEvent(32, 0, false)
-        _ = OKEngineHandleKeyEvent(31, 0, false)
-        _ = OKEngineHandleKeyEvent(13, 0, false)
-        _ = OKEngineHandleKeyEvent(45, 0, false)
-        _ = OKEngineHandleKeyEvent(5, 0, false)
+        typeKeys([17, 15, 32, 31, 13, 45, 5])
         let snapTruong = OKEngineHandleKeyEvent(3, 0, false)
         #expect(snapTruong.code == HookCodeState.willProcess)
         #expect(snapTruong.decodedString.contains("ườ") || snapTruong.decodedString.contains("trường"))
@@ -344,11 +279,7 @@ struct OpenKeyEngineTests {
         // 5. When grammarRepairEnabled == 0: repair must not trigger
         OKEngineResetSession()
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1) // grammarRepairEnabled = 0
-        _ = OKEngineHandleKeyEvent(17, 0, false)
-        _ = OKEngineHandleKeyEvent(34, 0, false)
-        _ = OKEngineHandleKeyEvent(14, 0, false)
-        _ = OKEngineHandleKeyEvent(45, 0, false)
-        _ = OKEngineHandleKeyEvent(5, 0, false)
+        typeKeys([17, 34, 14, 45, 5])
         let snapDisabled = OKEngineHandleKeyEvent(1, 0, false)
         #expect(!snapDisabled.decodedString.contains("ế"), "Must not promote ie to iê when grammarRepairEnabled is false")
         
@@ -368,14 +299,7 @@ struct OpenKeyEngineTests {
         
         // 1. Type English word "dead": d d e a d -> đead in Telex, space restores dead
         var screenDead = VirtualScreen()
-        screenDead.typeKey(2) // d
-        let snapD1 = screenDead.typeKey(2) // d -> đ (Telex dd)
-        #expect(snapD1.code != 0, "Typing 'dd' should compose 'đ'")
-        screenDead.typeKey(14) // e -> đe
-        screenDead.typeKey(0)  // a -> đea
-        screenDead.typeKey(2)  // d -> đead
-        
-        // Hit Space (keyCode 49) to trigger word break restoration of "dead"
+        screenDead.typeKeys([2, 2, 14, 0, 2])
         let snapDeadSpace = screenDead.typeKey(49)
         #expect(snapDeadSpace.code == 0 || snapDeadSpace.code == 2 || snapDeadSpace.code == 3 || snapDeadSpace.code == 5,
                 "Restoring 'dead' must execute clean word-break restore")
@@ -388,11 +312,7 @@ struct OpenKeyEngineTests {
         // 2. Type English word "added": a=0, d=2, d=2, e=14, d=2
         OKEngineResetSession()
         var screenAdded = VirtualScreen()
-        screenAdded.typeKey(0)  // a
-        screenAdded.typeKey(2)  // d -> tempDisableKey=true (d not valid end consonant after a)
-        screenAdded.typeKey(2)  // second d stays d
-        screenAdded.typeKey(14) // e
-        screenAdded.typeKey(2)  // d
+        screenAdded.typeKeys([0, 2, 2, 14, 2])
         let snapAddedSpace = screenAdded.typeKey(49)
         #expect(snapAddedSpace.code == 0 || snapAddedSpace.code == 2 || snapAddedSpace.code == 3 || snapAddedSpace.code == 5,
                 "Restoring 'added' must execute clean word-break restore")
@@ -459,6 +379,93 @@ struct OpenKeyEngineTests {
             checkedFileCount += 1
         }
         #expect(checkedFileCount >= 20, "Must verify line counts for at least 20 swift files (found \(checkedFileCount))")
+    }
+
+    // MARK: - REQ-010: "giới" & gi- Initial Consonant Vowel Boundary & Phonotactics
+    @Test("REQ-010: gioi and gi- initial consonant vowel boundaries, double-w undo, and phonotactic validation")
+    func gioiAndGiInitialConsonantParity() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1) // Telex
+        
+        // 1. giowis emits bs=2, new=2, "ới"
+        typeKeys([5, 34, 31, 13, 34]) // g, i, o, w, i -> giơi
+        let snapS = OKEngineHandleKeyEvent(1, 0, false) // s -> giới
+        #expect(snapS.code == HookCodeState.willProcess)
+        #expect(snapS.backspaceCount == 2, "backspaceCount must be 2 (deleting 'ơi'), got \(snapS.backspaceCount)")
+        #expect(snapS.newCharCount == 2, "newCharCount must be 2, got \(snapS.newCharCount)")
+        #expect(snapS.decodedString == "ới", "decodedString must be 'ới', got '\(snapS.decodedString)'")
+        
+        // 2. All Telex and VNI typing sequences for "giới" produce "giới"
+        let telexSequences: [[Int]] = [
+            [5, 34, 31, 13, 34, 1], // giowis
+            [5, 34, 31, 34, 13, 1], // gioiws
+            [5, 34, 31, 34, 1, 13], // gioisw
+            [5, 34, 31, 13, 1, 34], // giowsi
+            [5, 34, 31, 1, 13, 34], // gioswi
+            [5, 34, 31, 1, 34, 13], // giosiw
+            [5, 34, 1, 31, 13, 34], // gisowi
+            [5, 34, 1, 31, 34, 13], // gisoiw
+            [5, 34, 33, 34, 1],     // gi[is
+            [5, 34, 33, 1, 34]      // gi[si
+        ]
+        for seq in telexSequences {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeKeys(seq)
+            #expect(screen.text == "giới", "Sequence \(seq) must produce 'giới', got '\(screen.text)'")
+        }
+        
+        // VNI sequences for "giới" (gio71i, gioi71)
+        OKEngineSyncConfig(1, 1, 1, 1, 1, 1, 1) // VNI
+        for seq in [[5, 34, 31, 26, 18, 34], [5, 34, 31, 34, 26, 18]] {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeKeys(seq)
+            #expect(screen.text == "giới", "VNI Sequence \(seq) must produce 'giới', got '\(screen.text)'")
+        }
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1) // Restore Telex
+        
+        // 3. Double-w undo on "giơi" / "giới" restores horn ơ to o + w
+        let undoCases: [([Int], String)] = [
+            ([5, 34, 31, 34, 13, 13], "gioiw"),      // gioiww
+            ([5, 34, 31, 13, 34, 13], "gioiw"),      // giowiw
+            ([5, 34, 31, 13, 34, 1, 13], "gióiw")    // giowisw -> giới + w = gióiw
+        ]
+        for (keys, expected) in undoCases {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeKeys(keys)
+            #expect(screen.text == expected, "Double-w undo must yield '\(expected)', got '\(screen.text)'")
+        }
+        
+        // 4. gi- initial consonant vowel syllables
+        let giSyllables: [([Int], String)] = [
+            ([5, 34, 14, 31, 3], "gièo"),             // gieof
+            ([5, 34, 14, 31, 1], "giéo"),             // gieos
+            ([5, 34, 14, 31, 15], "giẻo"),            // gieor
+            ([5, 34, 14, 31, 7], "giẽo"),             // gieox
+            ([5, 34, 14, 31, 38], "giẹo"),            // gieoj
+            ([5, 34, 32, 31, 13, 45, 5, 3], "giường"),// giuowngf
+            ([5, 34, 32, 31, 13, 45, 5, 1], "giướng"),// giuowngs
+            ([5, 34, 32, 31, 13, 34, 3], "giười"),    // giuowif
+            ([5, 34, 32, 31, 13, 34, 1], "giưới")     // giuowis
+        ]
+        for (keys, expected) in giSyllables {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeKeys(keys)
+            #expect(screen.text == expected, "Typing keys must produce '\(expected)', got '\(screen.text)'")
+        }
+        
+        // 5. Standalone w and phonotactic edge cases never eat 'g' or duplicate 'i'
+        for seq in [[5, 34, 1, 13, 31, 34], [5, 34, 1, 13, 34], [5, 34, 1, 34, 31, 13]] {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeKeys(seq)
+            #expect(screen.text.starts(with: "g"), "Must retain leading 'g' for sequence \(seq), got '\(screen.text)'")
+            #expect(!screen.text.contains("gii"), "Must not duplicate 'i' into 'gii' for sequence \(seq), got '\(screen.text)'")
+        }
     }
 
 }

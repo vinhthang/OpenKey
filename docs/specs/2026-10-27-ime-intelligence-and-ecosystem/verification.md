@@ -508,3 +508,164 @@ Verified active OpenKeySwift daemon running at /Applications/OpenKeySwift.app (P
 ==================================================================
 All real-system load tests passed successfully!
 ```
+
+## 12. Verification for Task 8: `"giới"` & `gi-` Initial Consonant Vowel Boundary, Double-W Undo, Phonotactic Validation & Candidate Ranking (`REQ-010`, `ADR-009`)
+
+### 12.1 Sub-500-Line Codebase File Invariant Verification
+Verbatim line count verification across all 26 `.swift` source and test files in the package:
+
+```bash
+$ rtk wc -l Sources/OpenKey/macOS-Swift/Sources/*/*.swift Sources/OpenKey/macOS-Swift/Tests/*/*.swift
+193 Sources/OpenKeySwiftApp/CandidateBarController.swift
+199 Sources/OpenKeySwiftApp/OpenKeySwiftApp.swift
+330 Sources/OpenKeySwiftApp/SettingsView.swift
+443 Sources/OpenKeySwiftCore/AutoWordingEngine.swift
+62 Sources/OpenKeySwiftCore/AutoWordingTypes.swift
+135 Sources/OpenKeySwiftCore/CaretPositionResolver.swift
+448 Sources/OpenKeySwiftCore/EventTapCoordinator.swift
+86 Sources/OpenKeySwiftCore/HotKeyMatcher.swift
+83 Sources/OpenKeySwiftCore/InputSourceGuard.swift
+149 Sources/OpenKeySwiftCore/KeystrokeInjector.swift
+313 Sources/OpenKeySwiftCore/OpenKeySettingsStore.swift
+116 Sources/OpenKeySwiftCore/SmartSwitchStore.swift
+193 Sources/OpenKeySwiftCore/SystemEnvironmentDetector.swift
+395 Sources/OpenKeySwiftCore/VietnameseData.swift
+106 Sources/OpenKeySwiftCore/VietnameseDictionary.swift
+459 Sources/OpenKeySwiftCore/VietnameseDictionaryCorpus.swift
+382 Sources/OpenKeySwiftCore/VietnameseEngine.swift
+276 Sources/OpenKeySwiftCore/VietnameseEngine+KeyEventDispatcher.swift
+422 Sources/OpenKeySwiftCore/VietnameseEngine+MarkAndTone.swift
+323 Sources/OpenKeySwiftCore/VietnameseEngine+SpellingAndGrammar.swift
+155 Sources/OpenKeySwiftCore/VietnameseUnicodeTable.swift
+459 Tests/OpenKeySwiftTests/OpenKeyAutoWordingTests.swift
+472 Tests/OpenKeySwiftTests/OpenKeyEngineTests.swift
+400 Tests/OpenKeySwiftTests/OpenKeyEventTapTests.swift
+430 Tests/OpenKeySwiftTests/OpenKeyLoadTests.swift
+102 Tests/OpenKeySwiftTests/OpenKeyTestHelpers.swift
+Σ 7131
+```
+Result: All 26 `.swift` files strictly comply with `< 500` lines (max: 472 lines).
+
+### 12.2 Automated Unit & Load Test Suite Execution (35/35 Passing)
+```bash
+$ rtk swift test --package-path Sources/OpenKey/macOS-Swift
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "OpenKeySwiftTests" started.
+◇ Suite "OpenKeyAutoWordingTests" started.
+✔ Test "REQ-001: Auto wording settings store persistence and sync" passed after 0.003 seconds.
+✔ Test "REQ-003: Shorthand auto-expansion on Space" passed after 0.145 seconds.
+✔ Test "REQ-004: Multi-thousand-word dictionary and candidate generation" passed after 0.001 seconds.
+✔ Test "REQ-005: Candidate selection keyboard routing Tab, Ctrl+1..3, Esc" passed after 0.001 seconds.
+✔ Test "REQ-005: Adaptive candidate frequency learning and ranking boost" passed after 0.001 seconds.
+✔ Test "REQ-006: Expanded built-in and custom shorthand table persistence" passed after 0.001 seconds.
+✔ Test "REQ-007: Multi-Delete and Subsequent Character Entry State Integrity" passed after 0.008 seconds.
+✔ Test "REQ-008: Auto wording module isolation, master toggle auto-activation, and live candidate generation" passed after 0.002 seconds.
+✔ Test "REQ-010: AutoWordingEngine ranks gioi in top candidates for gioi and preserves vowel modifiers for gioi" passed after 0.001 seconds.
+✔ Suite "OpenKeyAutoWordingTests" passed after 0.163 seconds.
+◇ Suite "OpenKeyEngineTests" started.
+✔ Test "Telex syllable composition" passed after 0.001 seconds.
+✔ Test "VNI syllable composition" passed after 0.001 seconds.
+✔ Test "Spelling check and auto-restore" passed after 0.001 seconds.
+✔ Test "Bounds-checked deserialization on truncated buffers" passed after 0.001 seconds.
+✔ Test "SmartSwitchKey persistence and lookup" passed after 0.001 seconds.
+✔ Test "Pure Swift Engine Phonotactic Parity and Complex Syllables" passed after 0.001 seconds.
+✔ Test "REQ-002: Phonotactic syllable repair" passed after 0.002 seconds.
+✔ Test "REQ-004: English word auto-restore without skipping KEY_D and trailing key pass-through" passed after 0.001 seconds.
+✔ Test "REQ-009: Codebase modularization, UInt32 syllable bitmask helpers, and sub-500-line file invariant" passed after 0.011 seconds.
+✔ Test "REQ-010: gioi and gi- initial consonant vowel boundaries, double-w undo, and phonotactic validation" passed after 0.003 seconds.
+✔ Suite "OpenKeyEngineTests" passed after 0.020 seconds.
+◇ Suite "OpenKeyEventTapTests" started.
+✔ Test "HotKeyMatcher default and custom patterns" passed after 0.001 seconds.
+✔ Test "Terminal app detection" passed after 0.001 seconds.
+✔ Test "KeystrokeInjector replacement strategies" passed after 0.001 seconds.
+✔ Test "InputSourceGuard repeated invocation safety" passed after 0.055 seconds.
+✔ Test "OpenKeySettingsStore persistence and sync" passed after 0.001 seconds.
+✔ Test "Bundle Info.plist and executable contract" passed after 0.001 seconds.
+✔ Test "KeystrokeInjector self-event tagging and source state" passed after 0.001 seconds.
+✔ Test "Pure Event Routing Pipeline evaluateKeyEvent" passed after 0.001 seconds.
+✔ Test "REQ-001: Secure Input bypasses Vietnamese composition and clears candidate bar" passed after 0.001 seconds.
+✔ Test "REQ-002: Universal Launcher overlay detection (Spotlight, Raycast, Alfred)" passed after 0.001 seconds.
+✔ Test "REQ-003: Caret accessibility activation and screen resolution" passed after 0.010 seconds.
+✔ Test "REQ-008: Code review regression tests (delete-restore, caps lock punctuation, bracket word break)" passed after 0.001 seconds.
+✔ Suite "OpenKeyEventTapTests" passed after 0.070 seconds.
+◇ Suite "OpenKeyLoadTests" started.
+✔ Test "Suite 1: Multi-thousand Telex dictionary composition stability" passed after 0.433 seconds.
+✔ Test "Suite 2: Exhaustive delete/retype matrix across 100+ words and punctuation" passed after 0.054 seconds.
+✔ Test "Suite 3: Tone switching s->f->r->x->j->z and modifier undo aa/ee/oo/ww/dd" passed after 0.001 seconds.
+✔ Test "Suite 4: 200+ English words restore cleanly with trailing space" passed after 0.028 seconds.
+✔ Suite "OpenKeyLoadTests" passed after 0.517 seconds.
+✔ Suite "OpenKeySwiftTests" passed after 0.773 seconds.
+✔ Test run with 35 tests in 5 suites passed after 0.774 seconds.
+```
+
+### 12.3 Production Release Deployment & Live Daemon Load Test (PID: 31329)
+```bash
+$ cd Sources/OpenKey/macOS-Swift && ./build-app.sh
+=== Building OpenKeySwift release binary ===
+Building for production...
+Build complete! (27.80 secs)
+=== Assembling OpenKeySwift.app bundle ===
+=== Signing OpenKeySwift.app with identity '-' ===
+=== Build completed successfully: /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app ===
+
+$ cp -R Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app /Applications/
+$ /Applications/OpenKeySwift.app/Contents/MacOS/OpenKeySwift & [PID 31329]
+
+$ /tmp/real-system-load-test
+==================================================================
+  OpenKeySwift Live Daemon Real-System Load & E2E Integration Test
+==================================================================
+Verified active OpenKeySwift daemon running at /Applications/OpenKeySwift.app (PID: 31329).
+
+--- Test Suite 1: Basic Telex Syllables ---
+  [PASS] Telex 'tieengs ' -> 'tiếng ': 'tiếng '
+  [PASS] Telex 'vieetj ' -> 'việt ': 'việt '
+  [PASS] Telex 'dduwowngf ' -> 'đường ': 'đường '
+  [PASS] Telex 'nguwowif ' -> 'người ': 'người '
+  [PASS] Telex 'thees giowis ' -> 'thế giới ': 'thế giới '
+  [PASS] Telex 'giowis thieeuj ' -> 'giới thiệu ': 'giới thiệu '
+
+--- Test Suite 2: Sentence Composition ---
+  [PASS] Sentence 'tiếng việt đẹp ': 'tiếng việt đẹp '
+
+--- Test Suite 3: Tone Switching ---
+  [PASS] Tone switch s->f->r->x->j->z on 'toan': 'toan '
+
+--- Test Suite 4: Multi-Delete & Subsequent Retyping ---
+  [PASS] Delete 'tiếng' down to 'ti' and type 'eeps ' -> 'tiếp ': 'tiếp '
+
+--- Test Suite 5: Cross-Word Deletion Across Spaces ---
+  [PASS] Cross-word delete and retype 'bạn ': 'xin bạn '
+
+--- Test Suite 6: English Word Auto-Restore ---
+  [PASS] English words spelling restore: 'series views speed window diesel client '
+
+--- Test Suite 7: High-Speed Burst Typing (Load Test) ---
+  [PASS] High-speed burst typing: 'công nghệ thông tin phát triển nhanh chóng '
+
+==================================================================
+  RESULTS: 12 PASSED, 0 FAILED
+==================================================================
+All real-system load tests passed successfully!
+```
+
+---
+
+## 13. GitHub Actions macOS 26 CI/CD Pipeline & Portable Swift Testing Verification (`REQ-011`, `ADR-010`)
+
+- **Requirement IDs Verified**: `REQ-011` (`ADR-010`)
+- **Files Verified**:
+  - `Sources/OpenKey/macOS-Swift/Package.swift` (Conditional `CommandLineTools` `Testing` plugin path resolution when `GITHUB_ACTIONS == nil`)
+  - `.github/workflows/macos-ci.yml` (`macos-26` CI/CD workflow replacing `.github/workflows/msbuild.yml`)
+  - `README.md` (GitHub Actions `macOS CI/CD` badge and automated packaging documentation)
+
+### 13.1 Portable `Package.swift` Test Suite Execution
+```bash
+$ rtk swift test --package-path Sources/OpenKey/macOS-Swift
+Building for debugging...
+[4/4] Linking OpenKeySwiftPackageTests
+Build complete! (1.84s)
+Test run with 35 tests in 5 suites passed after 0.781 seconds.
+```

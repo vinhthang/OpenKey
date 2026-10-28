@@ -13,6 +13,10 @@
 | **`REQ-005`** | `ADR-005` | `AutoWordingEngine.swift`, `EventTapCoordinator.swift`, `CandidateBarController.swift`, `SettingsView.swift` | `AutoWordingEngine.recordCandidateAcceptance(text:)`, `resetLearnedFrequencies()`, candidate sorting |
 | **`REQ-006`** | `ADR-005` | `AutoWordingEngine.swift`, `OpenKeySettingsStore.swift`, `SettingsView.swift` | Expanded `shorthandTable`, `customShorthands: [String: String]`, `setCustomShorthand(trigger:replacement:)`, `removeCustomShorthand(trigger:)` |
 | **`REQ-007`** | `ADR-006` | `VietnameseEngine.swift`, `AutoWordingEngine.swift`, `EventTapCoordinator.swift` | `CHR(_:)`, `handleModernMark()`, `handleOldMark()`, `insertMark(markMask:canModifyFlag:)`, `checkGrammar(deltaBackSpace:)`, `startNewSessionInternal()`, `restoreLastTypingState()`, `resetSession()`, `handleKeyEvent(...)`, `updateCandidates(_:)`, `evaluateKeyEvent(_:)` |
+| **`REQ-008`** | `ADR-007` | `VietnameseEngine.swift`, `AutoWordingEngine.swift`, `CaretPositionResolver.swift`, `CandidateBarController.swift`, `OpenKeySettingsStore.swift` | `OKWordContext`, `OKEngineGetWordContext`, `OKEngineCommitExternalExpansion`, `phonotacticRepairHook`, `CandidateKind.stemCompletion`, `CaretPositionResolver.resolveCaretScreenPoint()` |
+| **`REQ-009`** | `ADR-008` | `Sources/OpenKey/macOS-Swift/Sources/**`, `Sources/OpenKey/macOS-Swift/Tests/**` | Sub-500-line modular decomposition (`VietnameseEngine+*.swift`, `SmartSwitchStore.swift`, `VietnameseUnicodeTable.swift`, `AutoWordingTypes.swift`, `VietnameseDictionaryCorpus.swift`, `SystemEnvironmentDetector.swift`) |
+| **`REQ-010`** | `ADR-009` | `VietnameseEngine+SpellingAndGrammar.swift`, `VietnameseEngine+KeyEventDispatcher.swift`, `AutoWordingEngine.swift`, `VietnameseDictionaryCorpus.swift` | `findAndCalculateVowel(forGrammar:)`, `canHasEndConsonant()`, `checkCorrectVowel(charset:i:markKey:)`, `handleCharacterKey(keyCode:isCaps:)`, `computeCurrentWordCandidates(currentSyllable:rawKeystrokes:isWrongSpelling:)` |
+| **`REQ-011`** | `ADR-010` | `.github/workflows/macos-ci.yml`, `Sources/OpenKey/macOS-Swift/Package.swift`, `README.md` | GitHub Actions `macos-26` CI/CD workflow (`test`, `build-app.sh`, `.zip`/`.dmg` packaging, artifact upload, release publishing) & portable `Testing` macro plugin resolution |
 
 ---
 
@@ -113,3 +117,37 @@
   13. `EventTapCoordinator.swift` (`< 450` lines): `CGEventTap` setup/teardown, app-switch/wake observers, `evaluateKeyEvent(_:)`, and `handleEvent(proxy:type:event:)`.
 - **`OpenKeySwiftTests` Target**:
   - Split `OpenKeySwiftTests.swift` (`1,602` lines) into `OpenKeyEngineTests.swift` (`< 480` lines), `OpenKeyEventTapTests.swift` (`< 480` lines), and `OpenKeyAutoWordingTests.swift` (`< 480` lines) alongside `OpenKeyLoadTests.swift` (`< 480` lines).
+
+---
+
+## 7. `"giới"` & `gi-` Initial Consonant Vowel Boundary, Phonotactic Validation & Candidate Ranking (`REQ-010`, `ADR-009`)
+- **`VietnameseEngine+SpellingAndGrammar.swift`**:
+  - `findAndCalculateVowel(forGrammar: Bool = false)`: Scan backward from `Int(index) - 1` down to `0`. When encountering a vowel, set `vowelEndIndex` on the first vowel seen, break before `i` in `gi` (`iii - 1 >= 0 && CHR(iii) == KEY_I && CHR(iii - 1) == KEY_G`) or `u` in `qu` (`CHR(iii) == KEY_U && CHR(iii - 1) == KEY_Q`) when `!forGrammar`, and otherwise update `vowelStartIndex = UInt8(iii)` and `vowelCount += 1`. After the loop, if `vowelStartIndex >= 1 && CHR(Int(vowelStartIndex)) == KEY_U && CHR(Int(vowelStartIndex) - 1) == KEY_Q`, increment `vowelStartIndex += 1` and decrement `vowelCount -= 1`.
+  - `canHasEndConsonant() -> Bool`: Look up `_vowelCombine[CHR(Int(vowelStartIndex))]` and verify a combination matching `CHR(Int(vowelStartIndex)...Int(vowelEndIndex))` has `vo[0] == 1`.
+  - `checkCorrectVowel(charset:i:markKey:)`: Reject entries containing `END_CONSONANT_MASK` (since quick end consonants are not enabled), reject `isKeyF(markKey) || isKeyR(markKey) || isKeyX(markKey)` when the ending consonant is `-c`, `-t`, or `-ch`, and reject partial suffix matches when `k >= 0 && CHR(k) == CHR(k + 1)`.
+- **`VietnameseEngine+KeyEventDispatcher.swift`**:
+  - In `handleCharacterKey`: compute `let grammarDelta = (hookOutput.extCode == 4 && hookOutput.backspaceCount == 0 && hookOutput.newCharCount == 1) ? -1 : 0` and call `checkGrammar(deltaBackSpace: grammarDelta)`.
+- **`AutoWordingEngine.swift` & `VietnameseDictionaryCorpus.swift`**:
+  - Add priority weights in `VietnameseDictionaryCorpus.priorityMap` for `"giới": 100`, `"giỏi": 95`, `"giời": 90`, `"giờ": 100`, `"giữ": 100`, `"giữa": 98`, `"giúp": 100`, `"giải": 98`, `"giảm": 96`, `"giá": 100`, `"gia": 95`, `"giao": 95`, `"giàu": 92`, `"giấy": 95`.
+  - In `AutoWordingEngine.computeCurrentWordCandidates`: collect all unseen candidates from `dict.stemToWords[stem]` before sorting, and compute a tone-stripped base string (preserving vowel modifiers `ă, â, ê, ô, ơ, ư, đ` while stripping only tone marks) so candidates matching the user's explicit vowel modifiers rank ahead of candidates that strip `ơ` back to `o`.
+
+---
+
+## 8. GitHub Actions macOS 26 CI/CD Pipeline & Portable Swift Testing Plugin Resolution (`REQ-011`, `ADR-010`)
+- **`Sources/OpenKey/macOS-Swift/Package.swift`**:
+  - Import `Foundation`.
+  - Detect whether the local `CommandLineTools` testing plugin path (`/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing`) should be passed via `.unsafeFlags(["-Xfrontend", "-plugin-path", ...])` only when `ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] == nil` and `/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing` exists on disk.
+- **`.github/workflows/macos-ci.yml` (replacing `.github/workflows/msbuild.yml`)**:
+  - Triggers: `push` (`branches: ["master", "main"]`, `tags: ["v*"]`), `pull_request` (`branches: ["master", "main"]`), and `workflow_dispatch`.
+  - Runner: `macos-26` (Apple Silicon `arm64`, macOS 26 Tahoe + Xcode 26).
+  - Steps:
+    1. Checkout repository (`actions/checkout@v4`).
+    2. Verify Swift & Xcode toolchain (`swift --version`, `xcodebuild -version`).
+    3. Verify `REQ-009` `< 500` line-count invariant across all `.swift` files under `Sources/OpenKey/macOS-Swift/Sources` and `Sources/OpenKey/macOS-Swift/Tests`.
+    4. Run automated unit and load test suite (`swift test --package-path Sources/OpenKey/macOS-Swift`).
+    5. Build and code-sign `OpenKeySwift.app` (`bash Sources/OpenKey/macOS-Swift/build-app.sh`) and verify signature (`codesign --verify --deep --strict Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app`).
+    6. Package distributable `OpenKeySwift-macOS-arm64.zip` (`ditto -c -k --sequesterRsrc --keepParent`) and `OpenKeySwift.dmg` (`hdiutil create`).
+    7. Upload `OpenKeySwift-macOS-arm64.zip` and `OpenKeySwift.dmg` via `actions/upload-artifact@v4`.
+    8. Publish release assets via `softprops/action-gh-release@v2` when `startsWith(github.ref, 'refs/tags/v')`.
+- **`README.md`**:
+  - Add the GitHub Actions `macOS CI/CD` workflow status badge under the header and document CI/CD automated builds and artifact downloads in Section 4.
