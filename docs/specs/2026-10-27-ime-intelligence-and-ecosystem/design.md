@@ -74,3 +74,42 @@
   - Inside the `"Auto Wording & Ngữ pháp (Thử nghiệm)"` section, add:
     - Custom shorthand list & inline add/remove controls (`Trigger` + `Expansion` text fields and `+` button).
     - `"Xóa dữ liệu học từ (Reset learned words)"` button calling `AutoWordingEngine.shared.resetLearnedFrequencies()`.
+
+---
+
+## 5. Auto Wording Isolation & Live Candidate Lifecycle (`REQ-008`, `ADR-007`)
+- **One-Way Decoupling & Atomic Engine Turn (`VietnameseEngine.swift`)**:
+  - Define `public struct OKWordContext: Sendable, Equatable` (`composedWord: String`, `rawKeystrokes: String`, `charCount: Int`, `spaceCount: Int`, `isWrongSpelling: Bool`, `isBreakKey: Bool`).
+  - Expose `OKEngineGetWordContext(_ keyCode: UInt16? = nil)` and `OKEngineCommitExternalExpansion()`.
+  - Remove `vAutoWordingEnabled`, `vGrammarRepairEnabled`, `vShorthandExpansionEnabled`, and `vCandidateSuggestionsEnabled` from `VietnameseEngineState`, and replace the direct `AutoWordingEngine.shared.repairPhonotacticCluster` call with an injected `phonotacticRepairHook` closure so `VietnameseEngineState` has zero references to `AutoWordingEngine`.
+  - In `OKEngineHandleKeyEvent`: if `!AutoWordingEngine.shared.isEnabled`, invoke `VietnameseEngineState.shared.handleKeyEvent(...)` directly (zero `getWordContext` calls). When enabled, execute `preContext`, `interceptBeforeKeyEvent` + `commitExternalExpansion()`, `handleKeyEvent`, and `postContext` atomically under `VietnameseEngineState.lock`.
+- **Thread-Safe Lock-Isolated `AutoWordingEngine` & `CandidateKind` Disambiguation (`AutoWordingEngine.swift`, `EventTapCoordinator.swift`)**:
+  - Synchronize all reads and writes of `isEnabled`, `grammarRepairEnabled`, `shorthandExpansionEnabled`, `candidateSuggestionsEnabled`, `activeCandidates`, and `userFrequencies` with `AutoWordingEngine.lock`.
+  - Make `updateCandidates(_:)` a no-op under lock when `_activeCandidates == candidates`.
+  - Extend `CandidateKind` to `.correction`, `.stemCompletion`, and `.nextWord`. `computeCurrentWordCandidates` assigns `.correction` when `isWrongSpelling == true` (or when matched only via transposition signature) and `.stemCompletion` when `isWrongSpelling == false`.
+  - In `EventTapCoordinator.evaluateKeyEvent`, `Tab` (`keyCode == 48`) accepts candidate `#0` only when `activeCandidates[0].kind == .correction` (passing through `Tab` and clearing candidates for `.stemCompletion` and `.nextWord`), while `Ctrl+1..3` accepts candidates `#0..#2` for all kinds.
+- **Zero-Width Caret Resolution, `40ms` AX Timeout & Non-Deactivating Panel (`CaretPositionResolver.swift`, `CandidateBarController.swift`)**:
+  - In `CaretPositionResolver.resolveCaretScreenPoint()`, set `AXUIElementSetMessagingTimeout(..., 0.04)` (`40ms`), accept `rect.width >= 0 && rect.height > 0 && (rect.origin.x != 0 || rect.origin.y != 0)` for zero-width native insertion carets, and restrict Fallback #2 (`kAXPositionAttribute` + `kAXSizeAttribute`) to single-line inputs (`sz.height <= 48`).
+  - In `CandidateBarController.swift`, resolve caret coordinates on a background queue (`com.openkey.caret-resolver`) before updating the `NSPanel` (`level = .popUpMenu`, `hidesOnDeactivate = false`, `orderFrontRegardless()`) on `@MainActor`, and ignore `leftMouseDown` session resets in `EventTapCoordinator` when clicking inside the candidate bar panel.
+
+---
+
+## 6. Codebase Modularization & Complexity Reduction Architecture (`REQ-009`, `ADR-008`)
+
+### 6.1 Module Decomposition Map (All Files `< 500` Lines)
+- **`OpenKeySwiftCore` Target**:
+  1. `VietnameseData.swift` (`< 400` lines): Virtual keycode constants, bitmask constants, `@inline(__always)` `UInt32` syllable bitmask helpers (`baseKey`, `isCaps`, `hasToneMark`, `toneMark`, `hasCircumflexOrStroke`, `hasHornOrBreve`, `hasAnyDiacritic`, `isAutoTone`, `isStandaloneW`), `NSLock.withLock`, `OKHookSnapshot`, `HookCodeState`, and phonotactic tables.
+  2. `VietnameseUnicodeTable.swift` (`< 200` lines): Precomposed Unicode `_codeTable`, `_characterMap`, and `keyCodeToCharacter(_:)`.
+  3. `VietnameseEngine.swift` (`< 400` lines): `OKWordContext`, `VietnameseEngineState` core state buffers, configuration, session lifecycle (`initEngine`, `resetSession`, `commitExternalExpansion`, `getWordContext`, `getComposedWord`), buffer helpers (`insertKey`, `insertState`, `saveWord`, `restoreLastTypingState`), and public `OKEngine*` functions.
+  4. `VietnameseEngine+SpellingAndGrammar.swift` (`< 350` lines): `checkSpelling`, `checkCorrectVowel`, `canHasEndConsonant`, `findAndCalculateVowel`, `repairPhonotacticClusterIfNeeded`, `checkGrammar`, and `checkRestoreIfWrongSpelling`.
+  5. `VietnameseEngine+MarkAndTone.swift` (`< 420` lines): `getCharacterCode`, `removeMark`, `handleModernMark`, `handleOldMark`, `insertMark`, `insertD`, `insertAOE`, `insertW`, `reverseLastStandaloneChar`, `checkForStandaloneChar`, and `handleMainKey`.
+  6. `VietnameseEngine+KeyEventDispatcher.swift` (`< 300` lines): `handleKeyEvent(keyCode:capsStatus:otherControlKey:)` decomposed into `handleWordBreakOrControlKey`, `handleSpaceKey`, `handleDeleteKey`, `handleCharacterKey`, and `buildOutputSnapshot`.
+  7. `SmartSwitchStore.swift` (`< 150` lines): Per-app language memory (`SmartSwitchStore.shared`) with `Data`-based persistence (`loadData(_:)`, `exportData()`) plus `OKInitSmartSwitchKey`, `OKGetSmartSwitchKeySaveData`, `OKGetAppInputMethodStatus`, and `OKSetAppInputMethodStatus`.
+  8. `AutoWordingTypes.swift` (`< 150` lines): `CandidateKind`, `WordCandidate`, `AutoWordingShorthandCatalog` (`builtInShorthands`, `properNounShorthands`).
+  9. `AutoWordingEngine.swift` (`< 450` lines): Lock-isolated configuration and candidate state using `lock.withLock`, frequency learning, shorthand expansion, candidate ranking, phonotactic cluster repair, and pre/post key event hooks.
+  10. `VietnameseDictionary.swift` (`< 160` lines): `VietnameseDictionary` index construction and `stripVietnameseDiacritics(_:)`.
+  11. `VietnameseDictionaryCorpus.swift` (`< 480` lines): Compact static syllable array, compound bigram table, and priority weights.
+  12. `SystemEnvironmentDetector.swift` (`< 200` lines): `EventTapEventType`, `KeyEventContext`, `EventTapAction`, and system environment detectors (`isSecureEventInputActive`, `isLauncherApp`, `isTerminalApp`, `isSpotlightOverlayVisible`, `markSpotlightNeedsRecheck`, `invalidateSpotlightCache`).
+  13. `EventTapCoordinator.swift` (`< 450` lines): `CGEventTap` setup/teardown, app-switch/wake observers, `evaluateKeyEvent(_:)`, and `handleEvent(proxy:type:event:)`.
+- **`OpenKeySwiftTests` Target**:
+  - Split `OpenKeySwiftTests.swift` (`1,602` lines) into `OpenKeyEngineTests.swift` (`< 480` lines), `OpenKeyEventTapTests.swift` (`< 480` lines), and `OpenKeyAutoWordingTests.swift` (`< 480` lines) alongside `OpenKeyLoadTests.swift` (`< 480` lines).

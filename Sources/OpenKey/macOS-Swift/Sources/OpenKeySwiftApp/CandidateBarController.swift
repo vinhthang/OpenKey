@@ -55,7 +55,7 @@ struct CandidateBarView: View {
     }
     
     private func badgeForIndex(_ index: Int) -> String {
-        if index == 0 { return "Tab" }
+        if index == 0 && candidates.first?.kind == .correction { return "Tab" }
         return "⌃\(index + 1)"
     }
 }
@@ -70,6 +70,7 @@ public final class CandidateBarController: ObservableObject {
     private var isStarted = false
     private var updateWorkItem: DispatchWorkItem?
     private var hostingView: NSHostingView<CandidateBarView>?
+    private let caretQueue = DispatchQueue(label: "com.openkey.caret-resolver", qos: .userInteractive)
     
     public init() {}
     
@@ -92,8 +93,9 @@ public final class CandidateBarController: ObservableObject {
             backing: .buffered,
             defer: false
         )
+        p.hidesOnDeactivate = false
         p.level = .popUpMenu
-        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         p.isOpaque = false
         p.backgroundColor = .clear
         p.hasShadow = false // Handled inside SwiftUI glass view
@@ -111,6 +113,7 @@ public final class CandidateBarController: ObservableObject {
         
         if candidates.isEmpty {
             panel.orderOut(nil)
+            EventTapCoordinator.candidatePanelFrame = .zero
             return
         }
         
@@ -125,33 +128,49 @@ public final class CandidateBarController: ObservableObject {
                 existingHostingView.rootView = candidateView
             } else {
                 let newHostingView = NSHostingView(rootView: candidateView)
-                newHostingView.translatesAutoresizingMaskIntoConstraints = false
                 panel.contentView = newHostingView
                 self.hostingView = newHostingView
             }
             
             guard let currentHostingView = self.hostingView else { return }
+            currentHostingView.layoutSubtreeIfNeeded()
             let fittingSize = currentHostingView.fittingSize
-            let caretPoint = CaretPositionResolver.resolveCaretScreenPoint()
+            let barWidth = max(fittingSize.width, 64)
+            let barHeight = max(fittingSize.height, 36)
             
-            // Clamp to screen bounds of active display (REQ-003, ADR-003)
-            let targetScreen = CaretPositionResolver.screenContaining(point: caretPoint)
-            let screenFrame = targetScreen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
-            var targetX = caretPoint.x
-            var targetY = caretPoint.y - fittingSize.height
-            
-            if targetX + fittingSize.width > screenFrame.maxX {
-                targetX = screenFrame.maxX - fittingSize.width - 10
+            self.caretQueue.async { [weak self, weak panel] in
+                let caretPoint = CaretPositionResolver.resolveCaretScreenPoint()
+                
+                DispatchQueue.main.async { [weak self, weak panel] in
+                    guard let _ = self, let panel = panel else { return }
+                    if AutoWordingEngine.shared.activeCandidates.isEmpty {
+                        panel.orderOut(nil)
+                        EventTapCoordinator.candidatePanelFrame = .zero
+                        return
+                    }
+                    
+                    // Clamp to screen bounds of active display (REQ-003, ADR-003)
+                    let targetScreen = CaretPositionResolver.screenContaining(point: caretPoint)
+                    let screenFrame = targetScreen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
+                    var targetX = caretPoint.x
+                    var targetY = caretPoint.y - barHeight
+                    
+                    if targetX + barWidth > screenFrame.maxX {
+                        targetX = screenFrame.maxX - barWidth - 10
+                    }
+                    if targetX < screenFrame.minX {
+                        targetX = screenFrame.minX + 10
+                    }
+                    if targetY < screenFrame.minY {
+                        targetY = caretPoint.y + 24 // Flip above caret if bottom of screen
+                    }
+                    
+                    let targetFrame = NSRect(x: targetX, y: targetY, width: barWidth, height: barHeight)
+                    panel.setFrame(targetFrame, display: true)
+                    EventTapCoordinator.candidatePanelFrame = targetFrame
+                    panel.orderFrontRegardless()
+                }
             }
-            if targetX < screenFrame.minX {
-                targetX = screenFrame.minX + 10
-            }
-            if targetY < screenFrame.minY {
-                targetY = caretPoint.y + 24 // Flip above caret if bottom of screen
-            }
-            
-            panel.setFrame(NSRect(x: targetX, y: targetY, width: fittingSize.width, height: fittingSize.height), display: true)
-            panel.orderFront(nil)
         }
         
         self.updateWorkItem = workItem
@@ -162,8 +181,9 @@ public final class CandidateBarController: ObservableObject {
         AutoWordingEngine.shared.recordCandidateAcceptance(text: candidate.text)
         let fullText = candidate.text + " "
         let chars = Array(fullText.utf16)
+        let liveLen = (candidate.kind == .nextWord) ? 0 : max(OKEngineGetWordContext().charCount, candidate.replaceLength)
         KeystrokeInjector.shared.injectReplacementWithoutProxy(
-            backspaceCount: candidate.replaceLength,
+            backspaceCount: liveLen,
             chars: chars
         )
         OKEngineResetSession()

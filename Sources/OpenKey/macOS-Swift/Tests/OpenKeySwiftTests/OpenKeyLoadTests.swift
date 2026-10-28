@@ -96,7 +96,7 @@ extension VirtualScreen {
 extension OpenKeySwiftTests {
 
 @Suite("OpenKeyLoadTests", .serialized)
-struct LoadTests {
+struct OpenKeyLoadTests {
     
     init() {
         OKEngineInit()
@@ -427,5 +427,4 @@ struct LoadTests {
         }
     }
 }
-
 }

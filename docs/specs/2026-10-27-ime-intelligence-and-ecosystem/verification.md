@@ -328,3 +328,183 @@ Verified active OpenKeySwift daemon running at /Applications/OpenKeySwift.app (P
 ==================================================================
 All real-system load tests passed successfully!
 ```
+
+---
+
+## 11. Task 7 Verification: Codebase Modularization, Complexity Reduction & Readability (`REQ-009`, `ADR-008`)
+
+### 11.1 Verification Plan & Acceptance Criteria
+- **File Line Count Budget (`< 500` lines invariant)**: Every `.swift` file across `Sources/` and `Tests/` must be strictly `< 500` lines of code verified by `rtk wc -l` and programmatically asserted by test `codebaseModularizationAndSub500LineInvariant`.
+- **Target File Decompositions**:
+  - `VietnameseData.swift` (`646` lines) decomposed into `VietnameseData.swift` (`395` lines, `< 400`) and `VietnameseUnicodeTable.swift` (`155` lines, `< 200`) with `UInt32` bitmask extensions (`baseKey`, `isCaps`, `hasToneMark`, `toneMark`, `hasCircumflexOrStroke`, `hasHornOrBreve`, `hasAnyDiacritic`, `isAutoTone`, `isStandaloneW`).
+  - `VietnameseEngine.swift` (`1,851` lines) decomposed into:
+    - `VietnameseEngine.swift` (`382` lines, `< 400`)
+    - `VietnameseEngine+SpellingAndGrammar.swift` (`331` lines, `< 350`)
+    - `VietnameseEngine+MarkAndTone.swift` (`417` lines, `< 420`)
+    - `VietnameseEngine+KeyEventDispatcher.swift` (`276` lines, `< 300`)
+    - `SmartSwitchStore.swift` (`116` lines, `< 150`)
+  - `AutoWordingEngine.swift` (`580` lines) decomposed into `AutoWordingEngine.swift` (`416` lines, `< 450`) and `AutoWordingTypes.swift` (`62` lines, `< 150`).
+  - `VietnameseDictionary.swift` (`665` lines) decomposed into `VietnameseDictionary.swift` (`106` lines, `< 160`) and `VietnameseDictionaryCorpus.swift` (`457` lines, `< 480`).
+  - `EventTapCoordinator.swift` (`669` lines) decomposed into `EventTapCoordinator.swift` (`448` lines, `< 450`) and `SystemEnvironmentDetector.swift` (`193` lines, `< 200`).
+  - `OpenKeySettingsStore.swift` refactored with extracted `resolveTargetAppBundleId()` helper (`313` lines, `< 500`).
+  - Monolithic `OpenKeySwiftTests.swift` (`1,602` lines) deleted and decomposed into:
+    - `OpenKeyEngineTests.swift` (`465` lines, `< 480`)
+    - `OpenKeyEventTapTests.swift` (`400` lines, `< 480`)
+    - `OpenKeyAutoWordingTests.swift` (`449` lines, `< 480`)
+    - `OpenKeyLoadTests.swift` (`430` lines, `< 500`)
+    - `OpenKeyTestHelpers.swift` (`102` lines, `< 500`)
+- **Unit & System Invariants**: All 33 unit and load tests pass (`33/33`). Production app bundle re-signed and deployed to `/Applications/OpenKeySwift.app`. Live system load test suite passes (`10/10`).
+
+### 11.2 Verbatim Line Count Verification (`rtk wc -l`)
+```text
+$ rtk wc -l Sources/OpenKey/macOS-Swift/Sources/*/*.swift Sources/OpenKey/macOS-Swift/Tests/*/*.swift
+193 Sources/OpenKeySwiftApp/CandidateBarController.swift
+199 Sources/OpenKeySwiftApp/OpenKeySwiftApp.swift
+330 Sources/OpenKeySwiftApp/SettingsView.swift
+416 Sources/OpenKeySwiftCore/AutoWordingEngine.swift
+62 Sources/OpenKeySwiftCore/AutoWordingTypes.swift
+135 Sources/OpenKeySwiftCore/CaretPositionResolver.swift
+448 Sources/OpenKeySwiftCore/EventTapCoordinator.swift
+86 Sources/OpenKeySwiftCore/HotKeyMatcher.swift
+83 Sources/OpenKeySwiftCore/InputSourceGuard.swift
+149 Sources/OpenKeySwiftCore/KeystrokeInjector.swift
+313 Sources/OpenKeySwiftCore/OpenKeySettingsStore.swift
+116 Sources/OpenKeySwiftCore/SmartSwitchStore.swift
+193 Sources/OpenKeySwiftCore/SystemEnvironmentDetector.swift
+395 Sources/OpenKeySwiftCore/VietnameseData.swift
+106 Sources/OpenKeySwiftCore/VietnameseDictionary.swift
+457 Sources/OpenKeySwiftCore/VietnameseDictionaryCorpus.swift
+382 Sources/OpenKeySwiftCore/VietnameseEngine.swift
+276 Sources/OpenKeySwiftCore/VietnameseEngine+KeyEventDispatcher.swift
+417 Sources/OpenKeySwiftCore/VietnameseEngine+MarkAndTone.swift
+331 Sources/OpenKeySwiftCore/VietnameseEngine+SpellingAndGrammar.swift
+155 Sources/OpenKeySwiftCore/VietnameseUnicodeTable.swift
+449 Tests/OpenKeySwiftTests/OpenKeyAutoWordingTests.swift
+465 Tests/OpenKeySwiftTests/OpenKeyEngineTests.swift
+400 Tests/OpenKeySwiftTests/OpenKeyEventTapTests.swift
+430 Tests/OpenKeySwiftTests/OpenKeyLoadTests.swift
+102 Tests/OpenKeySwiftTests/OpenKeyTestHelpers.swift
+Σ 7088
+```
+
+### 11.3 Verbatim Test & Live System Evidence (Run 9 — 33/33 Unit Tests + 10/10 Real-System Suites)
+```text
+$ rtk swift test --package-path Sources/OpenKey/macOS-Swift
+Building for debugging...
+Build complete! (2,44 secs)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "OpenKeySwiftTests" started.
+◇ Suite "OpenKeyAutoWordingTests" started.
+◇ Test "REQ-001: Auto wording settings store persistence and sync" started.
+✔ Test "REQ-001: Auto wording settings store persistence and sync" passed after 0.004 seconds.
+◇ Test "REQ-003: Shorthand auto-expansion on Space" started.
+✔ Test "REQ-003: Shorthand auto-expansion on Space" passed after 0.131 seconds.
+◇ Test "REQ-004: Multi-thousand-word dictionary and candidate generation" started.
+✔ Test "REQ-004: Multi-thousand-word dictionary and candidate generation" passed after 0.001 seconds.
+◇ Test "REQ-005: Candidate selection keyboard routing Tab, Ctrl+1..3, Esc" started.
+✔ Test "REQ-005: Candidate selection keyboard routing Tab, Ctrl+1..3, Esc" passed after 0.001 seconds.
+◇ Test "REQ-005: Adaptive candidate frequency learning and ranking boost" started.
+✔ Test "REQ-005: Adaptive candidate frequency learning and ranking boost" passed after 0.001 seconds.
+◇ Test "REQ-006: Expanded built-in and custom shorthand table persistence" started.
+✔ Test "REQ-006: Expanded built-in and custom shorthand table persistence" passed after 0.001 seconds.
+◇ Test "REQ-007: Multi-Delete and Subsequent Character Entry State Integrity" started.
+✔ Test "REQ-007: Multi-Delete and Subsequent Character Entry State Integrity" passed after 0.005 seconds.
+◇ Test "REQ-008: Auto wording module isolation, master toggle auto-activation, and live candidate generation" started.
+✔ Test "REQ-008: Auto wording module isolation, master toggle auto-activation, and live candidate generation" passed after 0.001 seconds.
+✔ Suite "OpenKeyAutoWordingTests" passed after 0.146 seconds.
+◇ Suite "OpenKeyEngineTests" started.
+◇ Test "Telex syllable composition" started.
+✔ Test "Telex syllable composition" passed after 0.001 seconds.
+◇ Test "VNI syllable composition" started.
+✔ Test "VNI syllable composition" passed after 0.001 seconds.
+◇ Test "Spelling check and auto-restore" started.
+✔ Test "Spelling check and auto-restore" passed after 0.001 seconds.
+◇ Test "Bounds-checked deserialization on truncated buffers" started.
+✔ Test "Bounds-checked deserialization on truncated buffers" passed after 0.001 seconds.
+◇ Test "SmartSwitchKey persistence and lookup" started.
+✔ Test "SmartSwitchKey persistence and lookup" passed after 0.001 seconds.
+◇ Test "Pure Swift Engine Phonotactic Parity and Complex Syllables" started.
+✔ Test "Pure Swift Engine Phonotactic Parity and Complex Syllables" passed after 0.001 seconds.
+◇ Test "REQ-002: Phonotactic syllable repair" started.
+✔ Test "REQ-002: Phonotactic syllable repair" passed after 0.001 seconds.
+◇ Test "REQ-004: English word auto-restore without skipping KEY_D and trailing key pass-through" started.
+✔ Test "REQ-004: English word auto-restore without skipping KEY_D and trailing key pass-through" passed after 0.001 seconds.
+◇ Test "REQ-009: Codebase modularization, UInt32 syllable bitmask helpers, and sub-500-line file invariant" started.
+✔ Test "REQ-009: Codebase modularization, UInt32 syllable bitmask helpers, and sub-500-line file invariant" passed after 0.011 seconds.
+✔ Suite "OpenKeyEngineTests" passed after 0.016 seconds.
+◇ Suite "OpenKeyEventTapTests" started.
+◇ Test "HotKeyMatcher default and custom patterns" started.
+✔ Test "HotKeyMatcher default and custom patterns" passed after 0.001 seconds.
+◇ Test "Terminal app detection" started.
+✔ Test "Terminal app detection" passed after 0.001 seconds.
+◇ Test "KeystrokeInjector replacement strategies" started.
+✔ Test "KeystrokeInjector replacement strategies" passed after 0.001 seconds.
+◇ Test "InputSourceGuard repeated invocation safety" started.
+✔ Test "InputSourceGuard repeated invocation safety" passed after 0.056 seconds.
+◇ Test "OpenKeySettingsStore persistence and sync" started.
+✔ Test "OpenKeySettingsStore persistence and sync" passed after 0.001 seconds.
+◇ Test "Bundle Info.plist and executable contract" started.
+✔ Test "Bundle Info.plist and executable contract" passed after 0.001 seconds.
+◇ Test "KeystrokeInjector self-event tagging and source state" started.
+✔ Test "KeystrokeInjector self-event tagging and source state" passed after 0.001 seconds.
+◇ Test "Pure Event Routing Pipeline evaluateKeyEvent" started.
+✔ Test "Pure Event Routing Pipeline evaluateKeyEvent" passed after 0.001 seconds.
+◇ Test "REQ-001: Secure Input bypasses Vietnamese composition and clears candidate bar" started.
+✔ Test "REQ-001: Secure Input bypasses Vietnamese composition and clears candidate bar" passed after 0.001 seconds.
+◇ Test "REQ-002: Universal Launcher overlay detection (Spotlight, Raycast, Alfred)" started.
+✔ Test "REQ-002: Universal Launcher overlay detection (Spotlight, Raycast, Alfred)" passed after 0.001 seconds.
+◇ Test "REQ-003: Caret accessibility activation and screen resolution" started.
+✔ Test "REQ-003: Caret accessibility activation and screen resolution" passed after 0.007 seconds.
+◇ Test "REQ-008: Code review regression tests (delete-restore, caps lock punctuation, bracket word break)" started.
+✔ Test "REQ-008: Code review regression tests (delete-restore, caps lock punctuation, bracket word break)" passed after 0.001 seconds.
+✔ Suite "OpenKeyEventTapTests" passed after 0.068 seconds.
+◇ Suite "OpenKeyLoadTests" started.
+◇ Test "Suite 1: Multi-thousand Telex dictionary composition stability" started.
+✔ Test "Suite 1: Multi-thousand Telex dictionary composition stability" passed after 0.427 seconds.
+◇ Test "Suite 2: Exhaustive delete/retype matrix across 100+ words and punctuation" started.
+✔ Test "Suite 2: Exhaustive delete/retype matrix across 100+ words and punctuation" passed after 0.050 seconds.
+◇ Test "Suite 3: Tone switching s->f->r->x->j->z and modifier undo aa/ee/oo/ww/dd" started.
+✔ Test "Suite 3: Tone switching s->f->r->x->j->z and modifier undo aa/ee/oo/ww/dd" passed after 0.001 seconds.
+◇ Test "Suite 4: 200+ English words restore cleanly with trailing space" started.
+✔ Test "Suite 4: 200+ English words restore cleanly with trailing space" passed after 0.026 seconds.
+✔ Suite "OpenKeyLoadTests" passed after 0.505 seconds.
+✔ Suite "OpenKeySwiftTests" passed after 0.737 seconds.
+✔ Test run with 33 tests in 5 suites passed after 0.737 seconds.
+
+$ ./Sources/OpenKey/macOS-Swift/scripts/real-system-load-test
+==================================================================
+  OpenKeySwift Live Daemon Real-System Load & E2E Integration Test
+==================================================================
+Verified active OpenKeySwift daemon running at /Applications/OpenKeySwift.app (PID: 66224).
+
+--- Test Suite 1: Basic Telex Syllables ---
+  [PASS] Telex 'tieengs ' -> 'tiếng ': 'tiếng '
+  [PASS] Telex 'vieetj ' -> 'việt ': 'việt '
+  [PASS] Telex 'dduwowngf ' -> 'đường ': 'đường '
+  [PASS] Telex 'nguwowif ' -> 'người ': 'người '
+
+--- Test Suite 2: Sentence Composition ---
+  [PASS] Sentence 'tiếng việt đẹp ': 'tiếng việt đẹp '
+
+--- Test Suite 3: Tone Switching ---
+  [PASS] Tone switch s->f->r->x->j->z on 'toan': 'toan '
+
+--- Test Suite 4: Multi-Delete & Subsequent Retyping ---
+  [PASS] Delete 'tiếng' down to 'ti' and type 'eeps ' -> 'tiếp ': 'tiếp '
+
+--- Test Suite 5: Cross-Word Deletion Across Spaces ---
+  [PASS] Cross-word delete and retype 'bạn ': 'xin bạn '
+
+--- Test Suite 6: English Word Auto-Restore ---
+  [PASS] English words spelling restore: 'series views speed window diesel client '
+
+--- Test Suite 7: High-Speed Burst Typing (Load Test) ---
+  [PASS] High-speed burst typing: 'công nghệ thông tin phát triển nhanh chóng '
+
+==================================================================
+  RESULTS: 10 PASSED, 0 FAILED
+==================================================================
+All real-system load tests passed successfully!
+```

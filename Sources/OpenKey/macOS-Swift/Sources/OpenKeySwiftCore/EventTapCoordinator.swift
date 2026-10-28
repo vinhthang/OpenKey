@@ -5,101 +5,16 @@ import ApplicationServices
 import Carbon
 #endif
 
-public enum EventTapEventType: Sendable, Equatable {
-    case keyDown
-    case keyUp
-    case flagsChanged
-    case leftMouseDown
-    case rightMouseDown
-    case otherMouseDown
-}
-
-public struct KeyEventContext: Sendable {
-    public var eventType: EventTapEventType
-    public var keyCode: Int64
-    public var flags: CGEventFlags
-    public var isAutoRepeat: Bool
-    public var isSelfEvent: Bool
-    public var language: Int
-    public var useSmartSwitchKey: Bool
-    public var otherLanguage: Bool
-    public var switchKeyStatus: Int
-    public var fixRecommendBrowser: Bool
-    public var activeAppBundleId: String?
-    public var isSpotlightVisible: Bool
-    public var isCompatibleInputSource: Bool
-    public var autoWordingEnabled: Bool
-    public var candidateSuggestionsEnabled: Bool
-    public var activeCandidates: [WordCandidate]
-    public var isSecureInput: Bool
-    
-    public init(
-        eventType: EventTapEventType,
-        keyCode: Int64,
-        flags: CGEventFlags = [],
-        isAutoRepeat: Bool = false,
-        isSelfEvent: Bool = false,
-        language: Int = 1,
-        useSmartSwitchKey: Bool = true,
-        otherLanguage: Bool = true,
-        switchKeyStatus: Int = OpenKeySettingsStore.defaultSwitchKey,
-        fixRecommendBrowser: Bool = true,
-        activeAppBundleId: String? = nil,
-        isSpotlightVisible: Bool = false,
-        isCompatibleInputSource: Bool = true,
-        autoWordingEnabled: Bool = false,
-        candidateSuggestionsEnabled: Bool = false,
-        activeCandidates: [WordCandidate] = [],
-        isSecureInput: Bool = false
-    ) {
-        self.eventType = eventType
-        self.keyCode = keyCode
-        self.flags = flags
-        self.isAutoRepeat = isAutoRepeat
-        self.isSelfEvent = isSelfEvent
-        self.language = language
-        self.useSmartSwitchKey = useSmartSwitchKey
-        self.otherLanguage = otherLanguage
-        self.switchKeyStatus = switchKeyStatus
-        self.fixRecommendBrowser = fixRecommendBrowser
-        self.activeAppBundleId = activeAppBundleId
-        self.isSpotlightVisible = isSpotlightVisible
-        self.isCompatibleInputSource = isCompatibleInputSource
-        self.autoWordingEnabled = autoWordingEnabled
-        self.candidateSuggestionsEnabled = candidateSuggestionsEnabled
-        self.activeCandidates = activeCandidates
-        self.isSecureInput = isSecureInput
-    }
-}
-
-public enum EventTapAction: Sendable, Equatable {
-    case swallow
-    case passThrough(resetSession: Bool)
-    case toggleLanguage(newLanguage: Int)
-    case replaceKeystroke(backspaces: Int, chars: [UInt16], strategy: ReplacementStrategy, passThroughTrailingKey: Bool = false)
-    case acceptCandidate(WordCandidate)
-    case dismissCandidates
-}
-
 public final class EventTapCoordinator: @unchecked Sendable {
     public static let shared = EventTapCoordinator()
     
-    /// Queries Carbon HIToolbox to detect if Secure Event Input is active
-    public static func isSecureEventInputActive() -> Bool {
-        #if canImport(Carbon)
-        return IsSecureEventInputEnabled()
-        #else
-        return false
-        #endif
-    }
-    
-    /// Detects universal system launcher overlays (Spotlight, Raycast, Alfred)
-    public static func isLauncherApp(bundleId: String?) -> Bool {
-        guard let bundleId = bundleId else { return false }
-        return bundleId == "com.apple.Spotlight" ||
-               bundleId == "com.raycast.macos" ||
-               bundleId.hasPrefix("com.runningwithcrayons.Alfred")
-    }
+    // Environment detection forwarding for backward compatibility (REQ-009, ADR-008)
+    public static func isSecureEventInputActive() -> Bool { SystemEnvironmentDetector.isSecureEventInputActive() }
+    public static func isLauncherApp(bundleId: String?) -> Bool { SystemEnvironmentDetector.isLauncherApp(bundleId: bundleId) }
+    public static func isTerminalApp(bundleId: String?) -> Bool { SystemEnvironmentDetector.isTerminalApp(bundleId: bundleId) }
+    public static func markSpotlightNeedsRecheck() { SystemEnvironmentDetector.markSpotlightNeedsRecheck() }
+    public static func invalidateSpotlightCache() { SystemEnvironmentDetector.invalidateSpotlightCache() }
+    public static func isSpotlightOverlayVisible(frontmostBundleId: String? = nil) -> Bool { SystemEnvironmentDetector.isSpotlightOverlayVisible(frontmostBundleId: frontmostBundleId) }
     
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -112,18 +27,6 @@ public final class EventTapCoordinator: @unchecked Sendable {
     private var swallowNextKeyUp: Bool = false
     private var pendingModifierTap: Bool = false
     private var modifierTapCancelled: Bool = false
-    
-    // Spotlight cache
-    nonisolated(unsafe) private static var lastSpotlightCheckTime: TimeInterval = 0
-    nonisolated(unsafe) private static var cachedSpotlightResult: Bool = false
-    nonisolated(unsafe) private static var needsSpotlightRecheck: Bool = true
-    private static let spotlightLock = NSLock()
-    
-    public static func markSpotlightNeedsRecheck() {
-        spotlightLock.lock()
-        needsSpotlightRecheck = true
-        spotlightLock.unlock()
-    }
     
     public private(set) var isRunning: Bool = false
     
@@ -148,9 +51,7 @@ public final class EventTapCoordinator: @unchecked Sendable {
     }
     
     public func stop() {
-        trustPollingTimer?.invalidate()
-        trustPollingTimer = nil
-        
+        trustPollingTimer?.invalidate(); trustPollingTimer = nil
         if let runLoopSource = runLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
             self.runLoopSource = nil
@@ -165,23 +66,18 @@ public final class EventTapCoordinator: @unchecked Sendable {
     public func checkAccessibilityAndSetupTap() {
         if setupEventTap() {
             settings.isAccessibilityTrusted = true
-            trustPollingTimer?.invalidate()
-            trustPollingTimer = nil
+            trustPollingTimer?.invalidate(); trustPollingTimer = nil
             return
         }
-        
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
         settings.isAccessibilityTrusted = false
-        
-        // Poll every 1.0s until granted
         if trustPollingTimer == nil {
             trustPollingTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
                 guard let self = self else { return }
                 if self.setupEventTap() {
                     self.settings.isAccessibilityTrusted = true
-                    self.trustPollingTimer?.invalidate()
-                    self.trustPollingTimer = nil
+                    self.trustPollingTimer?.invalidate(); self.trustPollingTimer = nil
                 }
             }
         }
@@ -190,14 +86,9 @@ public final class EventTapCoordinator: @unchecked Sendable {
     @discardableResult
     private func setupEventTap() -> Bool {
         guard eventTap == nil else { return true }
-        
-        let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue) |
-                                     (1 << CGEventType.keyUp.rawValue) |
-                                     (1 << CGEventType.flagsChanged.rawValue) |
-                                     (1 << CGEventType.leftMouseDown.rawValue) |
-                                     (1 << CGEventType.rightMouseDown.rawValue) |
-                                     (1 << CGEventType.otherMouseDown.rawValue)
-        
+        let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue) |
+                                     (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.leftMouseDown.rawValue) |
+                                     (1 << CGEventType.rightMouseDown.rawValue) | (1 << CGEventType.otherMouseDown.rawValue)
         let observer = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         
         guard let tap = CGEvent.tapCreate(
@@ -220,78 +111,7 @@ public final class EventTapCoordinator: @unchecked Sendable {
         return true
     }
     
-    public static func isTerminalApp(bundleId: String?) -> Bool {
-        guard let bundleId = bundleId else { return false }
-        let terminalBundleIds: Set<String> = [
-            "com.apple.Terminal",
-            "com.googlecode.iterm2",
-            "dev.warp.Warp-Stable",
-            "dev.warp.Warp",
-            "com.mitchellh.ghostty",
-            "org.alacritty",
-            "io.alacritty",
-            "net.kovidgoyal.kitty",
-            "co.zeit.hyper",
-            "com.github.wez.wezterm",
-            // Remote desktop & virtual machine clients
-            "com.vmware.fusion",
-            "com.parallels.desktop.console",
-            "com.microsoft.rdc.macos",
-            "org.virtualbox.app.VirtualBoxVM",
-            "com.utmapp.UTM"
-        ]
-        return terminalBundleIds.contains(bundleId)
-    }
-    
-    public static func invalidateSpotlightCache() {
-        spotlightLock.lock()
-        lastSpotlightCheckTime = 0
-        cachedSpotlightResult = false
-        needsSpotlightRecheck = true
-        spotlightLock.unlock()
-    }
-    
-    public static func isSpotlightOverlayVisible(frontmostBundleId: String? = nil) -> Bool {
-        if isLauncherApp(bundleId: frontmostBundleId) {
-            return true
-        }
-        
-        spotlightLock.lock()
-        if !needsSpotlightRecheck && !cachedSpotlightResult {
-            spotlightLock.unlock()
-            return false
-        }
-        
-        let now = ProcessInfo.processInfo.systemUptime
-        if cachedSpotlightResult && (now - lastSpotlightCheckTime) < 0.5 {
-            spotlightLock.unlock()
-            return true
-        }
-        needsSpotlightRecheck = false
-        spotlightLock.unlock()
-        
-        var isVisible = false
-        if let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
-            for window in windowList {
-                if let owner = window[kCGWindowOwnerName as String] as? String,
-                   (owner == "Spotlight" || owner == "Raycast" || owner == "Alfred"),
-                   let layer = window[kCGWindowLayer as String] as? Int, layer > 0,
-                   let boundsDict = window[kCGWindowBounds as String] as? [String: Any],
-                   let width = boundsDict["Width"] as? CGFloat,
-                   let height = boundsDict["Height"] as? CGFloat,
-                   width >= 200 && height >= 40 {
-                    isVisible = true
-                    break
-                }
-            }
-        }
-        
-        spotlightLock.lock()
-        lastSpotlightCheckTime = now
-        cachedSpotlightResult = isVisible
-        spotlightLock.unlock()
-        return isVisible
-    }
+    public nonisolated(unsafe) static var candidatePanelFrame: NSRect = .zero
     
     private func setupAppSwitchObserver() {
         let token = NSWorkspace.shared.notificationCenter.addObserver(
@@ -327,14 +147,9 @@ public final class EventTapCoordinator: @unchecked Sendable {
     
     public func handleAppSwitch(bundleId: String) {
         OKEngineResetSession()
-        if bundleId == "com.tuyenmai.openkey.swift" {
-            return
-        }
+        if bundleId == "com.tuyenmai.openkey.swift" { return }
         settings.activeAppBundleId = bundleId
-        guard settings.useSmartSwitchKey else { return }
-        if EventTapCoordinator.isTerminalApp(bundleId: bundleId) {
-            return
-        }
+        guard settings.useSmartSwitchKey && !EventTapCoordinator.isTerminalApp(bundleId: bundleId) else { return }
         let currentLang = settings.language
         let appLang = OKGetAppInputMethodStatus(bundleId, Int32(currentLang))
         if appLang >= 0 && appLang != currentLang {
@@ -410,10 +225,7 @@ public final class EventTapCoordinator: @unchecked Sendable {
             }
         }
         
-        if context.eventType == .keyUp {
-            return .passThrough(resetSession: false)
-        }
-        if context.eventType == .flagsChanged {
+        if context.eventType == .keyUp || context.eventType == .flagsChanged {
             return .passThrough(resetSession: false)
         }
         
@@ -430,23 +242,23 @@ public final class EventTapCoordinator: @unchecked Sendable {
            !context.activeCandidates.isEmpty &&
            context.eventType == .keyDown {
             
-            // Tab (KEY_TAB = 48) accepts candidate #1
+            // Tab (KEY_TAB = 48) accepts candidate #1 ONLY when it is a correction (REQ-008)
             if context.keyCode == 48 &&
                !context.flags.contains(.maskCommand) &&
                !context.flags.contains(.maskAlternate) &&
                !context.flags.contains(.maskControl) {
-                return .acceptCandidate(context.activeCandidates[0])
+                if context.activeCandidates[0].kind == .correction {
+                    return .acceptCandidate(context.activeCandidates[0])
+                } else {
+                    AutoWordingEngine.shared.clearCandidates()
+                }
             }
             
             // Control + 1..3 accepts candidate #1..#3
             if context.flags.contains(.maskControl) &&
                !context.flags.contains(.maskCommand) &&
                !context.flags.contains(.maskAlternate) {
-                var targetIdx: Int? = nil
-                if context.keyCode == 18 { targetIdx = 0 }      // 1
-                else if context.keyCode == 19 { targetIdx = 1 } // 2
-                else if context.keyCode == 20 { targetIdx = 2 } // 3
-                
+                let targetIdx = (context.keyCode == 18) ? 0 : ((context.keyCode == 19) ? 1 : ((context.keyCode == 20) ? 2 : nil))
                 if let idx = targetIdx, idx < context.activeCandidates.count {
                     return .acceptCandidate(context.activeCandidates[idx])
                 }
@@ -462,57 +274,34 @@ public final class EventTapCoordinator: @unchecked Sendable {
         }
         
         // 5. Bypass on Command/Control/Option shortcuts
-        if context.flags.contains(.maskCommand) ||
-           context.flags.contains(.maskControl) ||
-           context.flags.contains(.maskAlternate) {
+        if context.flags.contains(.maskCommand) || context.flags.contains(.maskControl) || context.flags.contains(.maskAlternate) {
             return .passThrough(resetSession: true)
         }
         
-        // 6. Fast O(1) English mode bypass
-        if context.language == 0 {
-            return .passThrough(resetSession: false)
-        }
-        
-        // 7. Bypass on Terminal emulators / VM clients
-        if EventTapCoordinator.isTerminalApp(bundleId: context.activeAppBundleId) {
-            return .passThrough(resetSession: true)
-        }
-        
-        // 8. Bypass on System Launchers (Spotlight, Raycast, Alfred) (REQ-002, ADR-002)
-        if context.isSpotlightVisible || EventTapCoordinator.isLauncherApp(bundleId: context.activeAppBundleId) {
-            return .passThrough(resetSession: true)
-        }
-        
-        // 9. Check input source guard (Dvorak/Colemak/AZERTY/non-English layouts)
-        if context.otherLanguage && !context.isCompatibleInputSource {
-            return .passThrough(resetSession: true)
-        }
+        // 6-9. Fast bypass checks
+        if context.language == 0 { return .passThrough(resetSession: false) }
+        if EventTapCoordinator.isTerminalApp(bundleId: context.activeAppBundleId) { return .passThrough(resetSession: true) }
+        if context.isSpotlightVisible || EventTapCoordinator.isLauncherApp(bundleId: context.activeAppBundleId) { return .passThrough(resetSession: true) }
+        if context.otherLanguage && !context.isCompatibleInputSource { return .passThrough(resetSession: true) }
         
         // 10. Engine Evaluation
         let otherControlKey = context.flags.contains(.maskSecondaryFn) ||
                               context.flags.contains(.maskNumericPad) ||
                               context.flags.contains(.maskHelp)
-        
         let capsStatus: UInt8 = context.flags.contains(.maskShift) ? 1 : (context.flags.contains(.maskAlphaShift) ? 2 : 0)
-        
         let snapshot = OKEngineHandleKeyEvent(UInt16(context.keyCode), capsStatus, otherControlKey)
-        
         if snapshot.code == HookCodeState.doNothing {
             return .passThrough(resetSession: false)
         }
-        
-        let utf16Chars = snapshot.utf16Chars
-        
         let strategy = KeystrokeInjector.determineStrategy(
             backspaceCount: Int(snapshot.backspaceCount),
             fixRecommendBrowser: context.fixRecommendBrowser,
             bundleId: context.activeAppBundleId,
             extCode: Int32(snapshot.extCode)
         )
-        
         return .replaceKeystroke(
             backspaces: Int(snapshot.backspaceCount),
-            chars: utf16Chars,
+            chars: snapshot.utf16Chars,
             strategy: strategy,
             passThroughTrailingKey: snapshot.shouldSendControlKey
         )
@@ -522,9 +311,7 @@ public final class EventTapCoordinator: @unchecked Sendable {
     fileprivate func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         // 1. Timeout / Disabled Recovery
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if let tap = eventTap {
-                CGEvent.tapEnable(tap: tap, enable: true)
-            }
+            if let tap = eventTap { CGEvent.tapEnable(tap: tap, enable: true) }
             OKEngineResetSession()
             return Unmanaged.passUnretained(event)
         }
@@ -540,8 +327,7 @@ public final class EventTapCoordinator: @unchecked Sendable {
         default: return Unmanaged.passUnretained(event)
         }
         
-        let isSelf = event.getIntegerValueField(.eventSourceUserData) == KeystrokeInjector.eventSourceUserData
-        if isSelf {
+        if event.getIntegerValueField(.eventSourceUserData) == KeystrokeInjector.eventSourceUserData {
             return Unmanaged.passUnretained(event)
         }
         
@@ -565,7 +351,7 @@ public final class EventTapCoordinator: @unchecked Sendable {
             keyCode: keyCode,
             flags: event.flags,
             isAutoRepeat: isAutoRepeat,
-            isSelfEvent: isSelf,
+            isSelfEvent: false,
             language: settings.language,
             useSmartSwitchKey: settings.useSmartSwitchKey,
             otherLanguage: settings.otherLanguage,
@@ -588,7 +374,17 @@ public final class EventTapCoordinator: @unchecked Sendable {
             
         case .passThrough(let resetSession):
             if resetSession {
+                #if canImport(AppKit)
+                let mouseInPanel = (eventType == .leftMouseDown) &&
+                    !EventTapCoordinator.candidatePanelFrame.isEmpty &&
+                    EventTapCoordinator.candidatePanelFrame.contains(NSEvent.mouseLocation) &&
+                    !AutoWordingEngine.shared.activeCandidates.isEmpty
+                if !mouseInPanel {
+                    OKEngineResetSession()
+                }
+                #else
                 OKEngineResetSession()
+                #endif
             }
             return Unmanaged.passUnretained(event)
             

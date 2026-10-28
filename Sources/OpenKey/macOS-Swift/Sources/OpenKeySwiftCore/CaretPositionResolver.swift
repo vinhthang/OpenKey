@@ -47,13 +47,19 @@ public enum CaretPositionResolver {
     }
     #endif
 
+    public static func isValidCaretBounds(_ rect: CGRect) -> Bool {
+        rect.width >= 0 && rect.height > 0 && (rect.origin.x != 0 || rect.origin.y != 0)
+    }
+
     public static func resolveCaretScreenPoint() -> CGPoint {
         let systemWide = AXUIElementCreateSystemWide()
+        _ = AXUIElementSetMessagingTimeout(systemWide, 0.04)
         var focusedAppVal: AnyObject?
         
         if AXUIElementCopyAttributeValue(systemWide, kAXFocusedApplicationAttribute as CFString, &focusedAppVal) == .success,
            let focusedApp = focusedAppVal {
             let appElement = focusedApp as! AXUIElement
+            _ = AXUIElementSetMessagingTimeout(appElement, 0.04)
             var pid: pid_t = 0
             if AXUIElementGetPid(appElement, &pid) == .success {
                 enableManualAccessibilityIfNeeded(for: appElement, pid: pid)
@@ -63,6 +69,7 @@ public enum CaretPositionResolver {
             if AXUIElementCopyAttributeValue(appElement, kAXFocusedUIElementAttribute as CFString, &focusedElementVal) == .success,
                let focusedElement = focusedElementVal {
                 let uiElement = focusedElement as! AXUIElement
+                _ = AXUIElementSetMessagingTimeout(uiElement, 0.04)
                 
                 // 1. Try kAXSelectedTextRangeParameterizedAttribute bounds
                 var selectedRangeVal: AnyObject?
@@ -81,7 +88,7 @@ public enum CaretPositionResolver {
                            ) == .success,
                            let bVal = boundsVal {
                             var rect = CGRect.zero
-                            if AXValueGetValue(bVal as! AXValue, .cgRect, &rect) && rect.width > 0 && rect.height > 0 {
+                            if AXValueGetValue(bVal as! AXValue, .cgRect, &rect) && isValidCaretBounds(rect) {
                                 #if canImport(AppKit)
                                 let mainScreenHeight = NSScreen.screens.first?.frame.height ?? 1080
                                 #else
@@ -94,7 +101,7 @@ public enum CaretPositionResolver {
                     }
                 }
                 
-                // 2. Try element position fallback
+                // 2. Try element position fallback (restricted to compact inputs <= 48pt height)
                 var posVal: AnyObject?
                 var sizeVal: AnyObject?
                 if AXUIElementCopyAttributeValue(uiElement, kAXPositionAttribute as CFString, &posVal) == .success,
@@ -102,7 +109,9 @@ public enum CaretPositionResolver {
                    let pVal = posVal, let sVal = sizeVal {
                     var pt = CGPoint.zero
                     var sz = CGSize.zero
-                    if AXValueGetValue(pVal as! AXValue, .cgPoint, &pt) && AXValueGetValue(sVal as! AXValue, .cgSize, &sz) {
+                    if AXValueGetValue(pVal as! AXValue, .cgPoint, &pt) &&
+                       AXValueGetValue(sVal as! AXValue, .cgSize, &sz) &&
+                       sz.height > 0 && sz.height <= 48 {
                         #if canImport(AppKit)
                         let mainScreenHeight = NSScreen.screens.first?.frame.height ?? 1080
                         #else

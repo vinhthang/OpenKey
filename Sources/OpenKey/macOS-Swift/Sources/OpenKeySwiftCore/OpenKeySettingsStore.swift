@@ -31,8 +31,22 @@ import AppKit
     public static let defaultSwitchKey: Int = 0x7A000206
     
     public var activeAppBundleId: String?
+    
+    public func resolveTargetAppBundleId() -> String? {
+        if let bundleId = activeAppBundleId {
+            return bundleId
+        }
+        #if canImport(AppKit)
+        if let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+           front != "com.tuyenmai.openkey.swift" {
+            return front
+        }
+        #endif
+        return nil
+    }
     public var onLanguageChanged: (@MainActor @Sendable (Int) -> Void)?
     private var isApplyingSmartSwitch: Bool = false
+    private var isBatchUpdatingAutoWording: Bool = false
     
     public var language: Int {
         didSet {
@@ -46,16 +60,7 @@ import AppKit
                 }
             }
             if !isApplyingSmartSwitch && useSmartSwitchKey {
-                var targetBundleId = activeAppBundleId
-                if targetBundleId == nil {
-                    #if canImport(AppKit)
-                    if let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
-                       front != "com.tuyenmai.openkey.swift" {
-                        targetBundleId = front
-                    }
-                    #endif
-                }
-                if let bundleId = targetBundleId {
+                if let bundleId = resolveTargetAppBundleId() {
                     OKSetAppInputMethodStatus(bundleId, Int32(language))
                     saveSmartSwitchData()
                 }
@@ -107,15 +112,7 @@ import AppKit
             UserDefaults.standard.set(useSmartSwitchKey, forKey: Keys.useSmartSwitchKey)
             syncToEngine()
             if useSmartSwitchKey {
-                var targetBundleId = activeAppBundleId
-                #if canImport(AppKit)
-                if targetBundleId == nil,
-                   let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
-                   front != "com.tuyenmai.openkey.swift" {
-                    targetBundleId = front
-                }
-                #endif
-                if let bundleId = targetBundleId {
+                if let bundleId = resolveTargetAppBundleId() {
                     OKSetAppInputMethodStatus(bundleId, Int32(language))
                     saveSmartSwitchData()
                 }
@@ -144,6 +141,19 @@ import AppKit
     public var autoWordingEnabled: Bool {
         didSet {
             UserDefaults.standard.set(autoWordingEnabled, forKey: Keys.autoWordingEnabled)
+            if autoWordingEnabled && !grammarRepairEnabled && !shorthandExpansionEnabled && !candidateSuggestionsEnabled {
+                isBatchUpdatingAutoWording = true
+                grammarRepairEnabled = true
+                shorthandExpansionEnabled = true
+                candidateSuggestionsEnabled = true
+                UserDefaults.standard.set(true, forKey: Keys.grammarRepairEnabled)
+                UserDefaults.standard.set(true, forKey: Keys.shorthandExpansionEnabled)
+                UserDefaults.standard.set(true, forKey: Keys.candidateSuggestionsEnabled)
+                isBatchUpdatingAutoWording = false
+            }
+            if !autoWordingEnabled {
+                AutoWordingEngine.shared.clearCandidates()
+            }
             syncToEngine()
         }
     }
@@ -151,21 +161,30 @@ import AppKit
     public var grammarRepairEnabled: Bool {
         didSet {
             UserDefaults.standard.set(grammarRepairEnabled, forKey: Keys.grammarRepairEnabled)
-            syncToEngine()
+            if !isBatchUpdatingAutoWording {
+                syncToEngine()
+            }
         }
     }
     
     public var shorthandExpansionEnabled: Bool {
         didSet {
             UserDefaults.standard.set(shorthandExpansionEnabled, forKey: Keys.shorthandExpansionEnabled)
-            syncToEngine()
+            if !isBatchUpdatingAutoWording {
+                syncToEngine()
+            }
         }
     }
     
     public var candidateSuggestionsEnabled: Bool {
         didSet {
             UserDefaults.standard.set(candidateSuggestionsEnabled, forKey: Keys.candidateSuggestionsEnabled)
-            syncToEngine()
+            if !candidateSuggestionsEnabled {
+                AutoWordingEngine.shared.clearCandidates()
+            }
+            if !isBatchUpdatingAutoWording {
+                syncToEngine()
+            }
         }
     }
     
@@ -209,10 +228,22 @@ import AppKit
         self.otherLanguage = defaults.bool(forKey: Keys.otherLanguage)
         self.switchKeyStatus = defaults.integer(forKey: Keys.switchKeyStatus)
         self.beepOnSwitch = defaults.bool(forKey: Keys.beepOnSwitch)
-        self.autoWordingEnabled = defaults.bool(forKey: Keys.autoWordingEnabled)
-        self.grammarRepairEnabled = defaults.bool(forKey: Keys.grammarRepairEnabled)
-        self.shorthandExpansionEnabled = defaults.bool(forKey: Keys.shorthandExpansionEnabled)
-        self.candidateSuggestionsEnabled = defaults.bool(forKey: Keys.candidateSuggestionsEnabled)
+        let autoWording = defaults.bool(forKey: Keys.autoWordingEnabled)
+        var gr = defaults.bool(forKey: Keys.grammarRepairEnabled)
+        var se = defaults.bool(forKey: Keys.shorthandExpansionEnabled)
+        var cs = defaults.bool(forKey: Keys.candidateSuggestionsEnabled)
+        if autoWording && !gr && !se && !cs {
+            gr = true
+            se = true
+            cs = true
+            defaults.set(true, forKey: Keys.grammarRepairEnabled)
+            defaults.set(true, forKey: Keys.shorthandExpansionEnabled)
+            defaults.set(true, forKey: Keys.candidateSuggestionsEnabled)
+        }
+        self.autoWordingEnabled = autoWording
+        self.grammarRepairEnabled = gr
+        self.shorthandExpansionEnabled = se
+        self.candidateSuggestionsEnabled = cs
         self.customShorthands = defaults.dictionary(forKey: Keys.customShorthands) as? [String: String] ?? [:]
         
         OKEngineInit()
@@ -256,10 +287,6 @@ import AppKit
             shorthandExpansionEnabled ? 1 : 0,
             candidateSuggestionsEnabled ? 1 : 0
         )
-        AutoWordingEngine.shared.isEnabled = autoWordingEnabled
-        AutoWordingEngine.shared.grammarRepairEnabled = grammarRepairEnabled
-        AutoWordingEngine.shared.shorthandExpansionEnabled = shorthandExpansionEnabled
-        AutoWordingEngine.shared.candidateSuggestionsEnabled = candidateSuggestionsEnabled
         AutoWordingEngine.shared.customShorthands = customShorthands
     }
     
