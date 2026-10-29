@@ -669,3 +669,64 @@ Building for debugging...
 Build complete! (1.84s)
 Test run with 35 tests in 5 suites passed after 0.781 seconds.
 ```
+
+---
+
+## 14. Verification for Task 10: Settings `Esc`-to-Close, Single-Language UI Switcher (`VI | EN`) & Implementor/Version Attribution (`REQ-012`, `ADR-011`)
+
+- **Requirement IDs Verified**: `REQ-012` (`ADR-011`), `REQ-009` (`ADR-008`)
+- **Files Verified**:
+  - `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/OpenKeySettingsStore.swift` (`327` lines)
+  - `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftApp/OpenKeyL10n.swift` (`82` lines)
+  - `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftApp/SettingsView.swift` (`402` lines)
+  - `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftApp/OpenKeySwiftApp.swift` (`203` lines)
+  - `Sources/OpenKey/macOS-Swift/Tests/OpenKeySwiftTests/OpenKeyEventTapTests.swift` (`421` lines)
+
+### 14.1 Sub-500-Line Invariant Verification (27 Swift Files)
+```bash
+$ rtk wc -l Sources/OpenKey/macOS-Swift/Sources/*/*.swift Sources/OpenKey/macOS-Swift/Tests/*/*.swift
+193 Sources/OpenKeySwiftApp/CandidateBarController.swift
+ 82 Sources/OpenKeySwiftApp/OpenKeyL10n.swift
+203 Sources/OpenKeySwiftApp/OpenKeySwiftApp.swift
+402 Sources/OpenKeySwiftApp/SettingsView.swift
+443 Sources/OpenKeySwiftCore/AutoWordingEngine.swift
+ 62 Sources/OpenKeySwiftCore/AutoWordingTypes.swift
+135 Sources/OpenKeySwiftCore/CaretPositionResolver.swift
+448 Sources/OpenKeySwiftCore/EventTapCoordinator.swift
+ 86 Sources/OpenKeySwiftCore/HotKeyMatcher.swift
+ 83 Sources/OpenKeySwiftCore/InputSourceGuard.swift
+149 Sources/OpenKeySwiftCore/KeystrokeInjector.swift
+327 Sources/OpenKeySwiftCore/OpenKeySettingsStore.swift
+116 Sources/OpenKeySwiftCore/SmartSwitchStore.swift
+193 Sources/OpenKeySwiftCore/SystemEnvironmentDetector.swift
+395 Sources/OpenKeySwiftCore/VietnameseData.swift
+106 Sources/OpenKeySwiftCore/VietnameseDictionary.swift
+459 Sources/OpenKeySwiftCore/VietnameseDictionaryCorpus.swift
+382 Sources/OpenKeySwiftCore/VietnameseEngine.swift
+276 Sources/OpenKeySwiftCore/VietnameseEngine+KeyEventDispatcher.swift
+422 Sources/OpenKeySwiftCore/VietnameseEngine+MarkAndTone.swift
+323 Sources/OpenKeySwiftCore/VietnameseEngine+SpellingAndGrammar.swift
+155 Sources/OpenKeySwiftCore/VietnameseUnicodeTable.swift
+459 Tests/OpenKeySwiftTests/OpenKeyAutoWordingTests.swift
+472 Tests/OpenKeySwiftTests/OpenKeyEngineTests.swift
+421 Tests/OpenKeySwiftTests/OpenKeyEventTapTests.swift
+430 Tests/OpenKeySwiftTests/OpenKeyLoadTests.swift
+102 Tests/OpenKeySwiftTests/OpenKeyTestHelpers.swift
+Σ 7324
+```
+
+### 14.2 Automated Unit & Load Test Suite Execution (36/36 Passing)
+```bash
+$ rtk swift test --package-path Sources/OpenKey/macOS-Swift
+✔ Test "REQ-012: UI language setting persistence and clamping" passed after 0.001 seconds.
+✔ Test run with 36 tests in 5 suites passed after 0.785 seconds.
+```
+
+### 14.3 Release Build & Deployment Verification
+```bash
+$ rtk bash Sources/OpenKey/macOS-Swift/build-app.sh
+=== Building OpenKeySwift release binary ===
+=== Assembling OpenKeySwift.app bundle ===
+=== Signing OpenKeySwift.app with identity '-' ===
+=== Build completed successfully: /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app ===
+```

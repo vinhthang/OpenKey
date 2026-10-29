@@ -25,6 +25,7 @@ import AppKit
         public static let shorthandExpansionEnabled = "ShorthandExpansionEnabled"
         public static let candidateSuggestionsEnabled = "CandidateSuggestionsEnabled"
         public static let customShorthands = "CustomShorthandsData"
+        public static let uiLanguage = "UILanguage" // 1: Vietnamese, 0: English
     }
     
     // Default switch key: Option + Z (0x7A000206)
@@ -65,6 +66,16 @@ import AppKit
                     saveSmartSwitchData()
                 }
             }
+        }
+    }
+    
+    public var uiLanguage: Int {
+        didSet {
+            if uiLanguage != 0 && uiLanguage != 1 {
+                uiLanguage = 1
+                return
+            }
+            UserDefaults.standard.set(uiLanguage, forKey: Keys.uiLanguage)
         }
     }
     
@@ -202,6 +213,7 @@ import AppKit
         let defaults = UserDefaults.standard
         defaults.register(defaults: [
             Keys.language: 1, // Vietnamese by default
+            Keys.uiLanguage: 1, // 1: Vietnamese, 0: English
             Keys.inputType: 0, // Telex by default
             Keys.checkSpelling: true,
             Keys.restoreIfWrongSpelling: true,
@@ -218,6 +230,8 @@ import AppKit
         ])
         
         self.language = defaults.integer(forKey: Keys.language)
+        let rawUILang = defaults.object(forKey: Keys.uiLanguage) != nil ? defaults.integer(forKey: Keys.uiLanguage) : 1
+        self.uiLanguage = (rawUILang == 0) ? 0 : 1
         let rawInputType = defaults.integer(forKey: Keys.inputType)
         self.inputType = (rawInputType == 1) ? 1 : 0
         self.checkSpelling = defaults.bool(forKey: Keys.checkSpelling)

@@ -100,18 +100,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     
     private func buildMenuItems(in menu: NSMenu) {
         menu.removeAllItems()
+        let l10n = OpenKeyL10n(isVietnamese: settings.uiLanguage == 1)
         
-        let toggleItem = NSMenuItem(title: "Tiếng Việt (Option+Z)", action: #selector(toggleLanguage), keyEquivalent: "")
+        let toggleItem = NSMenuItem(title: l10n.menuVietnamese, action: #selector(toggleLanguage), keyEquivalent: "")
         toggleItem.target = self
         toggleItem.state = (settings.language == 1) ? .on : .off
         menu.addItem(toggleItem)
         
-        let smartSwitchItem = NSMenuItem(title: "Nhớ ngôn ngữ theo ứng dụng", action: #selector(toggleSmartSwitch), keyEquivalent: "")
+        let smartSwitchItem = NSMenuItem(title: l10n.menuSmartSwitch, action: #selector(toggleSmartSwitch), keyEquivalent: "")
         smartSwitchItem.target = self
         smartSwitchItem.state = settings.useSmartSwitchKey ? .on : .off
         menu.addItem(smartSwitchItem)
         
-        let autoWordingItem = NSMenuItem(title: "Auto Wording & Gợi ý từ (Thử nghiệm)", action: #selector(toggleAutoWording), keyEquivalent: "")
+        let autoWordingItem = NSMenuItem(title: l10n.menuAutoWording, action: #selector(toggleAutoWording), keyEquivalent: "")
         autoWordingItem.target = self
         autoWordingItem.state = settings.autoWordingEnabled ? .on : .off
         menu.addItem(autoWordingItem)
@@ -130,19 +131,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
-        let settingsItem = NSMenuItem(title: "Bảng điều khiển (Settings)...", action: #selector(openSettings), keyEquivalent: ",")
+        let settingsItem = NSMenuItem(title: l10n.menuSettings, action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
         
         menu.addItem(NSMenuItem.separator())
         
-        let aboutItem = NSMenuItem(title: "Chuyển đổi Pure Swift 6 từ OpenKey (Mai Vũ Tuyên)", action: nil, keyEquivalent: "")
+        let aboutItem = NSMenuItem(title: l10n.menuAbout, action: nil, keyEquivalent: "")
         aboutItem.isEnabled = false
         menu.addItem(aboutItem)
         
         menu.addItem(NSMenuItem.separator())
         
-        let quitItem = NSMenuItem(title: "Thoát (Quit)", action: #selector(quitApp), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: l10n.menuQuit, action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
     }
@@ -169,17 +170,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     
     @objc private func openSettings() {
+        let l10n = OpenKeyL10n(isVietnamese: settings.uiLanguage == 1)
         if settingsWindowController == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 480, height: 600),
+                contentRect: NSRect(x: 0, y: 0, width: 500, height: 760),
                 styleMask: [.titled, .closable, .miniaturizable],
                 backing: .buffered,
                 defer: false
             )
-            window.title = "OpenKey - Cài đặt"
+            window.title = l10n.windowTitle
             window.center()
             window.contentView = NSHostingView(rootView: SettingsView())
             settingsWindowController = NSWindowController(window: window)
+        } else {
+            settingsWindowController?.window?.title = l10n.windowTitle
         }
         settingsWindowController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)

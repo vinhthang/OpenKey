@@ -3,7 +3,7 @@
   "verdict": "PASS",
   "phase": 2,
   "evidence_verified": true,
-  "spec_hash": "31f6d3dda17ee6f023ee4db20123537ee1030c44f7beedc5653344e8ed873377",
+  "spec_hash": "5319fd658b18fa5919f511b332ea03a5ce456fc6acef7cccd4f5ed6c50d47932",
   "evidence_hash": "25f76595c379ffee3319507bbd783365e5e89c00ab6c586637e23f6aee76c75d",
   "auditor_model": "gemini-4-argon-high",
   "audited_requirements": [
@@ -17,7 +17,8 @@
     "REQ-008",
     "REQ-009",
     "REQ-010",
-    "REQ-011"
+    "REQ-011",
+    "REQ-012"
   ],
   "audited_decisions": [
     "ADR-001",
@@ -29,11 +30,12 @@
     "ADR-007",
     "ADR-008",
     "ADR-009",
-    "ADR-010"
+    "ADR-010",
+    "ADR-011"
   ],
   "findings": [],
   "semantic_findings": [],
-  "evidence_verified_count": 11,
+  "evidence_verified_count": 12,
   "requirements_evaluated": {
     "REQ-001": {
       "design_aligned": true,
@@ -64,7 +66,7 @@
     },
     "REQ-004": {
       "design_aligned": true,
-      "design_rationale": "Section 2.3 removes the !isConsonant(CHR(ii)) restriction in VietnameseEngine.checkRestoreIfWrongSpelling to inspect all syllable positions for TONE_MASK (including KEY_D / đ) and MARK_MASK / TONEW_MASK, while Section 2.1 extends EventTapAction.replaceKeystroke with passThroughTrailingKey to preserve trailing control keys.",
+      "design_rationale": "Section 2.3 removes the !isConsonant(CHR(ii)) restriction in VietnameseEngine.checkRestoreIfWrongSpelling to inspect all syllable positions for TONE_MASK (including KEY_D / \u0111) and MARK_MASK / TONEW_MASK, while Section 2.1 extends EventTapAction.replaceKeystroke with passThroughTrailingKey to preserve trailing control keys.",
       "tasks_actionable": true,
       "tasks_rationale": "Task 1 (subtask 1.1) implements the checkRestoreIfWrongSpelling logic, subtask 1.2 wires passThroughTrailingKey in EventTapCoordinator.swift, and Task 4 provides unit test coverage for dead/added/window.",
       "decisions_consistent": true,
@@ -123,7 +125,7 @@
       "tasks_rationale": "Task 8 (subtasks 8.1 and 8.2) specifies TDD unit tests in OpenKeyEngineTests.swift and OpenKeyAutoWordingTests.swift, implementation across VietnameseEngine+SpellingAndGrammar.swift, VietnameseEngine+MarkAndTone.swift, VietnameseEngine+KeyEventDispatcher.swift, VietnameseDictionaryCorpus.swift, and AutoWordingEngine.swift, and verification with sub-500-line invariant, unit tests, and real-system load tests.",
       "decisions_consistent": true,
       "evidence_verified": true,
-      "evidence_rationale": "Verified in verification.md Section 12: unit tests for REQ-010 pass (35/35), real-system load tests pass (10/10) with thế giới / giới thiệu assertion, and all files remain < 500 lines."
+      "evidence_rationale": "Verified in verification.md Section 12: unit tests for REQ-010 pass (35/35), real-system load tests pass (10/10) with th\u1ebf gi\u1edbi / gi\u1edbi thi\u1ec7u assertion, and all files remain < 500 lines."
     },
     "REQ-011": {
       "design_aligned": true,
@@ -133,6 +135,15 @@
       "decisions_consistent": true,
       "evidence_verified": true,
       "evidence_rationale": "Verified via Package.swift swift test execution, build-app.sh bundle verification, and .github/workflows/macos-ci.yml deployment."
+    },
+    "REQ-012": {
+      "design_aligned": true,
+      "design_rationale": "Section 9 details uiLanguage persistence in OpenKeySettingsStore, OpenKeyL10n single-language string catalog, SettingsView Esc-to-close handler, VI | EN segmented header toggle, and About section version + Antigravity (Gemini 4 Argon High) implementor attribution.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 10 (subtasks 10.1 through 10.4) specifies TDD tests for uiLanguage, OpenKeyL10n.swift creation, SettingsView.swift and OpenKeySwiftApp.swift updates, and deployment verification.",
+      "decisions_consistent": true,
+      "evidence_verified": true,
+      "evidence_rationale": "Verified via unit tests in OpenKeyEventTapTests.swift and release bundle verification."
     }
   }
 }

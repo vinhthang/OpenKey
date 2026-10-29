@@ -17,6 +17,7 @@
 | **`REQ-009`** | `ADR-008` | `Sources/OpenKey/macOS-Swift/Sources/**`, `Sources/OpenKey/macOS-Swift/Tests/**` | Sub-500-line modular decomposition (`VietnameseEngine+*.swift`, `SmartSwitchStore.swift`, `VietnameseUnicodeTable.swift`, `AutoWordingTypes.swift`, `VietnameseDictionaryCorpus.swift`, `SystemEnvironmentDetector.swift`) |
 | **`REQ-010`** | `ADR-009` | `VietnameseEngine+SpellingAndGrammar.swift`, `VietnameseEngine+KeyEventDispatcher.swift`, `AutoWordingEngine.swift`, `VietnameseDictionaryCorpus.swift` | `findAndCalculateVowel(forGrammar:)`, `canHasEndConsonant()`, `checkCorrectVowel(charset:i:markKey:)`, `handleCharacterKey(keyCode:isCaps:)`, `computeCurrentWordCandidates(currentSyllable:rawKeystrokes:isWrongSpelling:)` |
 | **`REQ-011`** | `ADR-010` | `.github/workflows/macos-ci.yml`, `Sources/OpenKey/macOS-Swift/Package.swift`, `README.md` | GitHub Actions `macos-26` CI/CD workflow (`test`, `build-app.sh`, `.zip`/`.dmg` packaging, artifact upload, release publishing) & portable `Testing` macro plugin resolution |
+| **`REQ-012`** | `ADR-011` | `OpenKeySettingsStore.swift`, `OpenKeyL10n.swift`, `SettingsView.swift`, `OpenKeySwiftApp.swift` | `uiLanguage` persistence (`VI | EN`), `OpenKeyL10n` concise single-language strings, `Esc`-to-close handler (`handleEscapeKey()`), and About section version + `Antigravity (Gemini 4 Argon High)` implementor attribution |
 
 ---
 
@@ -151,3 +152,19 @@
     8. Publish release assets via `softprops/action-gh-release@v2` when `startsWith(github.ref, 'refs/tags/v')`.
 - **`README.md`**:
   - Add the GitHub Actions `macOS CI/CD` workflow status badge under the header and document CI/CD automated builds and artifact downloads in Section 4.
+
+---
+
+## 9. Settings `Esc`-to-Close, Single-Language UI Switcher (`VI | EN`) & Implementor/Version Attribution (`REQ-012`, `ADR-011`)
+- **`OpenKeySettingsStore.swift`**:
+  - Add `public static let uiLanguage = "UILanguage"` to `Keys`.
+  - Add `public var uiLanguage: Int` (`1` = Vietnamese default, `0` = English; clamped to `0` or `1` and persisted to `UserDefaults`).
+- **`OpenKeyL10n.swift` (`Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftApp/OpenKeyL10n.swift`)**:
+  - Provide a value-type `public struct OpenKeyL10n: Sendable` initialized with `isVietnamese: Bool` (`settings.uiLanguage == 1`), exposing concise single-language strings for all Settings sections, toggles, buttons, accessibility banner messages, status bar menu items, and the About section (`versionString`, `implementorLine`, `authorLine`).
+- **`SettingsView.swift`**:
+  - Top bar: HStack containing the Accessibility status banner and a compact segmented `VI | EN` picker bound to `$settings.uiLanguage`.
+  - Replace all dual-language strings with `l10n.<property>`.
+  - About section: Display `OpenKeySwift` version badge (`v2.0.0 (Build 1)`), implementor row (`Antigravity (Gemini 4 Argon High)`), and original author row (`Mai Vũ Tuyên • GNU GPLv3`).
+  - `Esc` key handling: Install a window key monitor on `onAppear` (removed on `onDisappear`) that intercepts `keyCode == 53` (`Esc`): if `ui.isRecordingShortcut` is `true`, calls `stopRecordingShortcut()`; otherwise calls `NSApp.keyWindow?.close()`.
+- **`OpenKeySwiftApp.swift`**:
+  - Use `OpenKeyL10n(isVietnamese: settings.uiLanguage == 1)` when building status bar menu items and setting the Settings window title.

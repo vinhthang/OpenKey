@@ -106,3 +106,16 @@
   2. Update `Sources/OpenKey/macOS-Swift/Package.swift` (`import Foundation`) to pass the `CommandLineTools` `-plugin-path` flag only when `/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing` exists and `GITHUB_ACTIONS` is not set (or `DEVELOPER_DIR` is not an Xcode bundle).
   3. Update `README.md` with the GitHub Actions CI/CD badge and CI artifact / release instructions.
 - **Consequences**: Every push and pull request on `vinhthang/OpenKey` automatically validates tests, line-count invariants, and `.app` bundle code-signing on `macos-26` and produces ready-to-install `OpenKeySwift-macOS-arm64.zip` and `OpenKeySwift.dmg` artifacts.
+
+---
+
+## `ADR-011` — Settings `Esc`-to-Close, Single-Language UI Switcher (`VI | EN`) & Implementor/Version Attribution (`REQ-012`)
+- **Context**: User feedback identified three UX issues in `SettingsView`:
+  1. Closing the Settings window required clicking the window close button with the mouse instead of pressing `Esc`.
+  2. Every label concatenated Vietnamese and English side-by-side (e.g., `"Nhớ ngôn ngữ theo từng ứng dụng (Remember language per app)"`), making the Settings UI overly verbose.
+  3. The About section lacked the current application version and implementor attribution for **Antigravity (Gemini 4 Argon High)**.
+- **Decision**:
+  1. Register a window-level local `keyDown` monitor in `SettingsView` while visible: if `event.keyCode == 53` (`Esc`), cancel shortcut recording if `ui.isRecordingShortcut == true`, or close the Settings window (`NSApp.keyWindow?.close()`) if `ui.isRecordingShortcut == false`.
+  2. Add `uiLanguage: Int` (`1` = Vietnamese, `0` = English; key `"UILanguage"`) to `OpenKeySettingsStore` and extract a dedicated `OpenKeyL10n.swift` localization helper (`< 200` lines) providing concise single-language strings for both `SettingsView` and `OpenKeySwiftApp`, controlled by a compact `VI | EN` segmented picker in the Settings top bar.
+  3. Update the About section in `SettingsView` and `OpenKeyL10n` to display the current version (`v2.0.0 (Build 1)`), implementor (`Antigravity — Gemini 4 Argon High`), and original author (`Mai Vũ Tuyên`, GPLv3).
+- **Consequences**: The Settings window closes effortlessly with `Esc`, displays crisp single-language labels in either Vietnamese or English, and clearly documents both the app version and implementor provenance while keeping all `.swift` files well under 500 lines.

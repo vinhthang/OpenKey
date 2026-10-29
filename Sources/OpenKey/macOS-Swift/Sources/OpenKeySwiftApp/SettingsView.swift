@@ -6,6 +6,7 @@ import OpenKeySwiftCore
 @Observable final class SettingsUIModel: @unchecked Sendable {
     var isRecordingShortcut: Bool = false
     var localEventMonitor: Any? = nil
+    var escapeEventMonitor: Any? = nil
     var launchAtLoginError: String? = nil
     var newTrigger: String = ""
     var newExpansion: String = ""
@@ -15,35 +16,57 @@ public struct SettingsView: View {
     @Bindable var settings: OpenKeySettingsStore = OpenKeySettingsStore.shared
     private var ui = SettingsUIModel()
     
+    private var l10n: OpenKeyL10n {
+        OpenKeyL10n(isVietnamese: settings.uiLanguage == 1)
+    }
+    
     public init() {}
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Header / Accessibility Status Banner with Liquid Glass
-            accessibilityBanner
-                .padding()
+            // Header / Accessibility Status Banner with Segmented VI | EN Language Picker
+            HStack(spacing: 12) {
+                accessibilityBanner
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(l10n.uiLanguageLabel)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Picker("", selection: $settings.uiLanguage) {
+                        Text("VI").tag(1)
+                        Text("EN").tag(0)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 84)
+                }
+                .padding(10)
+                .glassEffect(.regular, in: .rect(cornerRadius: 12))
+            }
+            .padding(.horizontal)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
             
             Form {
-                // 1. Input & Language Section (with per-app memory toggle placed prominently)
-                Section(header: Label("Bộ gõ & Ngôn ngữ (Input & Language)", systemImage: "keyboard")) {
-                    Picker("Ngôn ngữ (Language):", selection: $settings.language) {
+                // 1. Input & Language Section
+                Section(header: Label(l10n.sectionInput, systemImage: "keyboard")) {
+                    Picker(l10n.inputLanguage, selection: $settings.language) {
                         Text("Tiếng Việt").tag(1)
                         Text("English").tag(0)
                     }
                     .pickerStyle(.segmented)
                     
-                    Picker("Kiểu gõ (Input Type):", selection: $settings.inputType) {
+                    Picker(l10n.inputType, selection: $settings.inputType) {
                         Text("Telex").tag(0)
                         Text("VNI").tag(1)
                     }
                     
-                    Toggle("Nhớ ngôn ngữ theo từng ứng dụng (Remember language per app)", isOn: $settings.useSmartSwitchKey)
+                    Toggle(l10n.smartSwitch, isOn: $settings.useSmartSwitchKey)
                 }
                 
                 // 2. Shortcut Section with Interactive Recorder
-                Section(header: Label("Phím chuyển (Shortcut Switch)", systemImage: "command")) {
+                Section(header: Label(l10n.sectionShortcut, systemImage: "command")) {
                     HStack {
-                        Text("Phím tắt hiện tại:")
+                        Text(l10n.currentShortcut)
                         Spacer()
                         Text(HotKeyMatcher.describe(config: settings.switchKeyStatus))
                             .font(.system(.body, design: .monospaced))
@@ -52,54 +75,54 @@ public struct SettingsView: View {
                             .glassEffect(.regular, in: .capsule)
                         
                         if ui.isRecordingShortcut {
-                            Button("Hủy (Esc)") {
+                            Button(l10n.cancelShortcut) {
                                 stopRecordingShortcut()
                             }
                             .buttonStyle(.borderedProminent)
                         } else {
-                            Button("Đổi phím tắt...") {
+                            Button(l10n.changeShortcut) {
                                 startRecordingShortcut()
                             }
                         }
                         
-                        Button("Mặc định (⌥Z)") {
+                        Button(l10n.defaultShortcut) {
                             stopRecordingShortcut()
                             settings.switchKeyStatus = OpenKeySettingsStore.defaultSwitchKey
                         }
                     }
                     
                     if ui.isRecordingShortcut {
-                        Text("Nhấn tổ hợp phím mong muốn (ví dụ ⌥Z, ⌃⇧Space, hoặc phím chức năng). Nhấn Esc để hủy.")
+                        Text(l10n.recordingHint)
                             .font(.caption)
                             .foregroundColor(.accentColor)
                     }
                     
-                    Toggle("Phát âm thanh khi chuyển (Beep on switch)", isOn: $settings.beepOnSwitch)
+                    Toggle(l10n.beepOnSwitch, isOn: $settings.beepOnSwitch)
                 }
                 
                 // 3. Orthography & Spelling Options
-                Section(header: Label("Chính tả & Tùy chọn gõ (Orthography)", systemImage: "checkmark.bubble")) {
-                    Toggle("Kiểm tra chính tả (Check spelling)", isOn: $settings.checkSpelling)
-                    Toggle("Tự động khôi phục từ sai (Auto-restore invalid words)", isOn: $settings.restoreIfWrongSpelling)
-                    Toggle("Bỏ dấu kiểu mới (Modern orthography: oà, uý)", isOn: $settings.useModernOrthography)
+                Section(header: Label(l10n.sectionOrthography, systemImage: "checkmark.bubble")) {
+                    Toggle(l10n.checkSpelling, isOn: $settings.checkSpelling)
+                    Toggle(l10n.autoRestore, isOn: $settings.restoreIfWrongSpelling)
+                    Toggle(l10n.modernOrthography, isOn: $settings.useModernOrthography)
                 }
                 
-                // 3.5. Auto Wording & Grammar Section (REQ-001, REQ-005, REQ-006)
-                Section(header: Label("Auto Wording & Ngữ pháp (Thử nghiệm)", systemImage: "sparkles")) {
-                    Toggle("Bật Auto Wording & Gợi ý từ (Auto wording)", isOn: $settings.autoWordingEnabled)
+                // 4. Auto Wording & Grammar Section
+                Section(header: Label(l10n.sectionAutoWording, systemImage: "sparkles")) {
+                    Toggle(l10n.enableAutoWording, isOn: $settings.autoWordingEnabled)
                     
-                    Toggle("Tự động sửa lỗi ngữ âm (ie/ye → iê/yê, uow → ươ)", isOn: $settings.grammarRepairEnabled)
+                    Toggle(l10n.grammarRepair, isOn: $settings.grammarRepairEnabled)
                         .disabled(!settings.autoWordingEnabled)
                         
-                    Toggle("Tự động viết tắt (ko → không, dc → được, vn → Việt Nam...)", isOn: $settings.shorthandExpansionEnabled)
+                    Toggle(l10n.shorthandExpansion, isOn: $settings.shorthandExpansionEnabled)
                         .disabled(!settings.autoWordingEnabled)
                         
-                    Toggle("Hiện thanh gợi ý từ Liquid Glass (Candidate bar)", isOn: $settings.candidateSuggestionsEnabled)
+                    Toggle(l10n.candidateBar, isOn: $settings.candidateSuggestionsEnabled)
                         .disabled(!settings.autoWordingEnabled)
                         
                     if settings.autoWordingEnabled && settings.shorthandExpansionEnabled {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Gõ tắt tùy chỉnh (Custom Shorthands):")
+                            Text(l10n.customShorthandsTitle)
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
                             
@@ -127,20 +150,20 @@ public struct SettingsView: View {
                             }
                             
                             HStack(spacing: 8) {
-                                TextField("Viết tắt (vd: cv)", text: Binding(
+                                TextField(l10n.triggerPlaceholder, text: Binding(
                                     get: { ui.newTrigger },
                                     set: { ui.newTrigger = $0 }
                                 ))
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 120)
                                 
-                                TextField("Mở rộng (vd: công việc)", text: Binding(
+                                TextField(l10n.expansionPlaceholder, text: Binding(
                                     get: { ui.newExpansion },
                                     set: { ui.newExpansion = $0 }
                                 ))
                                 .textFieldStyle(.roundedBorder)
                                 
-                                Button("Thêm") {
+                                Button(l10n.addButton) {
                                     settings.setCustomShorthand(trigger: ui.newTrigger, replacement: ui.newExpansion)
                                     ui.newTrigger = ""
                                     ui.newExpansion = ""
@@ -154,14 +177,14 @@ public struct SettingsView: View {
                     if settings.autoWordingEnabled && settings.candidateSuggestionsEnabled {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Dữ liệu tần suất học từ:")
+                                Text(l10n.learnedFreqTitle)
                                     .font(.subheadline)
-                                Text("Gợi ý từ tự động thích ứng với thói quen gõ của bạn.")
+                                Text(l10n.learnedFreqSubtitle)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
                             Spacer()
-                            Button("Xóa dữ liệu học từ") {
+                            Button(l10n.resetLearnedButton) {
                                 AutoWordingEngine.shared.resetLearnedFrequencies()
                             }
                         }
@@ -169,15 +192,15 @@ public struct SettingsView: View {
                     }
                 }
                 
-                // 4. Workarounds & Browser Fixes
-                Section(header: Label("Sửa lỗi ứng dụng & Trình duyệt (App Fixes)", systemImage: "wrench.and.screwdriver")) {
-                    Toggle("Khắc phục gợi ý thanh địa chỉ trình duyệt (Browser fix)", isOn: $settings.fixRecommendBrowser)
-                    Toggle("Tắt gõ tiếng Việt khi dùng layout không phải tiếng Anh", isOn: $settings.otherLanguage)
+                // 5. Workarounds & App Compatibility
+                Section(header: Label(l10n.sectionAppFixes, systemImage: "wrench.and.screwdriver")) {
+                    Toggle(l10n.fixBrowser, isOn: $settings.fixRecommendBrowser)
+                    Toggle(l10n.otherLanguage, isOn: $settings.otherLanguage)
                 }
                 
-                // 5. System Section with Error Recovery
-                Section(header: Label("Hệ thống (System)", systemImage: "gearshape")) {
-                    Toggle("Khởi động cùng máy tính (Launch at login)", isOn: $settings.launchAtLogin)
+                // 6. System Section
+                Section(header: Label(l10n.sectionSystem, systemImage: "gearshape")) {
+                    Toggle(l10n.launchAtLogin, isOn: $settings.launchAtLogin)
                         .onChange(of: settings.launchAtLogin) { oldValue, newValue in
                             handleLaunchAtLoginChange(newValue)
                         }
@@ -193,15 +216,37 @@ public struct SettingsView: View {
                     }
                 }
                 
-                // 6. About & Conversion Provenance
-                Section(header: Label("Giới thiệu (About)", systemImage: "info.circle")) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("OpenKeySwift — Bản chuyển đổi 100% Pure Swift 6 (macOS 26)")
-                            .font(.headline)
-                        Text("Được chuyển đổi hoàn toàn sang ngôn ngữ Swift 6 từ bộ gõ mã nguồn mở OpenKey (C++/Objective-C++) của tác giả Mai Vũ Tuyên.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("© Mai Vũ Tuyên • Giấy phép GNU GPLv3")
+                // 7. About & Conversion Provenance
+                Section(header: Label(l10n.sectionAbout, systemImage: "info.circle")) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(l10n.versionLabel)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .frame(width: 140, alignment: .leading)
+                            Text(l10n.versionValue)
+                                .font(.subheadline)
+                                .bold()
+                        }
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(l10n.implementorLabel)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(width: 140, alignment: .leading)
+                            Text(l10n.implementorValue)
+                                .font(.caption)
+                        }
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(l10n.originalAuthorLabel)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(width: 140, alignment: .leading)
+                            Text(l10n.originalAuthorValue)
+                                .font(.caption)
+                        }
+                        Divider()
+                            .padding(.vertical, 2)
+                        Text(l10n.licenseFooter)
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -213,9 +258,14 @@ public struct SettingsView: View {
         .frame(width: 500, height: 760)
         .onAppear {
             checkLaunchAtLoginStatus()
+            setupEscapeMonitor()
         }
         .onDisappear {
             stopRecordingShortcut()
+            removeEscapeMonitor()
+        }
+        .onChange(of: settings.uiLanguage) { _, _ in
+            NSApp.keyWindow?.title = l10n.windowTitle
         }
     }
     
@@ -227,9 +277,9 @@ public struct SettingsView: View {
                     .foregroundColor(.green)
                     .font(.title2)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Quyền Trợ năng đã sẵn sàng")
+                    Text(l10n.accessReadyTitle)
                         .font(.headline)
-                    Text("OpenKey có đầy đủ quyền can thiệp phím để gõ tiếng Việt.")
+                    Text(l10n.accessReadySubtitle)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -243,20 +293,42 @@ public struct SettingsView: View {
                     .foregroundColor(.orange)
                     .font(.title2)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Chưa cấp quyền Trợ năng (Accessibility)")
+                    Text(l10n.accessMissingTitle)
                         .font(.headline)
-                    Text("Cần cấp quyền Trợ năng trong Cài đặt hệ thống để gõ được tiếng Việt.")
+                    Text(l10n.accessMissingSubtitle)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 Spacer()
-                Button("Mở Cài đặt") {
+                Button(l10n.openSystemSettings) {
                     openAccessibilitySettings()
                 }
                 .buttonStyle(.borderedProminent)
             }
             .padding(12)
             .glassEffect(.regular, in: .rect(cornerRadius: 12))
+        }
+    }
+    
+    private func setupEscapeMonitor() {
+        removeEscapeMonitor()
+        ui.escapeEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { event in
+            if event.keyCode == 53 {
+                if self.ui.isRecordingShortcut {
+                    self.stopRecordingShortcut()
+                } else {
+                    NSApp.keyWindow?.close()
+                }
+                return nil
+            }
+            return event
+        }
+    }
+    
+    private func removeEscapeMonitor() {
+        if let monitor = ui.escapeEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            ui.escapeEventMonitor = nil
         }
     }
     

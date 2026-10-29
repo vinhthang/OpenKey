@@ -22,7 +22,7 @@
   - Đảm bảo tính toàn vẹn trạng thái bộ đệm (`typingWord`, `keyStates`, `typingStates`) khi nhấn `Delete` nhiều lần liên tiếp trên từ có dấu hoặc xóa qua ranh giới từ rồi nhập ký tự mới.
 - **Giao diện macOS 26 Tahoe & Liquid Glass**:
   - Quản lý trạng thái bằng `@Observable` (`Observation` framework), biểu tượng thanh menu `V` / `E` monochrome sắc nét được tạo sẵn trong bộ nhớ đệm.
-  - Cửa sổ cài đặt SwiftUI `.formStyle(.grouped)` và thanh gợi ý từ nổi (**Floating Candidate Bar**) sử dụng hiệu ứng **Liquid Glass** (`.glassEffect`) không chiếm quyền điều khiển bàn phím (`nonactivatingPanel`, `level: .popUpMenu`).
+  - Cửa sổ cài đặt SwiftUI `.formStyle(.grouped)` hỗ trợ đóng nhanh bằng phím **`Esc`**, bộ chuyển đổi ngôn ngữ hiển thị gọn gàng **`VI | EN`** (`OpenKeyL10n` hiển thị một ngôn ngữ duy nhất thay vì ghép song ngữ dài dòng), và thanh gợi ý từ nổi (**Floating Candidate Bar**) sử dụng hiệu ứng **Liquid Glass** (`.glassEffect`) không chiếm quyền điều khiển bàn phím (`nonactivatingPanel`, `level: .popUpMenu`).
 - **Auto Wording, Tự sửa âm vị & Gợi ý từ thông minh (`AutoWordingEngine`)**:
   - **Độc lập & Zero-Overhead khi tắt**: Module `AutoWordingEngine` tách biệt hoàn toàn khỏi `VietnameseEngineState` thông qua `OKWordContext` và hook âm vị học; khi tắt Auto Wording, đường nóng gõ phím không chịu bất kỳ chi phí xử lý phụ nào.
   - **Tự sửa cụm nguyên âm (`Phonotactic Syllable Repair`)**: Tự động chuyển `ie`/`ye` + phụ âm cuối khi có dấu thanh thành `iê`/`yê` (ví dụ: `tiengs` → `tiếng`, `viets` → `viết`) và chuẩn hóa `uow`/`uwo` thành `ươ` (`truowngf` → `trường`) mà không cần gõ đúp phím nguyên âm.
@@ -98,7 +98,8 @@ OpenKey/
 │   │   │   └── OpenKeySettingsStore.swift               # @Observable UserDefaults persistence & batch sync
 │   │   └── OpenKeySwiftApp/           # macOS 26 SwiftUI Application Target
 │   │       ├── OpenKeySwiftApp.swift      # Status bar item, menu & wake/app-switch observers
-│   │       ├── SettingsView.swift         # Grouped Form UI, Liquid Glass banner & custom shorthands
+│   │       ├── OpenKeyL10n.swift          # Single-language UI localization catalog (VI | EN)
+│   │       ├── SettingsView.swift         # Grouped Form UI, Esc-to-close, VI|EN toggle & custom shorthands
 │   │       └── CandidateBarController.swift # Non-activating Liquid Glass floating NSPanel
 │   └── Tests/
 │       └── OpenKeySwiftTests/         # Modular Swift Testing suite
@@ -169,5 +170,5 @@ Dự án đi kèm workflow [`.github/workflows/macos-ci.yml`](.github/workflows/
 ## 5. Nguồn gốc & Giấy phép (Attribution & License)
 
 - **Tác giả bản gốc (`OpenKey` C++/Objective-C++)**: **Mai Vũ Tuyên** ([`tuyenvm/OpenKey`](https://github.com/tuyenvm/OpenKey)) — Email: `maivutuyen.91@gmail.com`.
-- **Chuyển đổi Pure Swift 6 & Phát triển tính năng mới (`OpenKeySwift`)**: **Sam Hoang** ([`vinhthang/OpenKey`](https://github.com/vinhthang/OpenKey)).
+- **Chuyển đổi Pure Swift 6 & Phát triển tính năng mới (`OpenKeySwift v2.0.0`)**: **Sam Hoang** ([`vinhthang/OpenKey`](https://github.com/vinhthang/OpenKey)) & **Antigravity (Gemini 4 Argon High)**.
 - **Giấy phép**: Dự án được phân phối dưới giấy phép [GNU General Public License v3.0 (GPLv3)](LICENSE).

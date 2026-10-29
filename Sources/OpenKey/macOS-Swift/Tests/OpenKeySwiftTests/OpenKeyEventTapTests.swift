@@ -396,5 +396,26 @@ struct OpenKeyEventTapTests {
         screenC.typeKey(30) // ]
         #expect(screenC.text == "ca[bạn]", "Typing 'ca[bạn]' must compose 'ca[bạn]' cleanly, got '\(screenC.text)'")
     }
+    
+    // REQ-012: UI Language persistence and clamping
+    @Test("REQ-012: UI language setting persistence and clamping")
+    func testUILanguagePersistence() {
+        let store = OpenKeySettingsStore.shared
+        let original = store.uiLanguage
+        defer {
+            store.uiLanguage = original
+        }
+        
+        store.uiLanguage = 0
+        #expect(store.uiLanguage == 0)
+        #expect(UserDefaults.standard.integer(forKey: OpenKeySettingsStore.Keys.uiLanguage) == 0)
+        
+        store.uiLanguage = 99
+        #expect(store.uiLanguage == 1, "Setting uiLanguage to 99 must clamp to 1 (Vietnamese)")
+        #expect(UserDefaults.standard.integer(forKey: OpenKeySettingsStore.Keys.uiLanguage) == 1)
+        
+        store.uiLanguage = -1
+        #expect(store.uiLanguage == 1, "Setting uiLanguage to -1 must clamp to 1 (Vietnamese)")
+    }
 }
 }
