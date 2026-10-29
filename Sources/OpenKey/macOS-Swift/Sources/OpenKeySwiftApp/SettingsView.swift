@@ -333,6 +333,14 @@ public struct SettingsView: View {
     }
     
     private func openAccessibilitySettings() {
+        if !settings.isAccessibilityTrusted {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+            proc.arguments = ["reset", "Accessibility", "com.tuyenmai.openkey.swift"]
+            try? proc.run()
+            proc.waitUntilExit()
+            EventTapCoordinator.shared.checkAccessibilityAndSetupTap()
+        }
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }

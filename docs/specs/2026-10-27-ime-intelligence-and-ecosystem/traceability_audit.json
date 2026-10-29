@@ -3,7 +3,7 @@
   "verdict": "PASS",
   "phase": 2,
   "evidence_verified": true,
-  "spec_hash": "5319fd658b18fa5919f511b332ea03a5ce456fc6acef7cccd4f5ed6c50d47932",
+  "spec_hash": "234f599e880b5c0c4e99a8961112ccc8545aac0a31db17fac1c1037dc8d152ff",
   "evidence_hash": "25f76595c379ffee3319507bbd783365e5e89c00ab6c586637e23f6aee76c75d",
   "auditor_model": "gemini-4-argon-high",
   "audited_requirements": [

@@ -13,6 +13,7 @@ if [[ "${1:-}" == "--setup-cert" ]]; then
     echo "=== Generating self-signed code signing certificate: ${CERT_NAME} ==="
     TMP_DIR="$(mktemp -d)"
     trap 'rm -rf "${TMP_DIR}"' EXIT
+    OPENSSL_BIN="/usr/bin/openssl"
     
     cat > "${TMP_DIR}/cert.cnf" << 'EOF'
 [ req ]
@@ -31,13 +32,13 @@ extendedKeyUsage = critical, codeSigning
 basicConstraints = critical, CA:FALSE
 EOF
 
-    openssl req -new -x509 -newkey rsa:2048 -nodes \
+    "${OPENSSL_BIN}" req -new -x509 -newkey rsa:2048 -nodes \
         -keyout "${TMP_DIR}/key.pem" \
         -out "${TMP_DIR}/cert.pem" \
         -days 3650 \
         -config "${TMP_DIR}/cert.cnf"
         
-    openssl pkcs12 -export \
+    "${OPENSSL_BIN}" pkcs12 -export \
         -inkey "${TMP_DIR}/key.pem" \
         -in "${TMP_DIR}/cert.pem" \
         -out "${TMP_DIR}/cert.p12" \
@@ -45,6 +46,7 @@ EOF
         
     security import "${TMP_DIR}/cert.p12" -k ~/Library/Keychains/login.keychain-db -P openkey -T /usr/bin/codesign
     echo "Certificate '${CERT_NAME}' imported into login keychain."
+    open -a "Keychain Access"
     exit 0
 fi
 
@@ -77,11 +79,19 @@ if [[ -z "${SIGNING_IDENTITY}" ]]; then
 fi
 
 echo "=== Signing OpenKeySwift.app with identity '${SIGNING_IDENTITY}' ==="
-codesign --force --deep \
-    --sign "${SIGNING_IDENTITY}" \
-    --identifier com.tuyenmai.openkey.swift \
-    -r='designated => identifier "com.tuyenmai.openkey.swift"' \
-    --entitlements "${SCRIPT_DIR}/OpenKeySwift.entitlements" \
-    "${APP_BUNDLE}"
+if [[ "${SIGNING_IDENTITY}" == "-" ]]; then
+    codesign --force --deep \
+        --sign "${SIGNING_IDENTITY}" \
+        --identifier com.tuyenmai.openkey.swift \
+        -r='designated => identifier "com.tuyenmai.openkey.swift"' \
+        --entitlements "${SCRIPT_DIR}/OpenKeySwift.entitlements" \
+        "${APP_BUNDLE}"
+else
+    codesign --force --deep \
+        --sign "${SIGNING_IDENTITY}" \
+        --identifier com.tuyenmai.openkey.swift \
+        --entitlements "${SCRIPT_DIR}/OpenKeySwift.entitlements" \
+        "${APP_BUNDLE}"
+fi
 
 echo "=== Build completed successfully: ${APP_BUNDLE} ==="

@@ -168,3 +168,6 @@
   - `Esc` key handling: Install a window key monitor on `onAppear` (removed on `onDisappear`) that intercepts `keyCode == 53` (`Esc`): if `ui.isRecordingShortcut` is `true`, calls `stopRecordingShortcut()`; otherwise calls `NSApp.keyWindow?.close()`.
 - **`OpenKeySwiftApp.swift`**:
   - Use `OpenKeyL10n(isVietnamese: settings.uiLanguage == 1)` when building status bar menu items and setting the Settings window title.
+- **`SettingsView.openAccessibilitySettings()` & `build-app.sh` TCC Resilience**:
+  - When `!settings.isAccessibilityTrusted`, `openAccessibilitySettings()` runs `/usr/bin/tccutil reset Accessibility com.tuyenmai.openkey.swift` via `Process` and calls `EventTapCoordinator.shared.checkAccessibilityAndSetupTap()` before opening `x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility`.
+  - `build-app.sh` uses `/usr/bin/openssl` (LibreSSL PKCS#12 compatibility with macOS `security import`) in `--setup-cert` and only passes `-r='designated => identifier "com.tuyenmai.openkey.swift"'` when `SIGNING_IDENTITY == "-"`.

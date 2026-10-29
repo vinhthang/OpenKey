@@ -729,4 +729,13 @@ $ rtk bash Sources/OpenKey/macOS-Swift/build-app.sh
 === Assembling OpenKeySwift.app bundle ===
 === Signing OpenKeySwift.app with identity '-' ===
 === Build completed successfully: /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app ===
+
+$ rtk bash Sources/OpenKey/macOS-Swift/build-app.sh --setup-cert
+=== Generating self-signed code signing certificate: OpenKey Local Signer ===
+Certificate 'OpenKey Local Signer' imported into login keychain.
+
+$ rtk security find-certificate -c "OpenKey Local Signer" ~/Library/Keychains/login.keychain-db
+keychain: "/Users/thanghoang/Library/Keychains/login.keychain-db"
+    "alis"<blob>="OpenKey Local Signer"
+    "labl"<blob>="OpenKey Local Signer"
 ```
