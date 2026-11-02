@@ -85,10 +85,10 @@ class VietnameseEngineTest {
     @Test
     fun testManifestDirectBootAndZeroInternetPermission() {
         val candidates = listOf(
+            File("src/main/AndroidManifest.xml"),
             File("../app/src/main/AndroidManifest.xml"),
             File("app/src/main/AndroidManifest.xml"),
-            File("Sources/OpenKey/android/app/src/main/AndroidManifest.xml"),
-            File("/Users/thanghoang/github/OpenKey/Sources/OpenKey/android/app/src/main/AndroidManifest.xml")
+            File("Sources/OpenKey/android/app/src/main/AndroidManifest.xml")
         )
         val manifestFile = candidates.firstOrNull { it.exists() }
         assertNotNull(manifestFile, "AndroidManifest.xml must exist")

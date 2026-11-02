@@ -123,11 +123,12 @@ class OpenKeyAndroidAppTest {
     // 1. AndroidManifest & Direct Boot Privacy Verification (REQ-001)
     @Test
     fun testManifestDeclaresDirectBootAndZeroInternetPermission() {
-        // Find AndroidManifest.xml from workspace root
+        // Find AndroidManifest.xml from workspace root or project root
         val possiblePaths = listOf(
-            File("Sources/OpenKey/android/app/src/main/AndroidManifest.xml"),
+            File("src/main/AndroidManifest.xml"),
             File("app/src/main/AndroidManifest.xml"),
-            File("/Users/thanghoang/github/OpenKey/Sources/OpenKey/android/app/src/main/AndroidManifest.xml")
+            File("../app/src/main/AndroidManifest.xml"),
+            File("Sources/OpenKey/android/app/src/main/AndroidManifest.xml")
         )
         val manifestFile = possiblePaths.firstOrNull { it.exists() }
         assertNotNull("AndroidManifest.xml must exist", manifestFile)
