@@ -158,3 +158,118 @@ BUILD SUCCESSFUL in 7s
 - APK path: `Sources/OpenKey/android/app/build/outputs/apk/debug/app-debug.apk`
 - APK file size: `22 MB`
 - Status: Ready for side-loading and deployment on Samsung Galaxy A37.
+
+
+---
+
+## Run 3: Phone-Dedicated Layout Naming (`PhoneLayoutMetrics`), Touch-Only Scope & GitHub Actions Android CI/CD Verification (`2026-11-02T18:49:45+07:00`)
+
+### 1. Local Gradle Execution & Portable Unit Test Suite (`REQ-001`..`REQ-016`, `ADR-015`, `ADR-016`)
+**Command:**
+```bash
+cd /Users/thanghoang/github/OpenKey/Sources/OpenKey/android && rtk ./gradlew :openkey-core:test :app:testDebugUnitTest --rerun-tasks
+```
+
+**Verbatim JUnit XML Report (`TEST-com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest.xml`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-11-02T11:46:46" hostname="mba.local" time="0.018">
+  <properties/>
+  <testcase name="test OpenKeySettingsStore value clamping and defaults()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.001"/>
+  <testcase name="test Custom Shorthand CRUD operations()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.001"/>
+  <testcase name="test master autoWordingEnabled cascade activates sub-toggles when all three are false()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.0"/>
+  <testcase name="test One UI Theme palettes for Light and Dark modes()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.001"/>
+  <testcase name="test VNI inputType forces number row visible even if showNumberRow is false()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.002"/>
+  <testcase name="test Spacebar horizontal trackpad drag and release()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.003"/>
+  <testcase name="test Galaxy A37 scaling and clamping of heightScalePercent and bottomChinPadding()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.0"/>
+  <testcase name="test landscape auto compact mode caps totalHeight at 42 percent screen height()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.001"/>
+  <testcase name="test KeyboardLayoutDefinition One UI 5-row QWERTY weights and symbol layers()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.002"/>
+  <testcase name="test OpenKeyL10n contains non-empty VI and EN strings across all sections()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.001"/>
+  <testcase name="test Galaxy A37 portrait base metrics at 100 percent scale()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.001"/>
+  <testcase name="test Backspace left-swipe whole-word delete and tap single delete()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.0"/>
+  <testcase name="test Long-press popups for Vietnamese vowels and secondary symbols()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.0"/>
+  <testcase name="test OneHandedMode on portrait large screen sets 82 percent grid and 18 percent gutter()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+**Verbatim JUnit XML Report (`TEST-com.tuyenmai.openkey.core.ImePipelineAndContextTest.xml`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tuyenmai.openkey.core.ImePipelineAndContextTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-02T11:46:46" hostname="mba.local" time="0.012">
+  <properties/>
+  <testcase name="test external cursor jump triggers engine session reset()" classname="com.tuyenmai.openkey.core.ImePipelineAndContextTest" time="0.001"/>
+  <testcase name="testTouchOnlyPhoneScopeNoHardwareKeyMapper()" classname="com.tuyenmai.openkey.core.ImePipelineAndContextTest" time="0.001"/>
+  <testcase name="test terminal and remote desktop packages trigger bypassVietnamese()" classname="com.tuyenmai.openkey.core.ImePipelineAndContextTest" time="0.001"/>
+  <testcase name="test standard text fields in normal apps enable Vietnamese and map IME action labels()" classname="com.tuyenmai.openkey.core.ImePipelineAndContextTest" time="0.002"/>
+  <testcase name="test password variations trigger bypassVietnamese and isSecureField()" classname="com.tuyenmai.openkey.core.ImePipelineAndContextTest" time="0.001"/>
+  <testcase name="test SmartSwitchStore per-package language persistence and toggle()" classname="com.tuyenmai.openkey.core.ImePipelineAndContextTest" time="0.001"/>
+  <testcase name="test BatchReplacementCoordinator atomic direct replacement with zero setComposingText()" classname="com.tuyenmai.openkey.core.ImePipelineAndContextTest" time="0.001"/>
+  <testcase name="test URI, Email, Filter and NO_SUGGESTIONS trigger bypass without isSecureField()" classname="com.tuyenmai.openkey.core.ImePipelineAndContextTest" time="0.0"/>
+  <testcase name="test non-text input classes trigger bypassVietnamese()" classname="com.tuyenmai.openkey.core.ImePipelineAndContextTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+**Verbatim JUnit XML Report (`TEST-com.tuyenmai.openkey.android.OpenKeyAndroidAppTest.xml`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-02T11:46:47" hostname="mba.local" time="0.091">
+  <properties/>
+  <testcase name="testInputConnectionCommitterBatchOperations" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.008"/>
+  <testcase name="testInputConnectionCommitterCursorAndWordDelete" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.003"/>
+  <testcase name="testImeComposeLifecycleOwnerTransitions" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.006"/>
+  <testcase name="testManifestDeclaresDirectBootAndZeroInternetPermission" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.013"/>
+  <testcase name="testPhoneTouchOnlyScopeNoHardwareKeyInterception" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.008"/>
+  <testcase name="testZeroGetExtractedTextCallsAcross50TrackpadDragSteps" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.003"/>
+  <testcase name="testSettingsStoreDefaultsAndSmartSwitchWiring" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.003"/>
+  <testcase name="testSessionControllerEndToEndTouchAndHardwareWithEditorContext" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.045"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+### 2. Verbatim GitHub Actions `Android CI/CD` Run Verification (`REQ-016`, `ADR-016`)
+**Command:**
+```bash
+rtk gh run watch 41439641403 --repo vinhthang/OpenKey --exit-status
+```
+
+**Verbatim Output:**
+```text
+✓ master Android CI/CD · 41439641403
+Triggered via push about 1 minute ago
+
+JOBS
+✓ Build, Test & Package Android APK (Samsung Galaxy A37) in 1m32s (ID 125257982465)
+  ✓ Set up job
+  ✓ Checkout repository
+  ✓ Set up JDK 21
+  ✓ Setup Gradle
+  ✓ Make gradlew executable
+  ✓ Run Pure JVM Core & Android App Unit Tests
+  ✓ Assemble Samsung Galaxy A37 Debug APK
+  ✓ Upload APK Build Artifact
+  - Publish APK to GitHub Release on Tag
+  ✓ Post Setup Gradle
+  ✓ Post Set up JDK 21
+  ✓ Post Checkout repository
+  ✓ Complete job
+
+✓ Run Android CI/CD (41439641403) completed with 'success'
+```
+
+### 3. Final Requirement Traceability Matrix (`REQ-001`..`REQ-016`)
+| Module / Pipeline | Test Suite / Workflow | Verified Requirements | Tests / Steps | Failures | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `:openkey-core` | `VietnameseEngineTest` | `REQ-001`, `REQ-002` | 7 | 0 | PASSED |
+| `:openkey-core` | `BilingualAutoSwitchTest` | `REQ-003` | 5 | 0 | PASSED |
+| `:openkey-core` | `AutoWordingEngineTest` | `REQ-004` | 5 | 0 | PASSED |
+| `:openkey-core` | `ImePipelineAndContextTest` | `REQ-005`, `REQ-006`, `REQ-009` | 9 | 0 | PASSED |
+| `:openkey-core` | `PhoneErgonomicsAndGestureTest` | `REQ-007`, `REQ-008`, `REQ-010` | 14 | 0 | PASSED |
+| `:openkey-core` | `SmoothArchitectureTest` | `REQ-011`, `REQ-012`, `REQ-013`, `REQ-014`, `REQ-015` | 6 | 0 | PASSED |
+| `:app` | `OpenKeyAndroidAppTest` | `REQ-001`, `REQ-005`, `REQ-007`, `REQ-009`, `REQ-010`, `REQ-011`, `REQ-012`, `REQ-013`, `REQ-014` | 8 | 0 | PASSED |
+| GitHub Actions | `Android CI/CD` (`41439641403`) | `REQ-016` (`:openkey-core:test`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `OpenKey-Android-A37-debug-apk`) | 54 tests + APK artifact | 0 | PASSED |
+| **Total** | **7 Test Suites + GitHub CI** | **`REQ-001`..`REQ-016`** | **54** | **0** | **100% PASSED** |

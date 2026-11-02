@@ -1,12 +1,32 @@
 {
-  "status": "valid",
+  "feature_id": "2026-11-02-android-large-phone-keyboard",
+  "status": "PASS",
   "verdict": "PASS",
-  "phase": 1,
-  "verify_evidence": false,
-  "evidence_verified": false,
-  "spec_hash": "7ee17665895351b7842e6ec338a1faf63cf93f4debc3cea3d98fb3d1e7d2c135",
-  "evidence_hash": "626a977634558e025c903b686566d2f5e8b5beffda03014a9216c8da5d9b8d47",
+  "phase": 2,
+  "verify_evidence": true,
+  "evidence_verified": true,
+  "spec_hash": "61e21f177e8119edbcfb5f71ad6c2feb73e7e1a9f9c4ed16eea0975d1407a6c2",
+  "evidence_hash": "14e705b02d3748f43711732763071901029da4b4fd9d04c149a42b37bb8be6c7",
+  "auditor_agent": "traceability-auditor",
   "auditor_model": "claude-opus-4-6",
+  "requirements_audited": [
+    "REQ-001",
+    "REQ-002",
+    "REQ-003",
+    "REQ-004",
+    "REQ-005",
+    "REQ-006",
+    "REQ-007",
+    "REQ-008",
+    "REQ-009",
+    "REQ-010",
+    "REQ-011",
+    "REQ-012",
+    "REQ-013",
+    "REQ-014",
+    "REQ-015",
+    "REQ-016"
+  ],
   "audited_requirements": [
     "REQ-001",
     "REQ-002",
@@ -43,6 +63,8 @@
     "ADR-015",
     "ADR-016"
   ],
+  "findings": [],
+  "summary": "Phase 2 semantic traceability audit passed across all 16 normative requirements (REQ-001..REQ-016) and 16 architectural decisions (ADR-001..ADR-016) with verbatim local JUnit/Gradle and GitHub Actions CI/CD verification evidence in verification.md.",
   "requirements_evaluated": {
     "REQ-001": {
       "design_aligned": true,
@@ -51,7 +73,9 @@
       "tasks_rationale": "Task 1.1, Task 1.2, Task 7.1, and Task 8.1 define actionable steps for scaffolding settings.gradle.kts, build.gradle.kts, AndroidManifest.xml, and running JVM/Android unit and assemble tasks.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-001 evaluates value-type boundary trade-offs between :openkey-core and :app and rejects single-module coupling and C++/JNI bridging."
+      "debate_rationale": "ADR-001 evaluates value-type boundary trade-offs between :openkey-core and :app and rejects single-module coupling and C++/JNI bridging.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md records :openkey-core:test, :app:testDebugUnitTest, and :app:assembleDebug passing (BUILD SUCCESSFUL) plus OpenKeyAndroidAppTest.testManifestDeclaresDirectBootAndZeroInternetPermission confirming directBootAware=\"true\" and zero INTERNET permissions."
     },
     "REQ-002": {
       "design_aligned": true,
@@ -60,7 +84,9 @@
       "tasks_rationale": "Task 2.1 and Task 2.2 specify TDD unit tests in VietnameseEngineTest.kt and the core engine implementation.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-002 justifies the 1:1 unsigned 32-bit syllable bitmask port from OpenKeySwiftCore and rejects ad-hoc regex/string Telex parsers."
+      "debate_rationale": "ADR-002 justifies the 1:1 unsigned 32-bit syllable bitmask port from OpenKeySwiftCore and rejects ad-hoc regex/string Telex parsers.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md confirms VietnameseEngineTest (7 tests, 0 failures) passed in :openkey-core:test."
     },
     "REQ-003": {
       "design_aligned": true,
@@ -69,7 +95,9 @@
       "tasks_rationale": "Task 3.1 and Task 3.2 define TDD unit tests in BilingualAutoSwitchTest.kt and implementation of VietnameseDictionary.kt and BilingualAutoSwitchEngine.kt.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-003 analyzes multi-word backspace batch replacement trade-offs and rejects manual VI/EN switching for mid-sentence code-switching."
+      "debate_rationale": "ADR-003 analyzes multi-word backspace batch replacement trade-offs and rejects manual VI/EN switching for mid-sentence code-switching.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md confirms BilingualAutoSwitchTest (5 tests, 0 failures) passed in :openkey-core:test."
     },
     "REQ-004": {
       "design_aligned": true,
@@ -78,7 +106,9 @@
       "tasks_rationale": "Task 4.1 and Task 4.2 cover TDD tests in AutoWordingEngineTest.kt and AutoWordingEngine.kt implementation.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-004 justifies in-memory dictionary heap trade-offs (~1.5 MB) and rejects Binder IPC queries to Android UserDictionary ContentProvider."
+      "debate_rationale": "ADR-004 justifies in-memory dictionary heap trade-offs (~1.5 MB) and rejects Binder IPC queries to Android UserDictionary ContentProvider.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md confirms AutoWordingEngineTest (5 tests, 0 failures) passed in :openkey-core:test."
     },
     "REQ-005": {
       "design_aligned": true,
@@ -87,7 +117,9 @@
       "tasks_rationale": "Task 5.1, Task 5.2, and Task 7.1 cover ImePipelineAndContextTest.kt and InputContextEvaluator/InputConnectionCommitter implementation.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-005 evaluates cursor selection tracking via onUpdateSelection and rejects setComposingText due to WebView autocomplete duplication and underline artifacts."
+      "debate_rationale": "ADR-005 evaluates cursor selection tracking via onUpdateSelection and rejects setComposingText due to WebView autocomplete duplication and underline artifacts.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md records verbatim JUnit XML for ImePipelineAndContextTest (9 tests, 0 failures) and OpenKeyAndroidAppTest.testInputConnectionCommitterBatchOperations."
     },
     "REQ-006": {
       "design_aligned": true,
@@ -96,7 +128,9 @@
       "tasks_rationale": "Task 5.1, Task 5.2, and Task 7.1 specify unit tests and implementation for SmartSwitchStore.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-006 justifies EditorInfo.packageName inspection in onStartInputView and rejects AccessibilityService foreground app detection."
+      "debate_rationale": "ADR-006 justifies EditorInfo.packageName inspection in onStartInputView and rejects AccessibilityService foreground app detection.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md records ImePipelineAndContextTest (test SmartSwitchStore per-package language persistence and toggle) and OpenKeyAndroidAppTest (testSettingsStoreDefaultsAndSmartSwitchWiring) passing."
     },
     "REQ-007": {
       "design_aligned": true,
@@ -105,7 +139,9 @@
       "tasks_rationale": "Task 6.1, Task 6.2, Task 7.2, and Task 11.1 define layout metric unit tests, Compose UI implementation, and phone-dedicated class naming (PhoneLayoutMetrics).",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-007 and ADR-015 justify Samsung One UI stock keyboard layout parity and phone-dedicated naming over generic Material pill buttons or tablet LargeScreen naming."
+      "debate_rationale": "ADR-007 and ADR-015 justify Samsung One UI stock keyboard layout parity and phone-dedicated naming over generic Material pill buttons or tablet LargeScreen naming.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md records verbatim JUnit XML for PhoneErgonomicsAndGestureTest (14 tests, 0 failures) verifying Galaxy A37 portrait/landscape metrics, One UI 5-row weights, symbol layers, and One UI themes."
     },
     "REQ-008": {
       "design_aligned": true,
@@ -114,7 +150,9 @@
       "tasks_rationale": "Task 6.1, Task 6.2, and Task 7.2 cover unit tests and Compose pointer gesture integration.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-008 analyzes screen-edge gesture non-interference and rejects full-keyboard glide typing due to Vietnamese Telex end-of-syllable tone ambiguity."
+      "debate_rationale": "ADR-008 analyzes screen-edge gesture non-interference and rejects full-keyboard glide typing due to Vietnamese Telex end-of-syllable tone ambiguity.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md records verbatim JUnit XML for PhoneErgonomicsAndGestureTest confirming Spacebar trackpad drag, Backspace left-swipe word delete, and long-press vowel/symbol popup tests passed."
     },
     "REQ-009": {
       "design_aligned": true,
@@ -123,7 +161,9 @@
       "tasks_rationale": "Task 11.2 specifies deleting HardwareKeyMapper.kt and removing onHardwareKeyDown, onHardwareKeyUp, and processHardwareKey with corresponding unit test updates.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-015 explicitly supersedes ADR-009, documenting the trade-offs of dedicating the phone codebase strictly to on-screen touch typing."
+      "debate_rationale": "ADR-015 explicitly supersedes ADR-009, documenting the trade-offs of dedicating the phone codebase strictly to on-screen touch typing.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md records ImePipelineAndContextTest.testTouchOnlyPhoneScopeNoHardwareKeyMapper and OpenKeyAndroidAppTest.testPhoneTouchOnlyScopeNoHardwareKeyInterception passing."
     },
     "REQ-010": {
       "design_aligned": true,
@@ -132,7 +172,9 @@
       "tasks_rationale": "Task 6.1, Task 6.2, Task 7.1, and Task 7.3 cover settings clamping, localization, lifecycle owner, and SettingsActivity UI.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-010 evaluates device-protected storage security trade-offs for Direct Boot lock-screen readiness and rejects deprecated XML KeyboardView."
+      "debate_rationale": "ADR-010 evaluates device-protected storage security trade-offs for Direct Boot lock-screen readiness and rejects deprecated XML KeyboardView.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md records PhoneErgonomicsAndGestureTest (OpenKeySettingsStore clamping, Custom Shorthand CRUD, master autoWordingEnabled cascade, OpenKeyL10n VI/EN completeness) and OpenKeyAndroidAppTest (testImeComposeLifecycleOwnerTransitions) passing."
     },
     "REQ-011": {
       "design_aligned": true,
@@ -141,7 +183,9 @@
       "tasks_rationale": "Task 9.1, Task 9.2, Task 10.1, and Task 11.2 cover KeyboardSessionController unit tests, implementation, and touch-only refinement.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-011 and ADR-015 justify centralizing session orchestration in :openkey-core via TextCommitterTarget and reject duplicating state across KeyboardScreen and OpenKeyImeService."
+      "debate_rationale": "ADR-011 and ADR-015 justify centralizing session orchestration in :openkey-core via TextCommitterTarget and reject duplicating state across KeyboardScreen and OpenKeyImeService.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md records SmoothArchitectureTest (testLiveEditorUiStateAndEnterActionRouting, testTouchBypassInPasswordEmailUriAndTerminalFields) and OpenKeyAndroidAppTest (testSessionControllerEndToEndTouchAndHardwareWithEditorContext) passing."
     },
     "REQ-012": {
       "design_aligned": true,
@@ -150,7 +194,9 @@
       "tasks_rationale": "Task 9.1, Task 9.2, and Task 10.1 specify SmoothArchitectureTest assertions and implementation across VietnameseEngine, VietnameseDictionary, AutoWordingEngine, and KeyboardSessionController.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-012 evaluates synchronous vs asynchronous candidate emission trade-offs and rejects blocking character commits on main-thread dictionary sorting."
+      "debate_rationale": "ADR-012 evaluates synchronous vs asynchronous candidate emission trade-offs and rejects blocking character commits on main-thread dictionary sorting.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md records SmoothArchitectureTest.testCommitFirstExecutionOrderAndAsyncGenerationTagging passing (0.014s)."
     },
     "REQ-013": {
       "design_aligned": true,
@@ -159,7 +205,9 @@
       "tasks_rationale": "Task 9.1, Task 9.2, and Task 10.1 cover selection tracking and zero-getExtractedText verification in SmoothArchitectureTest and OpenKeyAndroidAppTest.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-013 analyzes DPAD/selection-offset cursor movement and rejects synchronous getExtractedText Binder IPC reads at 120Hz."
+      "debate_rationale": "ADR-013 analyzes DPAD/selection-offset cursor movement and rejects synchronous getExtractedText Binder IPC reads at 120Hz.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md records SmoothArchitectureTest.testBatchReplacementCoordinatorCursorTracking and OpenKeyAndroidAppTest.testZeroGetExtractedTextCallsAcross50TrackpadDragSteps passing with 0 getExtractedText calls."
     },
     "REQ-014": {
       "design_aligned": true,
@@ -168,7 +216,9 @@
       "tasks_rationale": "Task 9.1, Task 9.2, and Task 10.1 verify referential layer caching (===) and implement LiveCandidateStripHost and drawBehind keycaps.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-014 evaluates custom Canvas bevel rendering vs multi-layer shadow modifiers and rejects root-level candidate state recomposition."
+      "debate_rationale": "ADR-014 evaluates custom Canvas bevel rendering vs multi-layer shadow modifiers and rejects root-level candidate state recomposition.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md records SmoothArchitectureTest.testCachedKeyboardLayerDefReferentialIdentity passing (0.001s) and :app:assembleDebug compiling LiveCandidateStripHost and Modifier.drawBehind keycap rendering."
     },
     "REQ-015": {
       "design_aligned": true,
@@ -177,7 +227,9 @@
       "tasks_rationale": "Task 9.1, Task 9.2, and Task 10.2 implement and execute SmoothArchitectureTest to verify the < 0.2ms latency budget.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-012 establishes the < 0.2ms hot-path latency target (> 40x faster than the 8.33ms 120Hz frame budget) through commit-first execution."
+      "debate_rationale": "ADR-012 establishes the < 0.2ms hot-path latency target (> 40x faster than the 8.33ms 120Hz frame budget) through commit-first execution.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md records SmoothArchitectureTest.test120HzHotPathThroughputBenchmark passing with 76,191.791 ns/keystroke (0.076 ms/keystroke across 1,000 keystrokes, well below the 0.2 ms requirement)."
     },
     "REQ-016": {
       "design_aligned": true,
@@ -186,7 +238,9 @@
       "tasks_rationale": "Task 12.1 and Task 12.2 define making gradle.properties portable, adding .gitignore, creating .github/workflows/android-ci.yml, pushing to origin, and verifying the GitHub Actions run.",
       "decisions_consistent": true,
       "architecturally_sound": true,
-      "debate_rationale": "ADR-016 evaluates ubuntu-latest vs macOS runner speed/cost trade-offs and rejects hardcoded local JDK paths in gradle.properties."
+      "debate_rationale": "ADR-016 evaluates ubuntu-latest vs macOS runner speed/cost trade-offs and rejects hardcoded local JDK paths in gradle.properties.",
+      "evidence_verified": true,
+      "evidence_rationale": "verification.md Run 3 Section 2 records verbatim GitHub Actions workflow run 41439641403 (Android CI/CD) completing with 'success' in 1m32s including unit tests, APK assembly, and artifact upload."
     }
   }
 }

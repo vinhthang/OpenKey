@@ -1,7 +1,7 @@
 # Specification: Native Android Vietnamese Keyboard for Samsung Galaxy A37 (`2026-11-02-android-large-phone-keyboard`)
 
 - **Feature ID**: `2026-11-02-android-large-phone-keyboard`
-- **Status**: `In-Progress`
+- **Status**: `Completed`
 - **Date**: `2026-11-02`
 - **Platform**: `Android 10+ (minSdk 29, targetSdk 35, Pure Kotlin 2.x & Jetpack Compose)`
 - **Primary Hardware Target**: `Samsung Galaxy A37 (6.7" Super AMOLED, 1080 × 2340 FHD+ 19.5:9, 120Hz One UI Stock Keyboard Layout Parity)`
