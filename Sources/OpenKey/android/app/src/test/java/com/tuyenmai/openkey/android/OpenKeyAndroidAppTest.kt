@@ -1,0 +1,393 @@
+package com.tuyenmai.openkey.android
+
+import android.content.Context
+import android.os.Bundle
+import android.os.Handler
+import android.view.KeyEvent
+import android.view.inputmethod.CompletionInfo
+import android.view.inputmethod.CorrectionInfo
+import android.view.inputmethod.ExtractedText
+import android.view.inputmethod.ExtractedTextRequest
+import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputContentInfo
+import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import androidx.lifecycle.Lifecycle
+import org.junit.Rule
+import com.tuyenmai.openkey.android.ime.ImeComposeLifecycleOwner
+import com.tuyenmai.openkey.android.ime.InputConnectionCommitter
+import com.tuyenmai.openkey.core.AutoWordingEngine
+import com.tuyenmai.openkey.core.BatchReplacementCoordinator
+import com.tuyenmai.openkey.core.EditorContext
+import com.tuyenmai.openkey.android.ime.OpenKeyImeService
+import com.tuyenmai.openkey.core.InMemoryKeyValueStorage
+import com.tuyenmai.openkey.core.InputContextEvaluator
+import com.tuyenmai.openkey.core.KeyAction
+import com.tuyenmai.openkey.core.KeyboardSessionController
+import com.tuyenmai.openkey.core.OneHandedMode
+import com.tuyenmai.openkey.core.OpenKeySettingsStore
+import com.tuyenmai.openkey.core.SmartSwitchStore
+import com.tuyenmai.openkey.core.VietnameseEngine
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.File
+import java.util.concurrent.Executor
+
+class OpenKeyAndroidAppTest {
+
+    @get:Rule
+    val instantExecutorRule = InstantTaskExecutorRule()
+
+    // --- Mock InputConnection for testing InputConnectionCommitter ---
+    private open class MockInputConnection : InputConnection {
+        var batchEditDepth = 0
+        var committedText = ""
+        var deletedBefore = 0
+        var deletedAfter = 0
+        var selectionStart = 0
+        var selectionEnd = 0
+        var textBeforeCursor = ""
+        var extractedText: ExtractedText? = null
+        var getExtractedTextCallCount = 0
+        val sentKeyEvents = mutableListOf<KeyEvent>()
+
+        override fun beginBatchEdit(): Boolean {
+            batchEditDepth++
+            return true
+        }
+
+        override fun endBatchEdit(): Boolean {
+            batchEditDepth = (batchEditDepth - 1).coerceAtLeast(0)
+            return true
+        }
+
+        override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
+            deletedBefore += beforeLength
+            deletedAfter += afterLength
+            if (beforeLength > 0 && committedText.length >= beforeLength) {
+                committedText = committedText.dropLast(beforeLength)
+            }
+            return true
+        }
+
+        override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
+            committedText += text?.toString() ?: ""
+            return true
+        }
+
+        override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence {
+            return textBeforeCursor
+        }
+
+        override fun getExtractedText(request: ExtractedTextRequest?, flags: Int): ExtractedText? {
+            getExtractedTextCallCount++
+            return extractedText
+        }
+
+        override fun setSelection(start: Int, end: Int): Boolean {
+            selectionStart = start
+            selectionEnd = end
+            extractedText?.selectionStart = start
+            extractedText?.selectionEnd = end
+            return true
+        }
+
+        override fun sendKeyEvent(event: KeyEvent?): Boolean {
+            if (event != null) sentKeyEvents.add(event)
+            return true
+        }
+
+        override fun performEditorAction(editorAction: Int): Boolean = true
+        override fun getTextAfterCursor(n: Int, flags: Int): CharSequence? = null
+        override fun getSelectedText(flags: Int): CharSequence? = null
+        override fun getCursorCapsMode(reqModes: Int): Int = 0
+        override fun deleteSurroundingTextInCodePoints(beforeLength: Int, afterLength: Int): Boolean = true
+        override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean = true
+        override fun setComposingRegion(start: Int, end: Int): Boolean = true
+        override fun finishComposingText(): Boolean = true
+        override fun commitCompletion(text: CompletionInfo?): Boolean = true
+        override fun commitCorrection(correctionInfo: CorrectionInfo?): Boolean = true
+        override fun performContextMenuAction(id: Int): Boolean = true
+        override fun clearMetaKeyStates(states: Int): Boolean = true
+        override fun reportFullscreenMode(enabled: Boolean): Boolean = true
+        override fun performSpellCheck(): Boolean = true
+        override fun performPrivateCommand(action: String?, data: Bundle?): Boolean = true
+        override fun requestCursorUpdates(cursorUpdateMode: Int): Boolean = true
+        override fun getHandler(): Handler? = null
+        override fun closeConnection() {}
+        override fun commitContent(inputContentInfo: InputContentInfo, flags: Int, opts: Bundle?): Boolean = true
+    }
+
+    // 1. AndroidManifest & Direct Boot Privacy Verification (REQ-001)
+    @Test
+    fun testManifestDeclaresDirectBootAndZeroInternetPermission() {
+        // Find AndroidManifest.xml from workspace root
+        val possiblePaths = listOf(
+            File("Sources/OpenKey/android/app/src/main/AndroidManifest.xml"),
+            File("app/src/main/AndroidManifest.xml"),
+            File("/Users/thanghoang/github/OpenKey/Sources/OpenKey/android/app/src/main/AndroidManifest.xml")
+        )
+        val manifestFile = possiblePaths.firstOrNull { it.exists() }
+        assertNotNull("AndroidManifest.xml must exist", manifestFile)
+
+        val manifestContent = manifestFile!!.readText()
+
+        // REQ-001: Zero Internet permission
+        assertFalse("Manifest MUST NOT declare INTERNET permission", manifestContent.contains("android.permission.INTERNET"))
+        assertFalse("Manifest MUST NOT declare ACCESS_NETWORK_STATE", manifestContent.contains("android.permission.ACCESS_NETWORK_STATE"))
+
+        // REQ-001: IME Service declaration & Direct Boot
+        assertTrue("IME service must be directBootAware", manifestContent.contains("android:directBootAware=\"true\""))
+        assertTrue("IME service must declare BIND_INPUT_METHOD", manifestContent.contains("android.permission.BIND_INPUT_METHOD"))
+        assertTrue("IME service class must be OpenKeyImeService", manifestContent.contains(".ime.OpenKeyImeService"))
+        assertTrue("Settings activity must be declared", manifestContent.contains(".settings.SettingsActivity"))
+    }
+
+    // 2. InputConnectionCommitter Batch Direct-Replacement (REQ-005, ADR-005)
+    @Test
+    fun testInputConnectionCommitterBatchOperations() {
+        val mockIc = MockInputConnection()
+        val committer = InputConnectionCommitter(mockIc)
+
+        // beginBatchEdit and commitText
+        committer.beginBatchEdit()
+        assertEquals(1, mockIc.batchEditDepth)
+        committer.commitText("tiếng", 1)
+        assertEquals("tiếng", mockIc.committedText)
+        committer.endBatchEdit()
+        assertEquals(0, mockIc.batchEditDepth)
+
+        // deleteSurroundingText
+        committer.deleteSurroundingText(2, 0)
+        assertEquals(2, mockIc.deletedBefore)
+        assertEquals("tiế", mockIc.committedText)
+    }
+
+    // 3. InputConnectionCommitter Cursor Movement & Word Deletion (REQ-005, REQ-008, REQ-013, ADR-013)
+    @Test
+    fun testInputConnectionCommitterCursorAndWordDelete() {
+        val mockIc = MockInputConnection()
+        val coordinator = BatchReplacementCoordinator()
+        coordinator.resetExpectedCursor(16, knownSelection = true)
+        val committerWithCoord = InputConnectionCommitter(mockIc, coordinator)
+
+        // Move cursor 5 steps left with tracked selection coordinator (zero getExtractedText calls)
+        committerWithCoord.moveCursorBy(-5)
+        assertEquals(11, mockIc.selectionStart)
+        assertEquals(11, mockIc.selectionEnd)
+        assertEquals(0, mockIc.getExtractedTextCallCount)
+
+        // Move cursor 3 steps right with tracked selection coordinator
+        committerWithCoord.moveCursorBy(3)
+        assertEquals(14, mockIc.selectionStart)
+        assertEquals(14, mockIc.selectionEnd)
+        assertEquals(0, mockIc.getExtractedTextCallCount)
+
+        // Fallback DPAD cursor movement (no coordinator)
+        val mockIcDpad = MockInputConnection()
+        val committerDpad = InputConnectionCommitter(mockIcDpad)
+        committerDpad.moveCursorBy(-2)
+        assertEquals(0, mockIcDpad.getExtractedTextCallCount)
+        assertEquals(4, mockIcDpad.sentKeyEvents.size) // 2 down + 2 up
+
+        // deletePreviousWord on "hello world" -> deletes "world" (5 chars)
+        mockIc.textBeforeCursor = "hello world"
+        mockIc.deletedBefore = 0
+        val del1 = committerWithCoord.deletePreviousWord()
+        assertTrue(del1)
+        assertEquals(5, mockIc.deletedBefore)
+
+        // deletePreviousWord on "test list   " -> deletes trailing spaces (3) + "list" (4) = 7 chars
+        mockIc.textBeforeCursor = "test list   "
+        mockIc.deletedBefore = 0
+        val del2 = committerWithCoord.deletePreviousWord()
+        assertTrue(del2)
+        assertEquals(7, mockIc.deletedBefore)
+    }
+
+    // 4. Phone Touch-Only Architecture Gating (REQ-009, ADR-015)
+    @Test
+    fun testPhoneTouchOnlyScopeNoHardwareKeyInterception() {
+        val methodNames = OpenKeyImeService::class.java.declaredMethods.map { it.name }.toSet()
+        assertFalse("OpenKeyImeService must not declare processHardwareKey", methodNames.contains("processHardwareKey"))
+        assertFalse("OpenKeyImeService must not declare onKeyDown", methodNames.contains("onKeyDown"))
+        assertFalse("OpenKeyImeService must not declare onKeyUp", methodNames.contains("onKeyUp"))
+    }
+
+    // 6. ImeComposeLifecycleOwner Lifecycle State Transitions (REQ-010, ADR-010)
+    @Test
+    fun testImeComposeLifecycleOwnerTransitions() {
+        val owner = ImeComposeLifecycleOwner()
+        assertEquals(Lifecycle.State.INITIALIZED, owner.lifecycle.currentState)
+
+        owner.onCreate()
+        assertEquals(Lifecycle.State.CREATED, owner.lifecycle.currentState)
+
+        owner.onResume()
+        assertEquals(Lifecycle.State.RESUMED, owner.lifecycle.currentState)
+
+        owner.onPause()
+        assertEquals(Lifecycle.State.CREATED, owner.lifecycle.currentState)
+
+        owner.onDestroy()
+        assertEquals(Lifecycle.State.DESTROYED, owner.lifecycle.currentState)
+    }
+
+    // 7. SettingsStore & SmartSwitchStore Wiring (REQ-006, REQ-010)
+    @Test
+    fun testSettingsStoreDefaultsAndSmartSwitchWiring() {
+        val storage = InMemoryKeyValueStorage()
+        val store = OpenKeySettingsStore(storage)
+        val smartSwitch = SmartSwitchStore(storage)
+
+        // Defaults
+        assertEquals(1, store.language) // Vietnamese by default
+        assertEquals(0, store.inputType) // Telex
+        assertTrue(store.useModernOrthography)
+        assertTrue(store.checkSpelling)
+        assertTrue(store.restoreIfWrongSpelling)
+        assertTrue(store.bilingualAutoRestore)
+        assertTrue(store.useSmartSwitchKey)
+        assertTrue(store.showNumberRow)
+        assertEquals(100, store.heightScalePercent)
+        assertEquals(14, store.bottomChinPaddingDp)
+        assertEquals(OneHandedMode.OFF, store.oneHandedMode)
+        assertTrue(store.hapticFeedbackEnabled)
+        assertTrue(store.keyPopupPreviewEnabled)
+
+        // Per-app smart switch memory
+        smartSwitch.setAppLanguage("com.slack", 0) // English in Slack
+        smartSwitch.setAppLanguage("com.zing.zalo", 1) // Vietnamese in Zalo
+
+        assertEquals(0, smartSwitch.getAppLanguage("com.slack"))
+        assertEquals(1, smartSwitch.getAppLanguage("com.zing.zalo"))
+
+        // Switching apps
+        val resolvedLang = smartSwitch.onAppSwitched("com.slack", store.language, true)
+        assertEquals(0, resolvedLang)
+    }
+
+    // 8. Zero getExtractedText Calls Across 50 Trackpad Drag Steps (REQ-013, ADR-013)
+    @Test
+    fun testZeroGetExtractedTextCallsAcross50TrackpadDragSteps() {
+        val mockIc = MockInputConnection()
+        val coordinator = BatchReplacementCoordinator()
+        coordinator.resetExpectedCursor(50, knownSelection = true)
+        val committer = InputConnectionCommitter(inputConnection = mockIc, batchCoordinator = coordinator)
+        val sessionController = KeyboardSessionController(
+            committer = committer,
+            batchCoordinator = coordinator
+        )
+
+        // 50 drag steps left (-1 each)
+        for (step in 1..50) {
+            val success = sessionController.onMoveCursor(-1)
+            assertTrue("Step -$step should succeed", success)
+            val expectedPos = 50 - step
+            assertEquals(expectedPos, mockIc.selectionStart)
+            assertEquals(expectedPos, mockIc.selectionEnd)
+        }
+        assertEquals(0, mockIc.selectionStart)
+        assertEquals(0, mockIc.getExtractedTextCallCount)
+
+        // 50 drag steps right (+1 each)
+        for (step in 1..50) {
+            val success = sessionController.onMoveCursor(1)
+            assertTrue("Step +$step should succeed", success)
+            val expectedPos = step
+            assertEquals(expectedPos, mockIc.selectionStart)
+            assertEquals(expectedPos, mockIc.selectionEnd)
+        }
+        assertEquals(50, mockIc.selectionStart)
+        assertEquals(0, mockIc.getExtractedTextCallCount)
+    }
+
+    // 9. SessionController End-to-End Touch and Hardware with EditorContext (REQ-011, REQ-012)
+    @Test
+    fun testSessionControllerEndToEndTouchAndHardwareWithEditorContext() {
+        VietnameseEngine.initEngine()
+        VietnameseEngine.resetSession()
+        VietnameseEngine.syncConfig(
+            language = 1,
+            inputType = 0, // Telex
+            checkSpelling = 1,
+            useModernOrthography = 1,
+            restoreIfWrongSpelling = 1,
+            fixRecommendBrowser = 1,
+            useSmartSwitchKey = 1
+        )
+        AutoWordingEngine.shared.syncConfig(
+            isEnabled = true,
+            grammarRepair = true,
+            shorthandExpansion = true,
+            candidateSuggestions = true,
+            doubleSpacePeriod = true
+        )
+        AutoWordingEngine.shared.asyncCandidateExecutionEnabled = false
+        AutoWordingEngine.shared.clearCandidates()
+
+        var lastActionId = -1
+        val trackingIc = object : MockInputConnection() {
+            override fun performEditorAction(editorAction: Int): Boolean {
+                lastActionId = editorAction
+                return true
+            }
+        }
+        val coordinator = BatchReplacementCoordinator()
+        val committer = InputConnectionCommitter(inputConnection = trackingIc, batchCoordinator = coordinator)
+        val storage = InMemoryKeyValueStorage()
+        val settingsStore = OpenKeySettingsStore(storage)
+        val sessionController = KeyboardSessionController(
+            settingsStore = settingsStore,
+            committer = committer,
+            batchCoordinator = coordinator
+        )
+
+        // Case 1: Password field in banking app (Bypass Vietnamese)
+        val passwordContext = EditorContext(
+            inputType = InputContextEvaluator.TYPE_CLASS_TEXT or InputContextEvaluator.TYPE_TEXT_VARIATION_PASSWORD,
+            imeOptions = InputContextEvaluator.IME_ACTION_DONE,
+            packageName = "com.banking.app"
+        )
+        sessionController.onStartInput(passwordContext, initialSelStart = 0, initialSelEnd = 0)
+        assertTrue(sessionController.editorUiState.bypassVietnamese)
+        assertTrue(sessionController.editorUiState.isSecureField)
+
+        // Type "tiengs" via touch in password field -> commits raw "tiengs"
+        val chars = listOf("t", "i", "e", "n", "g", "s")
+        for (c in chars) {
+            sessionController.onKeyAction(KeyAction.CommitChar(c))
+        }
+        assertEquals("tiengs", trackingIc.committedText)
+
+        // Case 2: Zalo Chat field (Normal Vietnamese Telex) with Search action
+        trackingIc.committedText = ""
+        val zaloSearchContext = EditorContext(
+            inputType = InputContextEvaluator.TYPE_CLASS_TEXT,
+            imeOptions = InputContextEvaluator.IME_ACTION_SEARCH,
+            packageName = "com.zing.zalo"
+        )
+        sessionController.onStartInput(zaloSearchContext, initialSelStart = 0, initialSelEnd = 0)
+        assertFalse(sessionController.editorUiState.bypassVietnamese)
+        assertFalse(sessionController.editorUiState.isSecureField)
+        assertEquals(InputContextEvaluator.IME_ACTION_SEARCH, sessionController.editorUiState.imeActionId)
+        assertEquals("Search", sessionController.editorUiState.enterActionLabel)
+
+        // Type "tiengs" via touch -> converted to "tiếng"
+        for (c in chars) {
+            sessionController.onKeyAction(KeyAction.CommitChar(c))
+        }
+        assertEquals("tiếng", trackingIc.committedText)
+
+        // Press Enter -> triggers IME_ACTION_SEARCH on InputConnection
+        sessionController.onKeyAction(KeyAction.Enter)
+        assertEquals(InputContextEvaluator.IME_ACTION_SEARCH, lastActionId)
+
+        // Teardown
+        AutoWordingEngine.shared.asyncCandidateExecutionEnabled = false
+        AutoWordingEngine.shared.clearCandidates()
+        VietnameseEngine.resetSession()
+    }
+}

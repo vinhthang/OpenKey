@@ -1,0 +1,192 @@
+{
+  "status": "valid",
+  "verdict": "PASS",
+  "phase": 1,
+  "verify_evidence": false,
+  "evidence_verified": false,
+  "spec_hash": "7ee17665895351b7842e6ec338a1faf63cf93f4debc3cea3d98fb3d1e7d2c135",
+  "evidence_hash": "626a977634558e025c903b686566d2f5e8b5beffda03014a9216c8da5d9b8d47",
+  "auditor_model": "claude-opus-4-6",
+  "audited_requirements": [
+    "REQ-001",
+    "REQ-002",
+    "REQ-003",
+    "REQ-004",
+    "REQ-005",
+    "REQ-006",
+    "REQ-007",
+    "REQ-008",
+    "REQ-009",
+    "REQ-010",
+    "REQ-011",
+    "REQ-012",
+    "REQ-013",
+    "REQ-014",
+    "REQ-015",
+    "REQ-016"
+  ],
+  "audited_decisions": [
+    "ADR-001",
+    "ADR-002",
+    "ADR-003",
+    "ADR-004",
+    "ADR-005",
+    "ADR-006",
+    "ADR-007",
+    "ADR-008",
+    "ADR-009",
+    "ADR-010",
+    "ADR-011",
+    "ADR-012",
+    "ADR-013",
+    "ADR-014",
+    "ADR-015",
+    "ADR-016"
+  ],
+  "requirements_evaluated": {
+    "REQ-001": {
+      "design_aligned": true,
+      "design_rationale": "Section 1 and Section 3.1 specify the multi-module Gradle structure under Sources/OpenKey/android/ (:openkey-core pure JVM Kotlin library and :app Android InputMethodService + Jetpack Compose shell with minSdk=29, targetSdk=35, android:directBootAware=\"true\", and zero INTERNET permission).",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 1.1, Task 1.2, Task 7.1, and Task 8.1 define actionable steps for scaffolding settings.gradle.kts, build.gradle.kts, AndroidManifest.xml, and running JVM/Android unit and assemble tasks.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-001 evaluates value-type boundary trade-offs between :openkey-core and :app and rejects single-module coupling and C++/JNI bridging."
+    },
+    "REQ-002": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.1.1 details VietnameseData.kt, VietnameseEngine.kt, and VietnameseEnginePhonotactics.kt bitmask structures, CHR(idx) bounds checks, findAndCalculateVowel(forGrammar) gi-/qu- backward scanning, handleModernMark/handleOldMark purity, handleDeleteKey state synchronization, and checkRestoreIfWrongSpelling.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 2.1 and Task 2.2 specify TDD unit tests in VietnameseEngineTest.kt and the core engine implementation.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-002 justifies the 1:1 unsigned 32-bit syllable bitmask port from OpenKeySwiftCore and rejects ad-hoc regex/string Telex parsers."
+    },
+    "REQ-003": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.1.2 specifies VietnameseDictionary.kt and BilingualAutoSwitchEngine.kt with droppedKeys raw keystroke reconstruction, doubled-tone escape repair, standalone English collision restoration, and 2-word look-back phrase restoration.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 3.1 and Task 3.2 define TDD unit tests in BilingualAutoSwitchTest.kt and implementation of VietnameseDictionary.kt and BilingualAutoSwitchEngine.kt.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-003 analyzes multi-word backspace batch replacement trade-offs and rejects manual VI/EN switching for mid-sentence code-switching."
+    },
+    "REQ-004": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.1.3 defines lock-isolated AutoWordingEngine.kt using OKWordContext, diacritic-preserving stem completion, user frequency ranking, phonotactic cluster repair, and custom shorthand expansion.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 4.1 and Task 4.2 cover TDD tests in AutoWordingEngineTest.kt and AutoWordingEngine.kt implementation.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-004 justifies in-memory dictionary heap trade-offs (~1.5 MB) and rejects Binder IPC queries to Android UserDictionary ContentProvider."
+    },
+    "REQ-005": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.2.1 and Section 3.2.2 define InputContextEvaluator.kt for password/URI/email/numeric/terminal bypass and InputConnectionCommitter.kt for atomic beginBatchEdit/deleteSurroundingText/commitText/endBatchEdit replacement without setComposingText.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 5.1, Task 5.2, and Task 7.1 cover ImePipelineAndContextTest.kt and InputContextEvaluator/InputConnectionCommitter implementation.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-005 evaluates cursor selection tracking via onUpdateSelection and rejects setComposingText due to WebView autocomplete duplication and underline artifacts."
+    },
+    "REQ-006": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.2.3 specifies SmartSwitchStore.kt per-package language persistence wired to OpenKeyImeService.onStartInputView.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 5.1, Task 5.2, and Task 7.1 specify unit tests and implementation for SmartSwitchStore.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-006 justifies EditorInfo.packageName inspection in onStartInputView and rejects AccessibilityService foreground app detection."
+    },
+    "REQ-007": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.3.1 specifies PhoneLayoutMetrics.kt, PhoneLayoutConfig, KeyboardLayoutDefinition.kt, and KeyboardScreen.kt replicating the Samsung Galaxy A37 One UI 5-row layout, 5% home-row inset, !#1/1/2/2/2 symbol layers, One UI Light/Dark themes, 14dp chin, and One-Handed mode.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 6.1, Task 6.2, Task 7.2, and Task 11.1 define layout metric unit tests, Compose UI implementation, and phone-dedicated class naming (PhoneLayoutMetrics).",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-007 and ADR-015 justify Samsung One UI stock keyboard layout parity and phone-dedicated naming over generic Material pill buttons or tablet LargeScreen naming."
+    },
+    "REQ-008": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.3.2 specifies KeyboardGestureController.kt for Spacebar 12dp trackpad cursor control, Backspace 24dp swipe-delete, 220ms long-press symbol/vowel popups, and keycap haptics.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 6.1, Task 6.2, and Task 7.2 cover unit tests and Compose pointer gesture integration.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-008 analyzes screen-edge gesture non-interference and rejects full-keyboard glide typing due to Vietnamese Telex end-of-syllable tone ambiguity."
+    },
+    "REQ-009": {
+      "design_aligned": true,
+      "design_rationale": "Section 1 and Section 3.4 specify the touch-only phone scope for the Samsung Galaxy A37, removing HardwareKeyMapper.kt and hardware key interception methods from KeyboardSessionController and OpenKeyImeService.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 11.2 specifies deleting HardwareKeyMapper.kt and removing onHardwareKeyDown, onHardwareKeyUp, and processHardwareKey with corresponding unit test updates.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-015 explicitly supersedes ADR-009, documenting the trade-offs of dedicating the phone codebase strictly to on-screen touch typing."
+    },
+    "REQ-010": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.4 specifies OpenKeySettingsStore.kt, KeyValueStorage with Direct-Boot device-protected SharedPreferences, OpenKeyL10n.kt (VI/EN), ImeComposeLifecycleOwner.kt, and SettingsActivity.kt.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 6.1, Task 6.2, Task 7.1, and Task 7.3 cover settings clamping, localization, lifecycle owner, and SettingsActivity UI.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-010 evaluates device-protected storage security trade-offs for Direct Boot lock-screen readiness and rejects deprecated XML KeyboardView."
+    },
+    "REQ-011": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.5 defines KeyboardSessionController.kt centralizing touch keystroke routing, EditorUiState reactivity, bypassVietnamese enforcement on touch keys, and Enter action/newline dispatch.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 9.1, Task 9.2, Task 10.1, and Task 11.2 cover KeyboardSessionController unit tests, implementation, and touch-only refinement.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-011 and ADR-015 justify centralizing session orchestration in :openkey-core via TextCommitterTarget and reject duplicating state across KeyboardScreen and OpenKeyImeService."
+    },
+    "REQ-012": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.5 specifies the Commit-First keystroke pipeline in KeyboardSessionController and VietnameseEngine, static lookup tables and prewarmAsync() in VietnameseDictionary, and generation-tagged async candidate computation in AutoWordingEngine.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 9.1, Task 9.2, and Task 10.1 specify SmoothArchitectureTest assertions and implementation across VietnameseEngine, VietnameseDictionary, AutoWordingEngine, and KeyboardSessionController.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-012 evaluates synchronous vs asynchronous candidate emission trade-offs and rejects blocking character commits on main-thread dictionary sorting."
+    },
+    "REQ-013": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.5 defines selection tracking in BatchReplacementCoordinator and zero-IPC-read cursor movement in InputConnectionCommitter.moveCursorBy without calling getExtractedText.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 9.1, Task 9.2, and Task 10.1 cover selection tracking and zero-getExtractedText verification in SmoothArchitectureTest and OpenKeyAndroidAppTest.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-013 analyzes DPAD/selection-offset cursor movement and rejects synchronous getExtractedText Binder IPC reads at 120Hz."
+    },
+    "REQ-014": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.5 specifies ConcurrentHashMap layer caching in KeyboardLayoutDefinition, LiveCandidateStripHost recomposition isolation in KeyboardScreen, and single-pass Modifier.drawBehind keycap rendering in KeyButton.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 9.1, Task 9.2, and Task 10.1 verify referential layer caching (===) and implement LiveCandidateStripHost and drawBehind keycaps.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-014 evaluates custom Canvas bevel rendering vs multi-layer shadow modifiers and rejects root-level candidate state recomposition."
+    },
+    "REQ-015": {
+      "design_aligned": true,
+      "design_rationale": "Section 1 and Section 3.5 define the 1,000-keystroke continuous mixed Vietnamese/English hot-path benchmark in SmoothArchitectureTest asserting < 0.2ms average per-keystroke latency.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 9.1, Task 9.2, and Task 10.2 implement and execute SmoothArchitectureTest to verify the < 0.2ms latency budget.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-012 establishes the < 0.2ms hot-path latency target (> 40x faster than the 8.33ms 120Hz frame budget) through commit-first execution."
+    },
+    "REQ-016": {
+      "design_aligned": true,
+      "design_rationale": "Section 1 maps REQ-016 and ADR-016 to .github/workflows/android-ci.yml, Sources/OpenKey/android/gradle.properties, and Sources/OpenKey/android/.gitignore for portable JDK 21 builds and automated APK artifact publishing.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 12.1 and Task 12.2 define making gradle.properties portable, adding .gitignore, creating .github/workflows/android-ci.yml, pushing to origin, and verifying the GitHub Actions run.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-016 evaluates ubuntu-latest vs macOS runner speed/cost trade-offs and rejects hardcoded local JDK paths in gradle.properties."
+    }
+  }
+}
