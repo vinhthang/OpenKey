@@ -176,3 +176,53 @@
 - **Trade-offs & Risks**: Running Android builds on `ubuntu-latest` is `3×` faster and consumes `10×` fewer GitHub Actions minutes than `macos` runners while using the standard pre-installed Android SDK (`$ANDROID_HOME`) on GitHub-hosted Ubuntu images.
 - **Rejected Alternatives**: Combining the Android Gradle build into `macos-ci.yml` on `macos-26` (rejected because macOS runners do not pre-install the Android SDK platform-tools/build-tools 35 and decouples Android CI status from macOS Swift CI).
 - **Consequences**: Every push to GitHub automatically verifies `:openkey-core` and `:app` unit tests and produces a downloadable Samsung Galaxy A37 APK artifact on GitHub Actions.
+
+
+---
+
+## `ADR-017`: Android Debug Mode, Version-Scoped Persistent File Logger (`OpenKeyLogger.kt`) & In-App Log Viewer (`REQ-017`, `REQ-010`, `REQ-011`)
+- **Date**: `2026-11-02`
+- **Status**: `Accepted`
+- **Context**: On macOS (`REQ-013`, `OpenKeyLogger.swift`), OpenKey provides an opt-in Debug Mode (`debugModeEnabled`) that logs subsystem events (`LIFECYCLE`, `SETTINGS`, `ENGINE`, `AUTO_WORDING`, `SMART_SWITCH`) to `openkey-debug.log` with automatic keystroke redaction in secure fields, version-stamp retention, and size-cap rotation. On the Samsung Galaxy A37, inspecting `adb logcat` requires connecting to a computer, so users need both persistent file logging (`openkey-debug.log`) and an in-app **Debug & Diagnostics** viewer/clipboard exporter directly inside `SettingsActivity`.
+- **Decision**:
+  1. Implement `OpenKeyLogger.kt` in `:openkey-core` (`com.tuyenmai.openkey.core`) with `OpenKeyLogCategory` (`LIFECYCLE`, `SETTINGS`, `SESSION`, `ENGINE`, `AUTO_WORDING`, `SMART_SWITCH`), a single-thread background daemon writer (`"openkey-debug-logger"`), lazy lambda evaluation (`log(category) { ... }` returning immediately when `!isEnabled`), version-stamp retention (`# OpenKeyAndroidVersionStamp: <stamp>`), size-cap rotation (`maxFileSizeBytes`, default `5 MB`), and `readRecentLogs(maxLines: Int = 200)` / `clearLog()`.
+  2. Add `debugModeEnabled: Boolean` (`KEY_DEBUG_MODE_ENABLED = "DebugModeEnabled"`, default `false`) to `OpenKeySettingsStore`, automatically syncing `OpenKeyLogger.shared.isEnabled = debugModeEnabled`.
+  3. Wire `OpenKeyLogger.shared.log(...)` across `OpenKeySettingsStore`, `KeyboardSessionController` (redacting keystrokes when `editorUiState.isSecureField == true`), `VietnameseEngine`, `AutoWordingEngine`, and `OpenKeyImeService` (configuring the log directory at `context.createDeviceProtectedStorageContext().filesDir/logs`).
+  4. Add a localized (`VI | EN`) **Debug & Diagnostics** card in `SettingsActivity.kt` (`OpenKeyL10n.Debug`) with a `Debug Mode` switch, live scrollable log output (`readRecentLogs`), a **Copy Logs** button (`ClipboardManager`), and a **Clear Log** button.
+- **Trade-offs & Risks**:
+  - *Trade-off*: Writing debug logs to internal storage adds background I/O when `debugModeEnabled == true`.
+  - *Mitigation*: `OpenKeyLogger.log` uses a lazy `() -> String` lambda that exits in `< 2 ns` when `isEnabled == false` (default), dispatches file writes asynchronously to a daemon thread when enabled, caps log file size at `5 MB`, and strictly redacts keystrokes in secure/password fields.
+- **Rejected Alternatives**:
+  - *Relying only on `android.util.Log` (`logcat`)*: Rejected because reading `logcat` on a physical Samsung Galaxy A37 requires USB debugging and a PC, whereas an in-app log viewer + clipboard copy works standalone on the phone.
+
+---
+
+## `ADR-018`: Cross-Platform GitHub Actions Path Filtering & `@MainActor` Test Synchronization (`REQ-016`)
+- **Date**: `2026-11-02`
+- **Status**: `Accepted`
+- **Context**: In GitHub Actions run `41440523284`, pushing Android specification updates triggered `.github/workflows/macos-ci.yml` (which lacked path filters), and `OpenKeyEventTapTests.openKeySettingsStoreSync()` failed intermittently on `macos-26` because `openKeySettingsStoreSync()` ran on a background Swift Testing cooperative thread (`Thread.isMainThread == false`), causing `OpenKeySettingsStore.language.didSet` to dispatch `onLanguageChanged` asynchronously via `DispatchQueue.main.async` after `#expect(tracker.invoked)` had already evaluated.
+- **Decision**:
+  1. Annotate `openKeySettingsStoreSync()` (and any `OpenKeyEventTapTests` mutating `@MainActor`-dispatched `OpenKeySettingsStore` callbacks) with `@MainActor` in `Sources/OpenKey/macOS-Swift/Tests/OpenKeySwiftTests/OpenKeyEventTapTests.swift` so `Thread.isMainThread` is guaranteed `true` and `onLanguageChanged` executes synchronously.
+  2. Add `paths:` filters (`Sources/OpenKey/macOS-Swift/**`, `.github/workflows/macos-ci.yml`) to `.github/workflows/macos-ci.yml` so macOS and Android CI pipelines run when their respective platform files or workflows change (plus `workflow_dispatch` and `v*` tags).
+- **Trade-offs & Risks**:
+  - *Trade-off*: Running `openKeySettingsStoreSync()` on `@MainActor` serializes that test onto the main thread.
+  - *Mitigation*: `openKeySettingsStoreSync()` takes `0.001s` and tests UI/settings state callbacks (`@MainActor @Sendable (Int) -> Void`), making `@MainActor` the exact contract boundary.
+- **Rejected Alternatives**:
+  - *Adding `Thread.sleep` in `openKeySettingsStoreSync()`*: Rejected because sleeping on the main or background thread is brittle and non-deterministic compared to `@MainActor` isolation.
+
+
+---
+
+## `ADR-019`: Context-Ordered `V` / `E` Homograph Disambiguation (`"sẽ"` vs. `"sex"`) & Tone-Preserving Candidate Ranking (`REQ-018`, `REQ-003`, `REQ-004`)
+- **Date**: `2026-11-04`
+- **Status**: `Accepted`
+- **Context**: Typing `"sẽ"` (`s-e-x` in Telex) in Vietnamese mode was erroneously converted to `"sex"` on `Space` because `"sex"` (along with other English words whose Telex sequences form common Vietnamese words such as `vex` → `"vẽ"`, `max` → `"mã"`, `six` → `"sĩ"`, `tax` → `"tã"`, `lax` → `"lã"`, `moon` → `"môn"`, `noon` → `"nôn"`, `soon` → `"sôn"`, `seen` → `"sên"`, `beef` → `"bề"`, `reef` → `"rề"`, `room` → `"rôm"`, `boots` → `"bốt"`, `roots` → `"rốt"`, `loops` → `"lốp"`) was placed in `englishPriorityWords`, which unconditionally forced English restoration regardless of whether the user was in a Vietnamese (`V`) or English (`E`) context. Additionally, `AutoWordingEngine.computeCurrentWordCandidates` demoted exact matches of `currentSyllable` even when `currentSyllable` already carried an explicit tone mark (`"sẽ"`), causing unaccented `"se"` and `"sex"` to appear ahead of `"sẽ"`.
+- **Decision**:
+  1. Remove Vietnamese-homograph collision words (`sex`, `vex`, `max`, `six`, `tax`, `lax`, `hex`, `moon`, `noon`, `soon`, `seen`, `seem`, `beef`, `reef`, `room`, `boom`, `doom`, `loom`, `boots`, `roots`, `loops`, `meets`, `keeps`, `moor`, `door`) from unconditional `englishPriorityWords` and place them in `englishLookbackStems` + `englishWords` in both `VietnameseDictionary.kt` and `VietnameseDictionary.swift`.
+  2. In `BilingualAutoSwitchEngine.evaluateWordBreakRestore` (both Kotlin and Swift), when `priority == LanguagePriority.ENGLISH_FIRST` (`E`, i.e., after an English word) and `dict.englishWords.contains(fullRawLower)` (and `dict.englishLookbackStems.contains(fullRawLower)`), restore `fullKeys` to English (`"have sex "`, `"at max "`, `"number six "`, `"income tax "`, `"full moon "`). When `priority == LanguagePriority.VIETNAMESE_FIRST` (`V`, default in Vietnamese mode or after a Vietnamese word), keep the composed Vietnamese word (`"sẽ "`, `"anh sẽ "`, `"vẽ "`, `"mã "`, `"sĩ "`, `"tã "`, `"môn "`). When followed by an English word (`"sex is "`, `"sex education "`, `"max value "`), the 2-word look-back (`englishLookbackStems`) restores both words to English.
+  3. In `AutoWordingEngine.computeCurrentWordCandidates` (both Kotlin and Swift), only demote `w == currentLower` behind `distinctAccented` when `currentSyllable` has no tone mark (`!hasExplicitToneMark(currentSyllable)`), and ensure `VietnameseDictionary.computeEnglishCandidates` includes exact `englishWords`/`englishLookbackStems` matches (`"sex"`) so `VIETNAMESE_FIRST` (`V`) orders `["sẽ", ..., "sex"]` and `ENGLISH_FIRST` (`E`) orders `["sex", "sẽ", ...]`.
+- **Trade-offs & Risks**:
+  - *Trade-off*: Typing standalone `"sex "` or `"max "` as the very first word of a Vietnamese-mode session produces `"sẽ "` or `"mã "` unless preceded or followed by an English word (or undone via `xx` escape `sexx ` / `maxx ` or selecting `"sex"` from the candidate bar).
+  - *Mitigation*: In Vietnamese mode (`V`), `"sẽ"` (*will/shall*) and `"mã"` (*code*) are orders of magnitude more frequent than standalone single-word `"sex"` or `"max"`, while multi-word English phrases (`"have sex "`, `"sex education "`, `"at max "`, `"max value "`), `sexx ` doubled-tone escape, and the 3-slot candidate bar (`["sẽ", "sẻ", "sex"]`) handle English seamlessly.
+- **Rejected Alternatives**:
+  - *Keeping `"sex"` in unconditional `englishPriorityWords`*: Rejected because it corrupts `"sẽ"`—one of the most common words in the Vietnamese language—every time a user types Vietnamese.

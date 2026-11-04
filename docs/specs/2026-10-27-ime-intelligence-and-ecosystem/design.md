@@ -14,10 +14,11 @@
 | **`REQ-006`** | `ADR-005` | `AutoWordingEngine.swift`, `OpenKeySettingsStore.swift`, `SettingsView.swift` | Expanded `shorthandTable`, `customShorthands: [String: String]`, `setCustomShorthand(trigger:replacement:)`, `removeCustomShorthand(trigger:)` |
 | **`REQ-007`** | `ADR-006` | `VietnameseEngine.swift`, `AutoWordingEngine.swift`, `EventTapCoordinator.swift` | `CHR(_:)`, `handleModernMark()`, `handleOldMark()`, `insertMark(markMask:canModifyFlag:)`, `checkGrammar(deltaBackSpace:)`, `startNewSessionInternal()`, `restoreLastTypingState()`, `resetSession()`, `handleKeyEvent(...)`, `updateCandidates(_:)`, `evaluateKeyEvent(_:)` |
 | **`REQ-008`** | `ADR-007` | `VietnameseEngine.swift`, `AutoWordingEngine.swift`, `CaretPositionResolver.swift`, `CandidateBarController.swift`, `OpenKeySettingsStore.swift` | `OKWordContext`, `OKEngineGetWordContext`, `OKEngineCommitExternalExpansion`, `phonotacticRepairHook`, `CandidateKind.stemCompletion`, `CaretPositionResolver.resolveCaretScreenPoint()` |
-| **`REQ-009`** | `ADR-008` | `Sources/OpenKey/macOS-Swift/Sources/**`, `Sources/OpenKey/macOS-Swift/Tests/**` | Sub-500-line modular decomposition (`VietnameseEngine+*.swift`, `SmartSwitchStore.swift`, `VietnameseUnicodeTable.swift`, `AutoWordingTypes.swift`, `VietnameseDictionaryCorpus.swift`, `SystemEnvironmentDetector.swift`) |
-| **`REQ-010`** | `ADR-009` | `VietnameseEngine+SpellingAndGrammar.swift`, `VietnameseEngine+KeyEventDispatcher.swift`, `AutoWordingEngine.swift`, `VietnameseDictionaryCorpus.swift` | `findAndCalculateVowel(forGrammar:)`, `canHasEndConsonant()`, `checkCorrectVowel(charset:i:markKey:)`, `handleCharacterKey(keyCode:isCaps:)`, `computeCurrentWordCandidates(currentSyllable:rawKeystrokes:isWrongSpelling:)` |
+| **`REQ-009`** | `ADR-008` | `Sources/OpenKey/macOS-Swift/Sources/**`, `Sources/OpenKey/macOS-Swift/Tests/**` | Cohesion-driven modular architecture (`VietnameseData.swift`, `VietnameseEngine.swift`, `VietnameseEngine+Phonotactics.swift`, `SmartSwitchStore.swift`, `AutoWordingEngine.swift`, `VietnameseDictionary.swift`, `EventTapCoordinator.swift`) |
+| **`REQ-010`** | `ADR-009` | `VietnameseEngine+Phonotactics.swift`, `VietnameseEngine.swift`, `AutoWordingEngine.swift`, `VietnameseDictionary.swift` | `findAndCalculateVowel(forGrammar:)`, `canHasEndConsonant()`, `checkCorrectVowel(charset:i:markKey:)`, `handleCharacterKey(keyCode:isCaps:)`, `computeCurrentWordCandidates(currentSyllable:rawKeystrokes:isWrongSpelling:)` |
 | **`REQ-011`** | `ADR-010` | `.github/workflows/macos-ci.yml`, `Sources/OpenKey/macOS-Swift/Package.swift`, `README.md` | GitHub Actions `macos-26` CI/CD workflow (`test`, `build-app.sh`, `.zip`/`.dmg` packaging, artifact upload, release publishing) & portable `Testing` macro plugin resolution |
 | **`REQ-012`** | `ADR-011` | `OpenKeySettingsStore.swift`, `OpenKeyL10n.swift`, `SettingsView.swift`, `OpenKeySwiftApp.swift` | `uiLanguage` persistence (`VI | EN`), `OpenKeyL10n` concise single-language strings, `Esc`-to-close handler (`handleEscapeKey()`), and About section version + `Antigravity (Gemini 4 Argon High)` implementor attribution |
+| **`REQ-013`** | `ADR-012` | `OpenKeyLogger.swift`, `OpenKeySettingsStore.swift`, `EventTapCoordinator.swift`, `VietnameseEngine.swift`, `AutoWordingEngine.swift`, `KeystrokeInjector.swift`, `CandidateBarController.swift`, `SmartSwitchStore.swift`, `SettingsView.swift`, `OpenKeySwiftApp.swift`, `OpenKeyL10n.swift`, `build-app.sh` | `OpenKeyLogger.shared`, `OpenKeyLogCategory`, `checkVersionRetention(currentStamp:)`, `debugModeEnabled`, `openLogFile()`, `revealLogInFinder()`, `clearLog()` |
 
 ---
 
@@ -101,23 +102,18 @@
 
 ## 6. Codebase Modularization & Complexity Reduction Architecture (`REQ-009`, `ADR-008`)
 
-### 6.1 Module Decomposition Map (All Files `< 500` Lines)
-- **`OpenKeySwiftCore` Target**:
-  1. `VietnameseData.swift` (`< 400` lines): Virtual keycode constants, bitmask constants, `@inline(__always)` `UInt32` syllable bitmask helpers (`baseKey`, `isCaps`, `hasToneMark`, `toneMark`, `hasCircumflexOrStroke`, `hasHornOrBreve`, `hasAnyDiacritic`, `isAutoTone`, `isStandaloneW`), `NSLock.withLock`, `OKHookSnapshot`, `HookCodeState`, and phonotactic tables.
-  2. `VietnameseUnicodeTable.swift` (`< 200` lines): Precomposed Unicode `_codeTable`, `_characterMap`, and `keyCodeToCharacter(_:)`.
-  3. `VietnameseEngine.swift` (`< 400` lines): `OKWordContext`, `VietnameseEngineState` core state buffers, configuration, session lifecycle (`initEngine`, `resetSession`, `commitExternalExpansion`, `getWordContext`, `getComposedWord`), buffer helpers (`insertKey`, `insertState`, `saveWord`, `restoreLastTypingState`), and public `OKEngine*` functions.
-  4. `VietnameseEngine+SpellingAndGrammar.swift` (`< 350` lines): `checkSpelling`, `checkCorrectVowel`, `canHasEndConsonant`, `findAndCalculateVowel`, `repairPhonotacticClusterIfNeeded`, `checkGrammar`, and `checkRestoreIfWrongSpelling`.
-  5. `VietnameseEngine+MarkAndTone.swift` (`< 420` lines): `getCharacterCode`, `removeMark`, `handleModernMark`, `handleOldMark`, `insertMark`, `insertD`, `insertAOE`, `insertW`, `reverseLastStandaloneChar`, `checkForStandaloneChar`, and `handleMainKey`.
-  6. `VietnameseEngine+KeyEventDispatcher.swift` (`< 300` lines): `handleKeyEvent(keyCode:capsStatus:otherControlKey:)` decomposed into `handleWordBreakOrControlKey`, `handleSpaceKey`, `handleDeleteKey`, `handleCharacterKey`, and `buildOutputSnapshot`.
-  7. `SmartSwitchStore.swift` (`< 150` lines): Per-app language memory (`SmartSwitchStore.shared`) with `Data`-based persistence (`loadData(_:)`, `exportData()`) plus `OKInitSmartSwitchKey`, `OKGetSmartSwitchKeySaveData`, `OKGetAppInputMethodStatus`, and `OKSetAppInputMethodStatus`.
-  8. `AutoWordingTypes.swift` (`< 150` lines): `CandidateKind`, `WordCandidate`, `AutoWordingShorthandCatalog` (`builtInShorthands`, `properNounShorthands`).
-  9. `AutoWordingEngine.swift` (`< 450` lines): Lock-isolated configuration and candidate state using `lock.withLock`, frequency learning, shorthand expansion, candidate ranking, phonotactic cluster repair, and pre/post key event hooks.
-  10. `VietnameseDictionary.swift` (`< 160` lines): `VietnameseDictionary` index construction and `stripVietnameseDiacritics(_:)`.
-  11. `VietnameseDictionaryCorpus.swift` (`< 480` lines): Compact static syllable array, compound bigram table, and priority weights.
-  12. `SystemEnvironmentDetector.swift` (`< 200` lines): `EventTapEventType`, `KeyEventContext`, `EventTapAction`, and system environment detectors (`isSecureEventInputActive`, `isLauncherApp`, `isTerminalApp`, `isSpotlightOverlayVisible`, `markSpotlightNeedsRecheck`, `invalidateSpotlightCache`).
-  13. `EventTapCoordinator.swift` (`< 450` lines): `CGEventTap` setup/teardown, app-switch/wake observers, `evaluateKeyEvent(_:)`, and `handleEvent(proxy:type:event:)`.
+### 6.1 Module Decomposition Map (Cohesion-Driven Single Responsibility)
+- **`OpenKeySwiftCore` Target (11 Cohesive Files)**:
+  1. `VietnameseData.swift` (~540 lines): Virtual keycode constants, bitmask constants, `@inline(__always)` `UInt32` syllable bitmask helpers (`baseKey`, `isCaps`, `hasToneMark`, `toneMark`, `hasCircumflexOrStroke`, `hasHornOrBreve`, `hasAnyDiacritic`, `isAutoTone`, `isStandaloneW`), `NSLock.withLock`, `OKHookSnapshot`, `HookCodeState`, phonotactic tables, precomposed Unicode `_codeTable`, `_characterMap`, and `keyCodeToCharacter(_:)`.
+  2. `VietnameseEngine.swift` (~650 lines): `OKWordContext`, `VietnameseEngineState` core state buffers, configuration, session lifecycle (`initEngine`, `resetSession`, `commitExternalExpansion`, `getWordContext`, `getComposedWord`), buffer helpers (`insertKey`, `insertState`, `saveWord`, `restoreLastTypingState`), `handleKeyEvent(keyCode:capsStatus:otherControlKey:)` phase dispatcher (`handleWordBreakOrControlKey`, `handleSpaceKey`, `handleDeleteKey`, `handleCharacterKey`, `buildOutputSnapshot`), and public `OKEngine*` functions.
+  3. `VietnameseEngine+Phonotactics.swift` (~735 lines): Phonotactic spelling validation, vowel boundaries, grammar repair, and tone/mark transforms (`checkSpelling`, `checkCorrectVowel`, `canHasEndConsonant`, `findAndCalculateVowel`, `repairPhonotacticClusterIfNeeded`, `checkGrammar`, `checkRestoreIfWrongSpelling`, `getCharacterCode`, `removeMark`, `handleModernMark`, `handleOldMark`, `insertMark`, `insertD`, `insertAOE`, `insertW`, `reverseLastStandaloneChar`, `checkForStandaloneChar`, `handleMainKey`).
+  4. `SmartSwitchStore.swift` (~117 lines): Per-app language memory (`SmartSwitchStore.shared`) with `Data`-based persistence (`loadData(_:)`, `exportData()`) plus `OKInitSmartSwitchKey`, `OKGetSmartSwitchKeySaveData`, `OKGetAppInputMethodStatus`, and `OKSetAppInputMethodStatus`.
+  5. `AutoWordingEngine.swift` (~500 lines): `CandidateKind`, `WordCandidate`, `AutoWordingShorthandCatalog`, and lock-isolated `AutoWordingEngine` (configuration, candidate ranking, frequency learning, shorthand expansion, phonotactic cluster repair, and pre/post key event hooks).
+  6. `VietnameseDictionary.swift` (~555 lines): `VietnameseDictionary` index construction, `stripVietnameseDiacritics(_:)`, and embedded `VietnameseDictionaryCorpus` static syllable array, compound bigram table, and priority weights.
+  7. `EventTapCoordinator.swift` (~615 lines): `EventTapEventType`, `KeyEventContext`, `EventTapAction`, `SystemEnvironmentDetector` (secure input, launcher overlay, terminal app detection), `CGEventTap` setup/teardown, app-switch/wake observers, `evaluateKeyEvent(_:)`, and `handleEvent(proxy:type:event:)`.
+  8. `CaretPositionResolver.swift`, `HotKeyMatcher.swift`, `InputSourceGuard.swift`, `KeystrokeInjector.swift`, `OpenKeyLogger.swift`, `OpenKeySettingsStore.swift`.
 - **`OpenKeySwiftTests` Target**:
-  - Split `OpenKeySwiftTests.swift` (`1,602` lines) into `OpenKeyEngineTests.swift` (`< 480` lines), `OpenKeyEventTapTests.swift` (`< 480` lines), and `OpenKeyAutoWordingTests.swift` (`< 480` lines) alongside `OpenKeyLoadTests.swift` (`< 480` lines).
+  - Domain-focused suites (`OpenKeyEngineTests.swift`, `OpenKeyEventTapTests.swift`, `OpenKeyAutoWordingTests.swift`, `OpenKeyLoadTests.swift`, `OpenKeyTestHelpers.swift`).
 
 ---
 
@@ -144,12 +140,11 @@
   - Steps:
     1. Checkout repository (`actions/checkout@v4`).
     2. Verify Swift & Xcode toolchain (`swift --version`, `xcodebuild -version`).
-    3. Verify `REQ-009` `< 500` line-count invariant across all `.swift` files under `Sources/OpenKey/macOS-Swift/Sources` and `Sources/OpenKey/macOS-Swift/Tests`.
-    4. Run automated unit and load test suite (`swift test --package-path Sources/OpenKey/macOS-Swift`).
-    5. Build and code-sign `OpenKeySwift.app` (`bash Sources/OpenKey/macOS-Swift/build-app.sh`) and verify signature (`codesign --verify --deep --strict Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app`).
-    6. Package distributable `OpenKeySwift-macOS-arm64.zip` (`ditto -c -k --sequesterRsrc --keepParent`) and `OpenKeySwift.dmg` (`hdiutil create`).
-    7. Upload `OpenKeySwift-macOS-arm64.zip` and `OpenKeySwift.dmg` via `actions/upload-artifact@v4`.
-    8. Publish release assets via `softprops/action-gh-release@v2` when `startsWith(github.ref, 'refs/tags/v')`.
+    3. Run automated unit and load test suite (`swift test --package-path Sources/OpenKey/macOS-Swift`).
+    4. Build and code-sign `OpenKeySwift.app` (`bash Sources/OpenKey/macOS-Swift/build-app.sh`) and verify signature (`codesign --verify --deep --strict Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app`).
+    5. Package distributable `OpenKeySwift-macOS-arm64.zip` (`ditto -c -k --sequesterRsrc --keepParent`) and `OpenKeySwift.dmg` (`hdiutil create`).
+    6. Upload `OpenKeySwift-macOS-arm64.zip` and `OpenKeySwift.dmg` via `actions/upload-artifact@v4`.
+    7. Publish release assets via `softprops/action-gh-release@v2` when `startsWith(github.ref, 'refs/tags/v')`.
 - **`README.md`**:
   - Add the GitHub Actions `macOS CI/CD` workflow status badge under the header and document CI/CD automated builds and artifact downloads in Section 4.
 
@@ -171,3 +166,154 @@
 - **`SettingsView.openAccessibilitySettings()` & `build-app.sh` TCC Resilience**:
   - When `!settings.isAccessibilityTrusted`, `openAccessibilitySettings()` runs `/usr/bin/tccutil reset Accessibility com.tuyenmai.openkey.swift` via `Process` and calls `EventTapCoordinator.shared.checkAccessibilityAndSetupTap()` before opening `x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility`.
   - `build-app.sh` uses `/usr/bin/openssl` (LibreSSL PKCS#12 compatibility with macOS `security import`) in `--setup-cert` and only passes `-r='designated => identifier "com.tuyenmai.openkey.swift"'` when `SIGNING_IDENTITY == "-"`.
+
+---
+
+## 10. Debug Mode & Version-Scoped Persistent File Logging (`REQ-013`, `ADR-012`)
+- **`OpenKeyLogger.swift` (`Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/OpenKeyLogger.swift`, `< 250` lines)**:
+  - `public enum OpenKeyLogCategory: String, Sendable`: `lifecycle = "LIFECYCLE"`, `settings = "SETTINGS"`, `eventTap = "EVENT_TAP"`, `engine = "ENGINE"`, `autoWording = "AUTO_WORDING"`, `injector = "INJECTOR"`, `candidateBar = "CANDIDATE_BAR"`, `smartSwitch = "SMART_SWITCH"`.
+  - `public final class OpenKeyLogger: @unchecked Sendable`:
+    - `public static let shared = OpenKeyLogger()`
+    - Default log directory: `~/Library/Logs/OpenKeySwift/`, active log file: `~/Library/Logs/OpenKeySwift/openkey-debug.log`, default `maxFileSizeBytes = 20 * 1024 * 1024` (20 MB).
+    - `public var isEnabled: Bool`: lock-protected boolean synced with `OpenKeySettingsStore.shared.debugModeEnabled` (default `false`). When transitioned to `true`, ensures the log directory and version-stamped `openkey-debug.log` are initialized and logs a `[LIFECYCLE]` activation banner.
+    - `public func checkVersionRetention(currentStamp: String? = nil)`: resolves `currentStamp` from `Bundle.main.infoDictionary` (`CFBundleShortVersionString` + `CFBundleVersion` + executable modification date epoch). Removes any legacy/rotated `.log` files in `logDirectoryURL` other than `openkey-debug.log`. Reads the first line of `openkey-debug.log` (`# OpenKeySwiftVersionStamp: <stamp>`). If the file does not exist or its stamp != `currentStamp`, recreates `openkey-debug.log` with `# OpenKeySwiftVersionStamp: <currentStamp>\n# Initialized: <ISO8601>\n`.
+    - `@inline(__always) public func log(_ category: OpenKeyLogCategory, _ message: @autoclosure () -> String)`: returns immediately if `!isEnabled`; otherwise evaluates `message()`, formats `[<ISO8601-ms>] [<category.rawValue>] <msg>\n`, and dispatches asynchronously to `queue` (`DispatchQueue(label: "com.tuyenmai.openkey.logger", qos: .utility)`). If file size + entry size > `maxFileSizeBytes`, truncates and writes the version header + `[LOG_ROTATED_SIZE_CAP]` notice before appending.
+    - `public func clearLog()`, `public func flushForTesting()`, and `public func configureForTesting(logDirectoryURL: URL, appVersionStamp: String, maxFileSizeBytes: Int = 20 * 1024 * 1024)`.
+- **Subsystem Instrumentation & Secure Input Redaction**:
+  - `EventTapCoordinator.swift`: In `evaluateKeyEvent(_:)`, if `context.isSecureInput == true`, log `.eventTap` `"Secure input active — keystroke redacted, bypassing IME"` and return `.passThrough(resetSession: true)` without logging `keyCode` or flags. For non-secure events, log incoming key context and resulting `EventTapAction`.
+  - `VietnameseEngine.swift`: In `OKEngineHandleKeyEvent` and `OKEngineResetSession`, log input `keyCode`/`capsStatus` and output `OKHookSnapshot` (`code`, `backspaceCount`, `newCharCount`, composed word).
+  - `AutoWordingEngine.swift`: Log phonotactic cluster repairs, shorthand expansions, candidate list computations, and frequency learning updates.
+  - `KeystrokeInjector.swift`, `CandidateBarController.swift`, `SmartSwitchStore.swift`, `OpenKeySettingsStore.swift`: Log replacement injection parameters, candidate panel coordinate updates, per-app language switches, and setting changes.
+- **UI, Menu Bar & Build Script Integration**:
+  - `OpenKeySettingsStore.swift`: Add `Keys.debugModeEnabled = "DebugModeEnabled"` (default `false`) and `public var debugModeEnabled: Bool` syncing to `OpenKeyLogger.shared.isEnabled`.
+  - `SettingsView.swift` & `OpenKeyL10n.swift`: Under `Hệ thống / System`, add a Debug Mode toggle, log file path + per-version retention subtitle, and `Open Log File`, `Reveal in Finder`, and `Clear Log` buttons.
+  - `OpenKeySwiftApp.swift`: Add a `Debug Mode` toggle item (and `Open Debug Log...` when enabled) in the status bar menu, and call `OpenKeyLogger.shared.checkVersionRetention()` on launch.
+  - `build-app.sh`: Stamp `CFBundleVersion` in `${APP_BUNDLE}/Contents/Info.plist` with `1.$(date -u +%Y%m%d%H%M%S)` via `/usr/libexec/PlistBuddy` so every new `.app` build automatically rotates/purges the previous build's debug log.
+
+---
+
+## 11. Mixed-Language Inline English Auto-Fix, Swallowed-Key Recovery, 1–2 Word Look-Back, 3-Word Auto-Switch & Single-Backspace Undo (`REQ-014`..`REQ-020`, `ADR-013`..`ADR-018`)
+- **11.1 Canonical Telex Key & Bilingual Dictionary (`REQ-014`, `ADR-013`, `VietnameseDictionary.swift`)**:
+  - Store `englishWords`, `englishPriorityWords`, `englishLookbackStems`, `keepWords`, and `rawSyllables` using space-delimited `String.split(separator: " ")` literals to eliminate $O(N^2)$ `swift-frontend` array-literal type-checking latency during compilation.
+  - `public static func canonicalTelexKey(for word: String) -> String`: normalizes `â/ê/ô/đ` → `aa/ee/oo/dd`, `ă/ơ/ư` → `aw/ow/uw`, and appends the tone mark (`s/f/r/x/j`) at the end.
+  - `public let englishWords: Set<String>`: common English + developer/CLI/chat vocabulary (`en_extra` + `en_code`).
+  - `public let englishPriorityWords: Set<String>`: high-frequency English/tech words that collide with valid Vietnamese phonotactics (`test`, `list`, `this`, `best`, `host`, `post`, `cost`, `most`, `last`, `fast`, `rest`, `next`, `text`, `view`, `new`, `show`, `flow`, `slow`, `raw`, `more`, `core`, `store`, `score`, `share`, `care`, `pure`, `sure`, `user`, `vars`, `chars`, `cors`, `nums`, `hist`, `defs`, `docs`, `logs`, `bugs`, `tags`, `jobs`, `apps`, `tabs`, `keys`, `days`, `ways`, `sort`, `port`, `short`, `sport`, `start`, `part`, `chart`, `smart`, `card`, `hard`, `board`, `word`, `work`, `fork`, `form`, `norm`, `term`, `turn`, `burn`, `learn`, `warn`, `tree`, `free`, `see`, `too`, `zoo`, `add`, `odd`, `boss`, `pass`, `less`, `mess`, `off`, `mix`, `fix`, `six`, `box`, `max`, `tax`, etc.).
+  - `public let englishLookbackStems: Set<String>`: (`is`, `of`, `if`, `for`, `or`, `us`, `in`, `on`, `at`, `up`, `as`, `to`, `by`, `car`, `ban`, `can`, `man`, `has`, `was`, `his`, `her`, `our`, `out`, `all`, `any`, `may`, `way`, `day`, `say`, `pay`, `set`, `get`, `let`, `met`, `net`, `put`, `cut`, `but`, `run`, `sun`, `fun`).
+  - `public func isValidVietnameseSyllable(_ word: String) -> Bool`: checks `syllableSet` and `teencodeWhitelist` (`zui`, `dzô`, `gòy`, `thík`, `ừk`, `đc`, `đt`, `đk`).
+- **11.2 Swallowed Telex Modifier Key Tracking (`REQ-015`, `ADR-014`, `VietnameseEngine.swift`)**:
+  - Maintain `var droppedKeys: [(pos: Int, key: UInt32)] = []` on `VietnameseEngineState` (cleared on `clearBuffersInternal()`, pruned on `KEY_DELETE`).
+  - In `handleCharacterKey(keyCode:)`, when `hookOutput.code == HookCodeState.restore` undoes a modifier and decrements `stateIndex`, append `(pos: Int(stateIndex), key: keyStates[Int(stateIndex)])` to `droppedKeys`.
+  - `func reconstructedRawKeys() -> [UInt32]` reinserts `droppedKeys` in reverse-drop order so `"cheese"`, `"seemed"`, `"needed"`, `"deepseek"`, `"google"`, `"process"`, `"office"`, `"coffee"`, `"error"`, `"tomorrow"`, `"address"` retain all characters.
+- **11.3 Doubled-Tone Escape Repair, Acronyms & Contractions (`REQ-016`, `ADR-015`, `VietnameseEngine+Phonotactics.swift`)**:
+  - When a tone key (`s, f, r, x, j`) was doubled (`"mixx"`, `"fixx"`, `"boxx"`, `"maxx"`, `"taxx"`) and the doubled string is not in `englishWords` while the single-key string (`"mix"`, `"fix"`, `"box"`, `"max"`, `"tax"`) is in `englishWords`, restore the single-key array.
+  - Handle contraction stems before `KEY_QUOTE` (`"doesn't"`, `"isn't"`, `"wasn't"`), `w-` words before `KEY_MINUS` (`"Wi-Fi"`), and $\ge 2$-capital acronyms with vowel modifications (`"NAS"`, `"SATA"`, `"GoPro"` vs. Vietnamese `"VĐV"`, `"BĐS"`).
+- **11.4 Standalone English Collision Priority & Diphthong Validation (`REQ-017`, `ADR-016`, `VietnameseEngine+Phonotactics.swift`)**:
+  - In `shouldRestoreToEnglishAtBreak`, restore when `englishPriorityWords.contains(rawLower)` (unless `rawLower == undoneRawWord`) or when `englishWords.contains(rawLower)` and `!VietnameseDictionary.shared.isValidVietnameseSyllable(composed)` (catching `"mỏe"` → `"more"`, `"cỏe"` → `"core"`, `"cáe"` → `"case"`, `"uẻ"` → `"user"`).
+- **11.5 1–2 Word Context Look-Back (`REQ-018`, `ADR-017`, `VietnameseEngine.swift`)**:
+  - Maintain `var previousWords: [PreviousWordEntry] = []` (up to 2 single-space-separated words).
+  - When the current word at a break restores to English (or is an unchanged English-only word like `"good"`, `"course"`, `"needed"`), include up to 2 preceding `previousWords` entries where `canFollowEnglishRestore == true` (`englishLookbackStems.contains(rawLower)`), increasing `hookOutput.backspaceCount` by `entry.shownChars.count + 1` and prepending `entry.rawKeys + [KEY_SPACE]`.
+- **11.6 Inline Mode Retention, 3+ Word Auto-Switch & Single-Backspace Undo (`REQ-019`, `REQ-020`, `ADR-018`, `VietnameseData.swift`, `VietnameseEngine.swift`, `EventTapCoordinator.swift`)**:
+  - Add `public let languageSwitchRequest: Int` (`-1` = no change, `0` = switch to EN, `1` = switch to VI) to `OKHookSnapshot`.
+  - Keep `vLanguage == 1` when `consecutiveEnglishWordCount < 3`; emit `languageSwitchRequest = 0` when `consecutiveEnglishWordCount >= 3`.
+  - Implement `OKEngineHandleEnglishModeKeyEvent` for `vLanguage == 0` scratch-session replay (`replayAsVietnamese`) and `languageSwitchRequest = 1`.
+  - Implement `autoRestoreUndoState` on `KEY_DELETE` (`51`) to revert the last auto-conversion + break key in 1 keystroke and lock `undoneRawWord`.
+
+### 11.7 `KeepWords` Do-Not-Autocorrect Safe-List (`REQ-021`, `ADR-019`)
+- **`VietnameseDictionary.swift`**:
+  - Add `public let keepWords: Set<String>` containing curated short interjections, chat tokens, and technical abbreviations (`"ok"`, `"uh"`, `"ah"`, `"eh"`, `"oh"`, `"hm"`, `"ha"`, `"hi"`, `"he"`, `"ho"`, `"ko"`, `"dc"`, `"vs"`, `"vk"`, `"ck"`, `"mk"`, `"uhm"`, `"aha"`, `"haha"`, `"hihi"`, `"hehe"`, `"huhu"`, `"wow"`, `"yay"`, `"vip"`, `"pro"`, `"app"`, `"web"`, `"net"`, `"dev"`, `"api"`, `"sdk"`, `"ide"`, `"cli"`, `"gui"`, `"cpu"`, `"gpu"`, `"ram"`, `"ssd"`, `"usb"`, `"lan"`, `"wan"`, `"vpn"`, `"dns"`, `"ssh"`, `"ssl"`, `"tls"`, `"jwt"`, `"sql"`, `"xml"`, `"yml"`, `"csv"`, `"pdf"`, `"png"`, `"jpg"`, `"gif"`, `"mp3"`, `"mp4"`, `"zip"`, `"tar"`, `"mac"`, `"ios"`, `"win"`, `"bot"`, `"ai"`, `"ml"`, `"llm"`, etc.) unioned with `englishWords` and `englishPriorityWords`.
+- **`AutoWordingEngine.swift`**:
+  - In `evaluate(rawToken:composedWord:previousToken:)`, if `VietnameseDictionary.shared.keepWords.contains(rawToken.lowercased())` is `true` (and the token is not being expanded by an active `teencodeEnabled` rule), return `nil` immediately before running consonant/vowel rule normalization or Damerau-Levenshtein distance-1 fuzzy matching.
+
+### 11.8 Removal of Built-In Teencode & Chat Shorthands (`REQ-022`, `REQ-006`, `ADR-020`, `ADR-022`)
+- **`VietnameseDictionary.swift`**:
+  - Remove `teencodeExpansions` and `teencodeSuffixGWhitelist` properties and initializers.
+- **`OpenKeySettingsStore.swift`**:
+  - Remove `Keys.teencodeEnabled` and `public var teencodeEnabled: Bool`.
+- **`AutoWordingEngine.swift`**:
+  - Remove `teencodeEnabled` and empty `AutoWordingShorthandCatalog.builtInTable` so `expandShorthand(rawWord:)` evaluates exclusively `_customShorthands` when `shorthandExpansionEnabled == true`.
+
+### 11.9 Engine Context Guards: Digit-After-Space (`D33`), Arrow Navigation Snapshot (`D51`), & Compound-Token Boundary (`REQ-023`, `ADR-021`)
+- **`VietnameseEngine.swift` & `BilingualAutoSwitchEngine.swift`**:
+  - **Digit-After-Space Word Start (`D33`)**:
+    - Track `hasDigitPrefix: Bool = false` in `VietnameseEngineState`. When a number key (`KEY_0`..`KEY_9` unshifted) is typed at the start of a token (`index == 0`), set `hasDigitPrefix = true` instead of permanently locking out Vietnamese composition for that token.
+    - When letters follow the digit prefix (`"1casi"`, `"2ngayf"`), compose the letter suffix normally; at word break, if `hasDigitPrefix == true` and the composed suffix is not a valid Vietnamese syllable in `VietnameseDictionary.shared.syllableSet` (or the raw suffix matches technical/hex tokens like `"xdeadbeef"`, `"ray"`, `"mp"`, `"h"`, `"base"`), restore the letter suffix to raw ASCII.
+  - **Single-Step Arrow Navigation Snapshot (`D51` `navSavedState`)**:
+    - Define `struct NavSavedSnapshot` storing `index`, `stateIndex`, `keyStates`, `typingWord`, `rawKeyStates`, `rawStateIndex`, `droppedKeys`, `tempDisableKey`, and `hasDigitPrefix`.
+    - When `KEY_LEFT` (`123`) is pressed with no modifiers while `index > 0`, save `navSavedState = captureNavSnapshot()` before resetting the active buffer.
+    - When the immediately following key event is `KEY_RIGHT` (`124`) with no modifiers and `navSavedState != nil`, restore `navSavedState` into `state` and clear `navSavedState`. Clear `navSavedState` on any other key event.
+  - **Compound-Token Boundary (`wordStartOk`)**:
+    - Track `wordStartOk: Bool = true` in `VietnameseEngineState`. Set `wordStartOk = true` on whitespace (`Space`, `Tab`, `Return`) or sentence punctuation, and set `wordStartOk = false` when a token is broken by an identifier separator (`.`, `_`, `/`, `@`, `:`).
+    - When a separator sets `wordStartOk = false`, clear `previousWords` and skip English-mode `enKeys` Vietnamese replay for the sub-token immediately following the separator.
+
+### 11.10 Hybrid `E`/`V` Context-Ordered Wrong-Word Auto-Correction & Bilingual Candidate Ranking (`REQ-024`, `ADR-023`)
+- **`VietnameseDictionary.swift`**:
+  - `public enum LanguagePriority: String, Sendable, Equatable { case vietnameseFirst = "V"; case englishFirst = "E" }`
+  - `public let englishTypoCorrections: [String: String]`: deterministic common English typos (`"teh": "the"`, `"adn": "and"`, `"taht": "that"`, `"wiht": "with"`, `"thsi": "this"`, `"recieve": "receive"`, `"beleive": "believe"`, `"seperate": "separate"`, `"definately": "definitely"`, `"occured": "occurred"`, `"becuase": "because"`, `"untill": "until"`, `"wich": "which"`, `"woudl": "would"`, `"shoudl": "should"`, `"coudl": "could"`, `"fucntion": "function"`, `"retrun": "return"`, `"strign": "string"`, `"lenth": "length"`, `"widht": "width"`, `"heigth": "height"`, `"enviroment": "environment"`, `"goverment": "government"`, `"immediatly": "immediately"`, `"asyncronous": "asynchronous"`, `"publik": "public"`, `"calender": "calendar"`, `"tommorow": "tomorrow"`, `"accomodate": "accommodate"`, `"neccessary": "necessary"`).
+  - `public let vietnameseTypoCorrections: [String: String]`: deterministic Vietnamese wrong-word repairs (`"ngươi": "người"`, `"đươc": "được"`, `"dươc": "được"`, `"vơi": "với"`, `"nưa": "nữa"`).
+  - `public func findEnglishTranspositionMatch(_ rawLower: String) -> String?`: checks single adjacent character swaps ($d_{DL} = 1$) against `englishPriorityWords` when `rawLower.count >= 4`, `!englishWords.contains(rawLower)`, and `!isValidVietnameseSyllable(rawLower)`.
+- **`BilingualAutoSwitchEngine.swift` & `AutoWordingEngine.swift`**:
+  - `effectiveLanguagePriority()` inspects `previousWords.last` (if `wasRestoredToEnglish` or English-only word → `.englishFirst`; if valid Vietnamese word → `.vietnameseFirst`) and falls back to `vLanguage == 1 ? .vietnameseFirst : .englishFirst` when `previousWords.isEmpty`.
+  - At `Space` word break, if the word is not in `keepWords` and not locked by `undoneRawWord`, evaluate wrong-word typo repair in `effectiveLanguagePriority` order (`E` then `V` for `.englishFirst`; `V` then `E` for `.vietnameseFirst`) and arm `autoRestoreUndoState` (`REQ-020`).
+  - In `AutoWordingEngine.computeCurrentWordCandidates`, generate both Vietnamese (`V`) and English (`E`) candidates and sort them by `effectiveLanguagePriority` (`E` first when `.englishFirst`, `V` first when `.vietnameseFirst`).
+
+### 11.11 Sub-Millisecond Inline Bilingual Grammar, Agreement & Sentence Formatting Engine (`REQ-025`, `ADR-024`)
+- **`VietnameseDictionary.swift`**:
+  - `public let vietnameseBigramGrammar: [String: String]`: maps `"<word1> <word2>"` lowercase pairs to the corrected second word (`"làm việt": "việc"`, `"công việt": "việc"`, `"nghỉ ngợi": "nghĩ ngợi"` [full 2-word replacement], `"suy nghỉ": "nghĩ"`, `"sữa chữa": "sửa chữa"`, `"chỉnh sữa": "sửa"`, `"chia sẽ": "sẻ"`, `"vui vẽ": "vẻ"`, `"mạnh mẻ": "mẽ"`, `"chặt chẻ": "chẽ"`, `"dể dàng": "dễ dàng"`, `"cẫn thận": "cẩn thận"`, `"phát triễn": "triển"`, `"tiêu chuẫn": "chuẩn"`, `"ãnh hưởng": "ảnh hưởng"`, `"kỉ thuật": "kỹ thuật"`, `"bổ xung": "sung"`, `"xữ lý": "xử lý"`, `"giãi quyết": "giải quyết"`).
+  - `public let englishContractionGrammar: [String: String]`: (`"im": "I'm"`, `"dont": "don't"`, `"doesnt": "doesn't"`, `"didnt": "didn't"`, `"cant": "can't"`, `"wont": "won't"`, `"isnt": "isn't"`, `"arent": "aren't"`, `"wasnt": "wasn't"`, `"werent": "weren't"`, `"havent": "haven't"`, `"hasnt": "hasn't"`, `"hadnt": "hadn't"`, `"wouldnt": "wouldn't"`, `"couldnt": "couldn't"`, `"shouldnt": "shouldn't"`).
+  - `public let englishBigramGrammar: [String: String]`: full 2-word replacements (`"he dont": "he doesn't"`, `"he don't": "he doesn't"`, `"she dont": "she doesn't"`, `"she don't": "she doesn't"`, `"it dont": "it doesn't"`, `"it don't": "it doesn't"`, `"they was": "they were"`, `"we was": "we were"`, `"you was": "you were"`, `"i is": "I am"`, `"a apple": "an apple"`, `"a error": "an error"`, `"a hour": "an hour"`, `"a object": "an object"`, `"a issue": "an issue"`, `"an book": "a book"`, `"an user": "a user"`, `"an test": "a test"`).
+  - `public let englishDuplicateCollapseWords: Set<String>`: (`"the"`, `"is"`, `"to"`, `"in"`, `"for"`, `"and"`, `"of"`, `"at"`, `"on"`).
+- **`BilingualAutoSwitchEngine.swift`**:
+  - On `Space`, after single-word/look-back resolution, run `applyInlineBilingualGrammarIfNeeded(isSpaceBreak: true)`:
+    1. Check 2-word `vietnameseBigramGrammar` and `englishBigramGrammar` against `(previousWords.last, currentWord)`.
+    2. Check standalone `"i"` → `"I"` and `englishContractionGrammar` in `.englishFirst` context.
+    3. Check duplicate English function word collapse (`prev.lower == current.lower && englishDuplicateCollapseWords.contains(current.lower)`).
+    4. When `AutoWordingEngine.shared.isEnabled && AutoWordingEngine.shared.doubleSpacePeriodEnabled`: convert double-space after a word (`spaceCount == 1 && index == 0`) to `". "` (`backspaceCount = 1`, `utf16Chars = [".", " "]`, `sentenceEndedWithPunctuation = true`) if and only if `ProcessInfo.processInfo.systemUptime - lastSpaceUptime <= 0.5`. Record `lastSpaceUptime` on each `KEY_SPACE` event. When `sentenceEndedWithPunctuation == true` and `grammarRepairEnabled == true`, auto-capitalize the first character of a lowercase word typed after terminal sentence punctuation (unless in lowercase tech `keepWords`).
+    5. Arm `autoRestoreUndoState` (`REQ-020`) on every grammar/capitalization replacement so 1 `Backspace` reverts to the exact raw typed text.
+
+### 11.12 Cohesion Refactoring (`BilingualAutoSwitchEngine.swift`) & `OpenKeyLogger` Queue Serialization (`REQ-026`, `ADR-025`)
+- **`BilingualAutoSwitchEngine.swift` (`Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/BilingualAutoSwitchEngine.swift`)**:
+  - Houses `PreviousWordEntry`, `AutoRestoreUndoSnapshot`, `NavSavedSnapshot`, `reconstructedRawKeys()`, `isTrailingDoubledToneEscape()`, `shouldRestoreToEnglishAtBreak()`, `handleTwoWordEnglishLookbackIfNeeded()`, `applyWrongWordAndGrammarAtBreak()`, `handleSingleBackspaceUndoIfNeeded()`, `handleEnglishModeKeyEvent()`, and `replayAsVietnamese()`.
+- **`OpenKeyLogger.swift`**:
+  - Dispatch file mutations in `checkVersionRetention`, `recreateLogFile`, and `clearLog` through `self.queue` so they never race with `appendLogEntry`.
+
+### 11.13 Escape Keystroke Consumption & Composed Word Protection (`REQ-027`, `ADR-027`)
+- **`BilingualAutoSwitchEngine.swift`**:
+  - In `evaluateWordBreakRestore`:
+    - Replace `!droppedKeys.isEmpty && (dict.englishWords.contains(fullRawLower) || composed != fullRawStr)` with `!droppedKeys.isEmpty && dict.englishWords.contains(fullRawLower) && !dict.englishWords.contains(composedLower)`.
+    - If `composedLower` is already in `dict.englishWords` without diacritics, do not restore `fullKeys`.
+    - In `previousWords.append` on `KEY_SPACE`: if `dict.englishWords.contains(composedLower)` without diacritics, save `rawString = composed`, `rawKeys = stdRawKeys`, and `wasRestoredToEnglish = true`.
+
+### 11.14 Previous Word History Synchronization across Backspace and Word Boundaries (`REQ-028`, `ADR-028`)
+- **`VietnameseEngine.swift`**:
+  - In `handleDeleteKey()`:
+    - When `spaceCount > 0` decrements to `0` and invokes `restoreLastTypingState()`: call `if !previousWords.isEmpty { previousWords.removeLast() }`.
+    - When `index == 0` and `typingStates.isEmpty`: call `previousWords.removeAll()`.
+  - In `restoreLastTypingState()`: if `typingStates.isEmpty`, invoke `previousWords.removeAll()`.
+
+### 11.15 English Mode Pure Passthrough & Elimination of Autonomous Mode Switching (`REQ-029`, `ADR-029`)
+- **`EventTapCoordinator.swift`**:
+  - When `context.language == 0`: immediately return `.passThrough(resetSession: false)`. Keystrokes pass through directly to macOS without buffering or conversion.
+  - Remove autonomous `settings.language` mutation upon inline typing (discontinue setting `self?.settings.language = newLang` on `snapshot.languageSwitchRequest`).
+- **`VietnameseDictionary.swift`**:
+  - Append missing common English past tenses and vocabulary (`did`, `said`, `went`, `got`, `made`, `came`, `took`, `gave`, `saw`, `told`, `felt`, `kept`, `began`, `held`, `wrote`, `sat`, `stood`, `paid`, `spent`, `grew`, `won`, `bought`, `fell`, `cut`, `sold`, `ate`, `drew`, `chose`, `fought`, `threw`, `hid`, `done`, `seen`, `gone`) to `extraEngRaw`, automatically populating `englishWords` and `keepWords`.
+
+### 11.16 Onset-Preserving Transposition Matching, Word-Initial Standalone `w` Auto-Revert, Idempotent `"I"` Replacement & Candidate Bar Race Elimination (`REQ-030`, `ADR-030`)
+- **`VietnameseDictionary.swift` & `AutoWordingEngine.swift`**:
+  - Add `public static func extractVietnameseOnset(_ asciiWord: String) -> String` extracting the leading Vietnamese consonant cluster (`"ngh"`, `"ng"`, `"nh"`, `"ch"`, `"gh"`, `"gi"`, `"kh"`, `"ph"`, `"qu"`, `"th"`, `"tr"`, or single initial consonant `"b"`, `"c"`, `"d"`, `"g"`, `"h"`, `"k"`, `"l"`, `"m"`, `"n"`, `"p"`, `"r"`, `"s"`, `"t"`, `"v"`, `"x"`).
+  - In `AutoWordingEngine.computeCurrentWordCandidates`, compute `let stemOnset = VietnameseDictionary.extractVietnameseOnset(cleanStem)` and require `VietnameseDictionary.extractVietnameseOnset(VietnameseDictionary.stripVietnameseDiacritics(m)) == stemOnset` for all candidates `m` retrieved from `dict.telexSignatureToWords`.
+  - Expand `prioRaw` (`englishPriorityWords`) in `VietnameseDictionary.swift` with unambiguous `w-` and common words: `"we"`, `"with"`, `"what"`, `"when"`, `"where"`, `"which"`, `"while"`, `"who"`, `"why"`, `"will"`, `"would"`, `"want"`, `"work"`, `"world"`, `"word"`, `"well"`, `"way"`, `"were"`, `"went"`, `"water"`, `"watch"`, `"wait"`, `"walk"`, `"think"`.
+- **`BilingualAutoSwitchEngine.swift`**:
+  - In `evaluateWordBreakRestore`:
+    - Change standalone `"i"` check from `if fullRawLower == "i"` to `if fullRawStr == "i" && composed == "i"`.
+    - Before checking `if let rw = replacementWord`, guard `if replacementWord == composed { replacementWord = nil }`.
+    - In the `shouldRestore == false` branch on `KEY_SPACE`, update `let isComposedEng = (dict.englishWords.contains(composedLower) && !hasAnyDiacritic) || composed == "I"` so uppercase `"I "` sets `wasRestoredToEnglish = true`.
+- **`VietnameseEngine.swift`**:
+  - In `OKEngineInit()`, pre-warm `_ = VietnameseDictionary.shared`.
+  - In `handleCharacterKey(keyCode:)`, when `vInputType == 0 && index == 1 && CHR(0) == KEY_U && typingWord[0].isStandaloneW` and `keyCode` is in `[KEY_E, KEY_I, KEY_H, KEY_Y, KEY_L, KEY_B, KEY_D, KEY_G, KEY_K, KEY_Q, KEY_V]`:
+    - Revert `typingWord[0] = UInt32(KEY_W) | (typingWord[0].isCaps ? CAPS_MASK : 0)`, set `keyStates[0] = typingWord[0]`, `rawKeyStates[0] = typingWord[0]`, `tempDisableKey = true`.
+    - Insert `keyCode` (`insertKey(keyCode: keyCode, caps: isCaps)`), set `hookOutput.code = HookCodeState.willProcess`, `hookOutput.backspaceCount = 1`, `hookOutput.newCharCount = 2`, `hookOutput.charData[1] = GET(typingWord[0])`, `hookOutput.charData[0] = GET(typingWord[1])`, and return.
+  - Make `resetSession()` return `Bool` (`wasDirty`), and in `OKEngineResetSession()`, only log `"OKEngineResetSession"` when `wasDirty || !AutoWordingEngine.shared.activeCandidates.isEmpty`.
+  - In `OKEngineHandleKeyEvent`, log `"OKEngineHandleKeyEvent: ..."` when `OpenKeyLogger.shared.isEnabled` even when `AutoWordingEngine.shared.isEnabled == false`.
+- **`AutoWordingEngine.swift` & `CandidateBarController.swift`**:
+  - In `AutoWordingEngine.updateCandidates(_:)`, inside `DispatchQueue.main.async`, verify `guard self.activeCandidates == copy else { return }` before invoking `callback(copy)`.
+  - In `CandidateBarController.handleCandidatesUpdated(_:)`, move the `"Show candidate bar"` log inside the debounced `workItem` and check `guard AutoWordingEngine.shared.activeCandidates == candidates else { return }` on `@MainActor` after `CaretPositionResolver.resolveCaretScreenPoint()`.

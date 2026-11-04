@@ -61,3 +61,24 @@
 ## Task 12: GitHub Actions Android CI/CD Workflow & Publish to GitHub (`REQ-016`, `ADR-016`)
 - [x] **12.1**: Make `Sources/OpenKey/android/gradle.properties` portable (removing hardcoded `/Users/thanghoang/...` `org.gradle.java.home`), add `Sources/OpenKey/android/.gitignore` (excluding `.gradle/`, `build/`, `*/build/`, `local.properties`), and author `.github/workflows/android-ci.yml` (`ubuntu-latest`, JDK 21, running `:openkey-core:test`, `:app:testDebugUnitTest`, `:app:assembleDebug` and uploading `OpenKey-Android-A37-debug.apk` artifact) (`REQ-016`, `ADR-016`).
 - [x] **12.2**: Commit the Android keyboard and specification changes, push to `origin` (`git@github.com:vinhthang/OpenKey.git`), verify the GitHub Actions `Android CI/CD` workflow run succeeds via `rtk gh run list` / `rtk gh run view`, and record verbatim evidence in `verification.md` (`REQ-016`, `ADR-016`).
+
+
+## Task 13: Android Debug Mode, Version-Scoped `OpenKeyLogger.kt`, Secure-Field Redaction & In-App Log Viewer (`REQ-017`, `ADR-017`)
+- [x] **13.1**: Write failing TDD unit tests in `Sources/OpenKey/android/openkey-core/src/test/kotlin/com/tuyenmai/openkey/core/SmoothArchitectureTest.kt` and `Sources/OpenKey/android/app/src/test/java/com/tuyenmai/openkey/android/OpenKeyAndroidAppTest.kt` covering `REQ-017`:
+  - (a) Zero lambda evaluation and zero file creation when `debugModeEnabled == false`.
+  - (b) Multi-subsystem log emission (`LIFECYCLE`, `SETTINGS`, `SESSION`, `ENGINE`, `AUTO_WORDING`, `SMART_SWITCH`) when `debugModeEnabled == true`.
+  - (c) Strict keystroke redaction (`"Secure input active — keystroke redacted, bypassing IME"`) when `editorUiState.isSecureField == true`.
+  - (d) Automatic log truncation/purge when `appVersionStamp` changes (`"2.0.0-build1"` → `"2.0.0-build2"`).
+  - (e) Automatic size-cap rotation when `maxFileSizeBytes` is exceeded, plus `OpenKeyL10n.Debug` `VI`/`EN` string completeness (`REQ-017`, `ADR-017`).
+- [x] **13.2**: Implement `OpenKeyLogger.kt` in `:openkey-core`, add `debugModeEnabled` to `OpenKeySettingsStore.kt` and `OpenKeyL10n.Debug` to `OpenKeyL10n.kt`, wire subsystem logging & secure-field redaction in `KeyboardSessionController.kt`, `VietnameseEngine.kt`, `AutoWordingEngine.kt`, and `OpenKeyImeService.kt`, and add the **Debug & Diagnostics** card (with `Debug Mode` toggle, live log viewer, **Copy Logs**, and **Clear Log** buttons) to `SettingsActivity.kt` (`REQ-017`, `ADR-017`).
+
+## Task 14: Context-Ordered `V` / `E` Homograph Disambiguation (`"sẽ"` vs. `"sex"`) & Candidate Ordering (`REQ-018`, `REQ-003`, `REQ-004`, `ADR-019`)
+- [x] **14.1**: Write failing TDD unit tests in `Sources/OpenKey/android/openkey-core/src/test/kotlin/com/tuyenmai/openkey/core/BilingualAutoSwitchTest.kt`, `AutoWordingEngineTest.kt`, and `Sources/OpenKey/macOS-Swift/Tests/OpenKeySwiftTests/OpenKeyEngineTests.swift` verifying:
+  - (a) In `V` context (`VIETNAMESE_FIRST`), typing `"sẽ "`, `"anh sẽ làm "`, `"chia sẽ "` (→ `"chia sẻ "`), `"bác sĩ "`, `"mã nguồn "`, `"bản vẽ "`, and `"bộ môn "` preserves Vietnamese without converting `"sẽ"` to `"sex"`.
+  - (b) In `E` context (`ENGLISH_FIRST` after an English word, or via 2-word look-back before an English word), typing `"have sex "`, `"safe sex "`, `"sex education "`, `"sex is "`, `"at max "`, `"max value "`, `"number six "`, `"income tax "`, and `"full moon "` restores the English words.
+  - (c) `AutoWordingEngine.computeCurrentWordCandidates` for `rawStem = "sex"`, `currentSyllable = "sẽ"` ranks `"sẽ"` first in `VIETNAMESE_FIRST` (`V`) and `"sex"` first in `ENGLISH_FIRST` (`E`) (`REQ-018`, `ADR-019`).
+- [x] **14.2**: Implement `REQ-018` / `ADR-019` across `VietnameseDictionary.kt`, `BilingualAutoSwitchEngine.kt`, `AutoWordingEngine.kt` (Android `:openkey-core`) and `VietnameseDictionary.swift`, `BilingualAutoSwitchEngine.swift`, `AutoWordingEngine.swift` (macOS `OpenKeySwiftCore`).
+
+## Task 15: Cross-Platform GitHub Actions Pipeline Fix (`macos-ci.yml` & `android-ci.yml`) & End-to-End Verification (`REQ-016`, `REQ-017`, `REQ-018`, `ADR-016`..`ADR-019`)
+- [x] **15.1**: Annotate `openKeySettingsStoreSync()` with `@MainActor` in `Sources/OpenKey/macOS-Swift/Tests/OpenKeySwiftTests/OpenKeyEventTapTests.swift`, add path filtering (`Sources/OpenKey/macOS-Swift/**`, `.github/workflows/macos-ci.yml`) to `.github/workflows/macos-ci.yml`, and verify both `./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug` and `swift test --package-path Sources/OpenKey/macOS-Swift` pass locally (`REQ-016`, `REQ-017`, `REQ-018`, `ADR-018`, `ADR-019`).
+- [x] **15.2**: Commit and push the Android Debug Mode, `V`/`E` homograph disambiguation (`"sẽ"` vs. `"sex"`), macOS Swift updates, and CI workflow fixes to `origin/master`, verify both `Android CI/CD` and `macOS CI/CD` GitHub Actions runs succeed via `rtk gh run list` / `rtk gh run watch`, and record verbatim evidence in `verification.md` (`REQ-016`, `REQ-017`, `REQ-018`).

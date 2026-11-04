@@ -241,3 +241,37 @@ flowchart TD
   - `KeyboardLayoutDefinition.getLayer(...)` caches `KeyboardLayerDef` instances in a `ConcurrentHashMap<LayerCacheKey, KeyboardLayerDef>`.
   - `KeyboardScreen.kt` delegates candidate subscription to `LiveCandidateStripHost` so candidate updates never recompose the 5-row key grid.
   - `KeyButton.kt` replaces `.shadow().clip().background().border()` with a single `Modifier.drawBehind` canvas pass drawing the `6dp` rounded rect, `1dp` bottom bevel, and border.
+
+
+### 3.6 Android Debug Mode, `OpenKeyLogger.kt` & Cross-Platform CI Isolation (`REQ-016`, `REQ-017`, `ADR-017`, `ADR-018`)
+- **`OpenKeyLogger.kt` (`:openkey-core`, `REQ-017`, `ADR-017`)**:
+  - Categories (`OpenKeyLogCategory`): `LIFECYCLE`, `SETTINGS`, `SESSION`, `ENGINE`, `AUTO_WORDING`, `SMART_SWITCH`.
+  - Fast-path guard:
+    ```kotlin
+    inline fun log(category: OpenKeyLogCategory, crossinline message: () -> String) {
+        if (!isEnabled) return
+        val evaluated = message()
+        enqueueLog(category.name, evaluated)
+    }
+    ```
+  - Storage & Retention:
+    - Header: `# OpenKeyAndroidVersionStamp: <versionStamp>`
+    - File: `<logDirectory>/openkey-debug.log` (configured in `OpenKeyImeService.onCreate()` and `SettingsActivity.onCreate()` to `File(deviceProtectedContext.filesDir, "logs")`).
+    - Automatically purges and recreates `openkey-debug.log` when `versionStamp` changes (`"2.0.0-build1"` → `"2.0.0-build2"`), and truncates with `[LOG_ROTATED_SIZE_CAP]` when `maxFileSizeBytes` (default `5 * 1024 * 1024`) is exceeded.
+    - Exposes `readRecentLogs(maxLines: Int = 150): String`, `clearLog()`, `configureForTesting(...)`, and `flushForTesting()`.
+  - Secure-Field Redaction (`KeyboardSessionController.kt`):
+    - When `editorUiState.isSecureField == true` on `KeyAction.CommitChar`, logs:
+      `OpenKeyLogger.shared.log(OpenKeyLogCategory.SESSION) { "Secure input active — keystroke redacted, bypassing IME" }`
+      and never logs the character or keycode.
+- **Settings UI Debug Card (`SettingsActivity.kt` & `OpenKeyL10n.kt`, `REQ-017`, `ADR-017`)**:
+  - Adds `OpenKeyL10n.Debug` (`VI` and `EN` strings) and a **Debug & Diagnostics** Material 3 card in `SettingsScreen` containing:
+    - `Debug Mode` switch bound to `settingsStore.debugModeEnabled`.
+    - Live scrollable monospace log viewer showing `OpenKeyLogger.shared.readRecentLogs()` with a **Refresh**, **Copy Logs** (`ClipboardManager`), and **Clear Log** button.
+- **Cross-Platform CI Path Filtering & `@MainActor` Test Fix (`REQ-016`, `ADR-018`)**:
+  - `.github/workflows/macos-ci.yml` scopes `push` and `pull_request` triggers to `Sources/OpenKey/macOS-Swift/**` and `.github/workflows/macos-ci.yml`.
+  - `OpenKeyEventTapTests.openKeySettingsStoreSync()` in `Sources/OpenKey/macOS-Swift/Tests/OpenKeySwiftTests/OpenKeyEventTapTests.swift` is annotated with `@MainActor`.
+
+- **Context-Ordered `V` / `E` Homograph Disambiguation (`REQ-018`, `ADR-019`)**:
+  - `VietnameseDictionary.kt` & `VietnameseDictionary.swift`: Move Vietnamese-homograph words (`sex`, `vex`, `max`, `six`, `tax`, `lax`, `hex`, `moon`, `noon`, `soon`, `seen`, `seem`, `beef`, `reef`, `room`, `boom`, `doom`, `loom`, `boots`, `roots`, `loops`, `meets`, `keeps`, `moor`, `door`) from `prioRaw` (`englishPriorityWords`) into `lookbackRaw` (`englishLookbackStems`) and boost `"sẽ"`, `"sẻ"`, `"vẽ"`, `"mã"`, `"sĩ"`, `"tã"`, `"lã"`, `"môn"`, `"nôn"` in `priorityMap`.
+  - `BilingualAutoSwitchEngine.kt` & `BilingualAutoSwitchEngine.swift`: In `evaluateWordBreakRestore`, preserve composed Vietnamese words (`"sẽ"`, `"vẽ"`, `"mã"`, `"sĩ"`, etc.) when `priority == VIETNAMESE_FIRST` (`V`), and restore to English when `priority == ENGLISH_FIRST` (`E` — after an English word) or via 2-word look-back (`englishLookbackStems` — before an English word).
+  - `AutoWordingEngine.kt` & `AutoWordingEngine.swift`: Preserve toned `currentSyllable` (`"sẽ"`) at the head of `vietnameseSorted` and rank `V` vs. `E` candidates according to `languagePriority`.

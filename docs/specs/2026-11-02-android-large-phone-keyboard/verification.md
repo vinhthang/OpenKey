@@ -273,3 +273,117 @@ JOBS
 | `:app` | `OpenKeyAndroidAppTest` | `REQ-001`, `REQ-005`, `REQ-007`, `REQ-009`, `REQ-010`, `REQ-011`, `REQ-012`, `REQ-013`, `REQ-014` | 8 | 0 | PASSED |
 | GitHub Actions | `Android CI/CD` (`41439641403`) | `REQ-016` (`:openkey-core:test`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `OpenKey-Android-A37-debug-apk`) | 54 tests + APK artifact | 0 | PASSED |
 | **Total** | **7 Test Suites + GitHub CI** | **`REQ-001`..`REQ-016`** | **54** | **0** | **100% PASSED** |
+
+
+---
+
+## Run 4: Android Debug Mode (`OpenKeyLogger.kt`), Context-Ordered `V`/`E` Homograph Disambiguation (`"sẽ"` vs. `"sex"`), and Cross-Platform GitHub Actions CI Verification (`2026-11-04T14:55:00+07:00`)
+
+### 1. Android Unit Test Suites & Debug APK Build (`REQ-001`..`REQ-018`, `ADR-017`, `ADR-019`)
+**Command:**
+```bash
+cd /Users/thanghoang/github/OpenKey/Sources/OpenKey/android && rtk ./gradlew --rerun-tasks :openkey-core:test :app:testDebugUnitTest :app:assembleDebug
+```
+
+**Verbatim JUnit XML Report (`TEST-com.tuyenmai.openkey.core.SmoothArchitectureTest.xml` — `REQ-011`..`REQ-015`, `REQ-017`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tuyenmai.openkey.core.SmoothArchitectureTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-04T07:26:55" hostname="mba.local" time="0.123">
+  <properties/>
+  <testcase name="test120HzHotPathThroughputBenchmark()" classname="com.tuyenmai.openkey.core.SmoothArchitectureTest" time="0.086"/>
+  <testcase name="testCachedKeyboardLayerDefReferentialIdentity()" classname="com.tuyenmai.openkey.core.SmoothArchitectureTest" time="0.002"/>
+  <testcase name="testBatchReplacementCoordinatorCursorTracking()" classname="com.tuyenmai.openkey.core.SmoothArchitectureTest" time="0.001"/>
+  <testcase name="testLiveEditorUiStateAndEnterActionRouting()" classname="com.tuyenmai.openkey.core.SmoothArchitectureTest" time="0.001"/>
+  <testcase name="testTouchBypassInPasswordEmailUriAndTerminalFields()" classname="com.tuyenmai.openkey.core.SmoothArchitectureTest" time="0.001"/>
+  <testcase name="testOpenKeyLoggerLazyEvaluationWhenDisabled()" classname="com.tuyenmai.openkey.core.SmoothArchitectureTest" time="0.007"/>
+  <testcase name="testOpenKeySettingsStoreDebugModeSyncAndKeystrokeRedaction()" classname="com.tuyenmai.openkey.core.SmoothArchitectureTest" time="0.008"/>
+  <testcase name="testCommitFirstExecutionOrderAndAsyncGenerationTagging()" classname="com.tuyenmai.openkey.core.SmoothArchitectureTest" time="0.008"/>
+  <testcase name="testOpenKeyLoggerVersionStampPruningAndRotationAndClearLog()" classname="com.tuyenmai.openkey.core.SmoothArchitectureTest" time="0.004"/>
+  <system-out><![CDATA[120Hz Throughput Benchmark: 72270.75 ns/keystroke (72270750 ns total for 1000 keystrokes)
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+**Verbatim JUnit XML Report (`TEST-com.tuyenmai.openkey.core.BilingualAutoSwitchTest.xml` — `REQ-003`, `REQ-018`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-04T07:26:55" hostname="mba.local" time="0.053">
+  <properties/>
+  <testcase name="testDoubledToneEscapeRepairAndDoubleLetterPreservation()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.006"/>
+  <testcase name="testContextOrderedHomographDisambiguation()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.013"/>
+  <testcase name="testStandaloneEnglishCollisionsAndMixedSentences()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.01"/>
+  <testcase name="testContractionsHyphensAndAcronyms()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.002"/>
+  <testcase name="testTwoWordLookbackRestoration()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.005"/>
+  <testcase name="testDroppedKeysReconstructionForDoubledTelexEnglishWords()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.015"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+**Verbatim JUnit XML Report (`TEST-com.tuyenmai.openkey.core.AutoWordingEngineTest.xml` — `REQ-004`, `REQ-018`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tuyenmai.openkey.core.AutoWordingEngineTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-04T07:26:55" hostname="mba.local" time="0.106">
+  <properties/>
+  <testcase name="testPhonotacticClusterRepair()" classname="com.tuyenmai.openkey.core.AutoWordingEngineTest" time="0.079"/>
+  <testcase name="testUserAcceptanceFrequencyLearning()" classname="com.tuyenmai.openkey.core.AutoWordingEngineTest" time="0.003"/>
+  <testcase name="testDiacriticPreservingStemRanking()" classname="com.tuyenmai.openkey.core.AutoWordingEngineTest" time="0.001"/>
+  <testcase name="testCustomOnlyShorthandExpansion()" classname="com.tuyenmai.openkey.core.AutoWordingEngineTest" time="0.015"/>
+  <testcase name="testLiveCandidateGenerationAndNextWord()" classname="com.tuyenmai.openkey.core.AutoWordingEngineTest" time="0.005"/>
+  <testcase name="testHomographDisambiguationCandidateRanking()" classname="com.tuyenmai.openkey.core.AutoWordingEngineTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+**Verbatim JUnit XML Report (`TEST-com.tuyenmai.openkey.android.OpenKeyAndroidAppTest.xml` — `REQ-001`, `REQ-005`..`REQ-014`, `REQ-017`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-04T07:26:58" hostname="mba.local" time="0.123">
+  <properties/>
+  <testcase name="testInputConnectionCommitterBatchOperations" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.011"/>
+  <testcase name="testInputConnectionCommitterCursorAndWordDelete" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.004"/>
+  <testcase name="testImeComposeLifecycleOwnerTransitions" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.005"/>
+  <testcase name="testManifestDeclaresDirectBootAndZeroInternetPermission" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.016"/>
+  <testcase name="testPhoneTouchOnlyScopeNoHardwareKeyInterception" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.008"/>
+  <testcase name="testZeroGetExtractedTextCallsAcross50TrackpadDragSteps" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.007"/>
+  <testcase name="testSettingsStoreDefaultsAndSmartSwitchWiring" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.002"/>
+  <testcase name="testOpenKeyL10nDebugStringsAndSettingsActivityLoggerIntegration" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.013"/>
+  <testcase name="testSessionControllerEndToEndTouchAndHardwareWithEditorContext" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.054"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+### 2. macOS Swift Unit Test Suite (`REQ-016`, `REQ-018`, `ADR-018`, `ADR-019`)
+**Command:**
+```bash
+rtk swift test --package-path /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift
+```
+- **Result**: `63/63` tests passed across `OpenKeyEngineTests` (32 tests including context-ordered `V`/`E` homograph disambiguation for `"sẽ"` vs. `"sex"`, `"mã"` vs. `"max"`, `"sĩ"` vs. `"six"`, `"vẽ"` vs. `"vex"`, and `AutoWordingEngine` `V`/`E` candidate ranking), `OpenKeyEventTapTests` (17 tests including `@MainActor func openKeySettingsStoreSync()`), `OpenKeyAutoWordingTests` (10 tests), and `OpenKeyLoadTests` (4 tests).
+
+### 3. Verbatim GitHub Actions Cross-Platform Pipeline Verification (`REQ-016`, `REQ-017`, `REQ-018`, `ADR-016`..`ADR-019`)
+**Command:**
+```bash
+rtk gh run list --limit 2 --repo vinhthang/OpenKey
+```
+
+**Verbatim Output:**
+- **Commits Pushed to `origin/master`**: `d0fd4e51b00d476843be31e09376945ffc4f1bd8` and `b54de40c4788c216d29d0615470a2cc3482f9457`
+- **`Android CI/CD` (`#41794423272`)**: `Build, Test & Package Android APK (Samsung Galaxy A37)` completed in `1m41s` (Job ID `126455036757`) with status **`success` (`✓`)**, uploading `OpenKey-Android-A37-debug-apk`.
+- **`macOS CI/CD` (`#41794423347`)**: `Build, Test & Package (macOS 26 arm64)` completed in `7m42s` (Job ID `126455036527`) with status **`success` (`✓`)**, uploading `OpenKeySwift-macOS-arm64`.
+
+### 4. Final Requirement Traceability Matrix (`REQ-001`..`REQ-018`)
+| Module / Pipeline | Test Suite / Workflow | Verified Requirements | Tests / Steps | Failures | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `:openkey-core` | `VietnameseEngineTest` | `REQ-001`, `REQ-002` | 7 | 0 | PASSED |
+| `:openkey-core` | `BilingualAutoSwitchTest` | `REQ-003`, `REQ-018` | 6 | 0 | PASSED |
+| `:openkey-core` | `AutoWordingEngineTest` | `REQ-004`, `REQ-018` | 6 | 0 | PASSED |
+| `:openkey-core` | `ImePipelineAndContextTest` | `REQ-005`, `REQ-006`, `REQ-009` | 9 | 0 | PASSED |
+| `:openkey-core` | `PhoneErgonomicsAndGestureTest` | `REQ-007`, `REQ-008`, `REQ-010` | 14 | 0 | PASSED |
+| `:openkey-core` | `SmoothArchitectureTest` | `REQ-011`..`REQ-015`, `REQ-017` | 9 | 0 | PASSED |
+| `:app` | `OpenKeyAndroidAppTest` | `REQ-001`, `REQ-005`, `REQ-007`, `REQ-009`..`REQ-014`, `REQ-017` | 9 | 0 | PASSED |
+| `OpenKeySwiftTests` | `OpenKeyEngineTests` + `OpenKeyEventTapTests` | `REQ-016`, `REQ-018` | 63 | 0 | PASSED |
+| GitHub Actions | `Android CI/CD` (`41794423272`) & `macOS CI/CD` (`41794423347`) | `REQ-016`, `REQ-017`, `REQ-018` | 123 tests + APK & `.app` artifacts | 0 | PASSED |
+| **Total** | **Android (60) + macOS (63) + GitHub CI (2 Workflows)** | **`REQ-001`..`REQ-018`** | **123** | **0** | **100% PASSED** |

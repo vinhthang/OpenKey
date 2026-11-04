@@ -56,3 +56,107 @@
 - [x] **10.2**: Create `Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftApp/OpenKeyL10n.swift` with concise Vietnamese (`VI`) and English (`EN`) strings, including version (`v2.0.0 (Build 1)`) and implementor attribution (`Antigravity — Gemini 4 Argon (High)`) (`REQ-012`, `ADR-011`).
 - [x] **10.3**: Update `SettingsView.swift` and `OpenKeySwiftApp.swift` to add the compact `VI | EN` header toggle, replace all dual-language labels with `OpenKeyL10n`, implement `Esc`-to-close when not recording a shortcut, and display the updated About section (`REQ-012`, `ADR-011`).
 - [x] **10.4**: Update `SettingsView.openAccessibilitySettings()` and `build-app.sh` for automatic TCC stale-CDHash reset and certificate-anchored code signing (`--setup-cert`), verify all `.swift` files are `< 500` lines (`REQ-009`), run `rtk swift test`, update `verification.md`, commit, and push to `origin/master` (`REQ-012`).
+
+## Task 11: Debug Mode & Version-Scoped Persistent File Logging (`REQ-013`, `ADR-012`)
+- [x] **11.1**: Write failing TDD unit tests first in `OpenKeyEventTapTests.swift` covering `REQ-013`: (a) zero file writes / zero `@autoclosure` evaluation when `debugModeEnabled == false`; (b) multi-subsystem log emission (`LIFECYCLE`, `SETTINGS`, `EVENT_TAP`, `ENGINE`, `AUTO_WORDING`) when `debugModeEnabled == true`; (c) strict keystroke redaction when `isSecureInput == true`; (d) automatic log truncation/purging when the app version/build stamp changes (`"2.0.0-build1"` → `"2.0.0-build2"`); and (e) automatic rotation when `maxFileSizeBytes` is exceeded (`REQ-013`, `ADR-012`).
+- [x] **11.2**: Implement `OpenKeyLogger.swift` (`< 250` lines) and wire `debugModeEnabled` and subsystem logging across `OpenKeySettingsStore.swift`, `EventTapCoordinator.swift`, `VietnameseEngine.swift`, `AutoWordingEngine.swift`, `KeystrokeInjector.swift`, `CandidateBarController.swift`, `SmartSwitchStore.swift`, `OpenKeyL10n.swift`, `SettingsView.swift`, `OpenKeySwiftApp.swift`, and `build-app.sh` while keeping all `.swift` files strictly `< 500` lines (`REQ-009`, `REQ-013`, `ADR-012`).
+- [x] **11.3**: Run `rtk swift test --package-path Sources/OpenKey/macOS-Swift`, rebuild and deploy `/Applications/OpenKeySwift.app` via `build-app.sh`, verify live daemon startup and `scripts/real-system-load-test.swift`, and record verbatim evidence in `verification.md` (`REQ-013`).
+- [x] **11.4**: Remove the hard `< 500` line-count rule from `OpenKeyEngineTests.swift` (`codebaseModularizationAndSub500LineInvariant`), `.github/workflows/macos-ci.yml`, and specification documents (`REQ-009`, `REQ-011`, `REQ-012`, `ADR-008`, `ADR-010`), keeping modularization purely cohesion-driven (`REQ-009`).
+- [x] **11.5**: Consolidate artificially split `< 500`-line companion files by logical cohesion: (1) merge `VietnameseUnicodeTable.swift` into `VietnameseData.swift`; (2) merge `VietnameseDictionaryCorpus.swift` into `VietnameseDictionary.swift`; (3) merge `AutoWordingTypes.swift` into `AutoWordingEngine.swift`; (4) merge `SystemEnvironmentDetector.swift` into `EventTapCoordinator.swift`; (5) merge `VietnameseEngine+KeyEventDispatcher.swift` into `VietnameseEngine.swift` and merge `VietnameseEngine+SpellingAndGrammar.swift` + `VietnameseEngine+MarkAndTone.swift` into `VietnameseEngine+Phonotactics.swift`; verify `37/37` tests and rebuild `/Applications/OpenKeySwift.app` (`REQ-009`, `ADR-008`).
+
+## Task 12: Canonical Telex Key Normalization & Bilingual English/Developer Dictionary (`REQ-014`, `ADR-013`)
+- [x] **12.1**: Write failing TDD unit tests in `OpenKeyEngineTests.swift` for `VietnameseDictionary.canonicalTelexKey(for:)`, `englishWords`, `englishPriorityWords`, `englishLookbackStems`, and `isValidVietnameseSyllable(_:)` (`REQ-014`).
+- [x] **12.2**: Implement `canonicalTelexKey(for:)`, `englishWords`, `englishPriorityWords`, `englishLookbackStems`, `teencodeWhitelist`, and `isValidVietnameseSyllable(_:)` in `VietnameseDictionary.swift` (`REQ-014`, `ADR-013`).
+
+## Task 13: Swallowed Telex Modifier Key Tracking & Full Raw Word Reconstruction (`REQ-015`, `ADR-014`)
+- [x] **13.1**: Write failing TDD unit tests in `OpenKeyEngineTests.swift` for English words with doubled letters that trigger mid-word Telex undo (`"cheese "`, `"seemed "`, `"needed "`, `"deepseek "`, `"google "`, `"choose "`, `"process "`, `"success "`, `"message "`, `"issue "`, `"office "`, `"coffee "`, `"error "`, `"array "`, `"current "`, `"correct "`, `"tomorrow "`, `"sorry "`, `"address "`, `"middle "`, `"reddit "`) and mid-word `KEY_DELETE` pruning (`REQ-015`).
+- [x] **13.2**: Implement `droppedKeys` tracking and `reconstructedRawKeys()` in `VietnameseEngine.swift` and `VietnameseEngine+Phonotactics.swift` (`REQ-015`, `ADR-014`).
+
+## Task 14: Doubled-Tone Escape Repair, Acronym Protection & Contraction/Hyphen Handling (`REQ-016`, `ADR-015`)
+- [x] **14.1**: Write failing TDD unit tests in `OpenKeyEngineTests.swift` for doubled-tone escapes (`"mixx "` → `"mix "`, `"fixx "` → `"fix "`, `"boxx "` → `"box "` vs. `"boss "`, `"class "`, `"terrible "`), contractions (`"doesn't "`, `"isn't "`), hyphenated `w-` words (`"Wi-Fi "`), and multi-capital acronyms (`"NAS "`, `"GoPro "` vs. Vietnamese `"VĐV "`, `"BĐS "`) (`REQ-016`).
+- [x] **14.2**: Implement doubled-tone escape repair, contraction stem checking on `KEY_QUOTE`, `w-` hyphen restoration on `KEY_MINUS`, and multi-capital acronym restoration in `VietnameseEngine.swift` and `VietnameseEngine+Phonotactics.swift` (`REQ-016`, `ADR-015`).
+
+## Task 15: Standalone English Collision Priority & Invalid Vietnamese Diphthong Rejection (`REQ-017`, `ADR-016`)
+- [x] **15.1**: Write failing TDD unit tests in `OpenKeyEngineTests.swift` for standalone English/tech collision words (`"anh đang test cái list này "`, `"xem more info ở docs "`, `"code có vars và chars "`) and false-positive phonotactic diphthongs (`"more "`, `"core "`, `"case "`, `"user "`, `"pure "`, `"sure "`, `"true "`) while verifying genuine Vietnamese words (`"có "`, `"bạn "`, `"anh "`, `"ăn "`, `"ở "`, `"ạ "`) stay Vietnamese (`REQ-017`).
+- [x] **15.2**: Implement dictionary-backed `shouldRestoreToEnglishAtBreak` in `VietnameseEngine+Phonotactics.swift` (`REQ-017`, `ADR-016`).
+
+## Task 16: 1–2 Word Context Look-Back for Multi-Word English Phrases (`REQ-018`, `ADR-017`)
+- [x] **16.1**: Write failing TDD unit tests in `OpenKeyEngineTests.swift` for 2-word English phrases starting with ambiguous Vietnamese homographs (`"is good "`, `"of course "`, `"for sure "`, `"if needed "`, `"or not "`, `"us all "`, `"car play "`) vs. Vietnamese phrases (`"em í ạ "`, `"cả nhà "`, `"bán hàng "`) (`REQ-018`).
+- [x] **16.2**: Implement the 2-word `previousWords` look-back buffer and multi-word atomic restoration in `VietnameseEngine.swift` and `VietnameseEngine+Phonotactics.swift` (`REQ-018`, `ADR-017`).
+
+## Task 17: Inline Mode Retention (1–2 English Words), 3+ Word Auto-Switch & Single-Backspace Undo (`REQ-019`, `REQ-020`, `ADR-018`)
+- [x] **17.1**: Write failing TDD unit tests in `OpenKeyEngineTests.swift` for: (a) 1–2 English words keeping `vLanguage == 1` (`languageSwitchRequest == -1`); (b) 3+ consecutive English words emitting `languageSwitchRequest == 0` and English-mode Vietnamese Telex replay (`"cho anh nhows "` → `"cho anh nhớ "`, `languageSwitchRequest == 1`); and (c) Single-Backspace Undo (`"test "` + `KEY_DELETE` → `"tét"`, and subsequent `Space` keeping `"tét "`) (`REQ-019`, `REQ-020`).
+- [x] **17.2**: Implement `languageSwitchRequest` in `VietnameseData.swift`, `consecutiveEnglishWordCount`, `OKEngineHandleEnglishModeKeyEvent`, and `autoRestoreUndoState` in `VietnameseEngine.swift`, and wire `languageSwitchRequest` and English-mode routing in `EventTapCoordinator.swift` (`REQ-019`, `REQ-020`, `ADR-018`).
+- [x] **17.3**: Run `rtk swift test --package-path Sources/OpenKey/macOS-Swift`, rebuild and deploy `/Applications/OpenKeySwift.app` via `build-app.sh`, run `scripts/real-system-load-test.swift`, and record verbatim verification evidence for `REQ-014` through `REQ-020` in `verification.md`.
+
+## Task 18: `KeepWords` Do-Not-Autocorrect Safe-List for `AutoWordingEngine` (`REQ-021`, `ADR-019`)
+- [x] **18.1**: Write failing TDD unit tests in `OpenKeyEngineTests.swift` verifying that short valid tokens, chat interjections, and tech abbreviations (`"ok"`, `"uh"`, `"ah"`, `"oh"`, `"ko"`, `"dc"`, `"vs"`, `"vip"`, `"pro"`, `"app"`, `"web"`, `"api"`, `"sdk"`, `"cpu"`, `"gpu"`, `"ram"`, `"ssd"`, `"ssh"`, `"sql"`, `"jwt"`, `"pdf"`, `"mac"`, `"ios"`, `"bot"`, `"llm"`) are in `VietnameseDictionary.shared.keepWords` and are never rewritten by `AutoWordingEngine` when `teencodeEnabled == false` (`REQ-021`).
+- [x] **18.2**: Implement `keepWords` in `VietnameseDictionary.swift` and the `keepWords` guard in `AutoWordingEngine.swift` (`REQ-021`, `ADR-019`).
+
+## Task 19: Removal of Built-In Teencode & Chat Shorthands (Custom-Only Shorthands) (`REQ-022`, `REQ-006`, `ADR-020`, `ADR-022`)
+- [x] **19.1**: Update TDD unit tests in `OpenKeyEngineTests.swift` and `OpenKeyAutoWordingTests.swift` verifying that built-in teencode and chat shorthands (`"ko"`, `"dc"`, `"ng"`, `"bt"`, `"ntn"`, `"khog"`, `"nhug"`, `"cty"`, `"mn"`) are NOT expanded unless explicitly registered in `customShorthands` (`REQ-022`, `REQ-006`).
+- [x] **19.2**: Remove `teencodeExpansions` and `teencodeSuffixGWhitelist` from `VietnameseDictionary.swift`, remove `teencodeEnabled` from `OpenKeySettingsStore.swift` and `AutoWordingEngine.swift`, and empty `AutoWordingShorthandCatalog.builtInTable` so only user-defined `customShorthands` expand (`REQ-022`, `REQ-006`, `ADR-022`).
+
+## Task 20: Engine Context Guards: Digit-After-Space (`D33`), Arrow Navigation Recovery (`D51`), & Compound-Token Boundary (`REQ-023`, `ADR-021`)
+- [x] **20.1**: Write failing TDD unit tests in `OpenKeyEngineTests.swift` verifying: (a) digit-prefixed Vietnamese units (`"1casi "` → `"1cái "`, `"2ngayf "` → `"2ngày "`) vs. technical/hex tokens (`"0xdeadbeef "`, `"base64 "`, `"h264 "`); (b) single-step `KEY_LEFT` (`123`) + `KEY_RIGHT` (`124`) mid-word navigation snapshot recovery (`"vie"` + `Left` + `Right` + `"ejt "` → `"việt "`); and (c) compound-token boundaries (`"foo.bar "`, `"my_var "`) clearing cross-word look-back and skipping false conversions (`REQ-023`).
+- [x] **20.2**: Implement `hasDigitPrefix` (`D33`), `navSavedState` (`D51`), and `wordStartOk` compound-token boundary guards in `VietnameseEngine.swift` and `VietnameseEngine+Phonotactics.swift` (`REQ-023`, `ADR-021`).
+- [x] **20.3**: Run `rtk swift test --package-path Sources/OpenKey/macOS-Swift`, rebuild and deploy `/Applications/OpenKeySwift.app` via `build-app.sh`, run `scripts/real-system-load-test.swift`, and record verbatim verification evidence for `REQ-014` through `REQ-023` in `verification.md`.
+
+## Task 21: Hybrid `E`/`V` Context-Ordered Wrong-Word Auto-Correction & Bilingual Candidate Ranking (`REQ-024`, `ADR-023`)
+- [x] **21.1**: Write failing TDD unit tests in `OpenKeyEngineTests.swift` verifying: (a) `effectiveLanguagePriority` resolves `.englishFirst` after an English word (or at sentence start in `E` mode) and `.vietnameseFirst` after a Vietnamese word (or at sentence start in `V` mode); (b) high-confidence English typos (`"this teh "` → `"this the "`, `"async fucntion "` → `"async function "`, `"recieve "` → `"receive "`, `"seperate "` → `"separate "`) and Vietnamese typos (`"mọi ngươi "` → `"mọi người "`, `"làm đươc "` → `"làm được "`) auto-correct on `Space` and revert in 1 `Backspace` (`REQ-020`); and (c) `AutoWordingEngine` orders `E` vs. `V` candidates by `effectiveLanguagePriority` (`REQ-024`).
+- [x] **21.2**: Implement `LanguagePriority`, `englishTypoCorrections`, `vietnameseTypoCorrections`, and `findEnglishTranspositionMatch` in `VietnameseDictionary.swift`, inline wrong-word auto-correction in `BilingualAutoSwitchEngine.swift`, and `E`/`V` candidate ordering in `AutoWordingEngine.swift` (`REQ-024`, `ADR-023`).
+
+## Task 22: Sub-Millisecond Inline Bilingual Grammar, Agreement & Sentence Formatting Engine (`REQ-025`, `ADR-024`)
+- [x] **22.1**: Write failing TDD unit tests in `OpenKeyEngineTests.swift` verifying: (a) Vietnamese contextual 2-word bigram grammar (`"đang làm việt "` → `"đang làm việc "`, `"suy nghỉ "` → `"suy nghĩ "`, `"sữa chữa "` → `"sửa chữa "`, `"phát triễn "` → `"phát triển "`, `"chia sẽ "` → `"chia sẻ "`, `"vui vẽ "` → `"vui vẻ "`) with 1-Backspace Undo; (b) English contraction, pronoun `"I"`, article (`"a"`/`"an"`), and subject-verb agreement (`"i dont think a error occured "` → `"I don't think an error occurred "`, `"he dont know "` → `"he doesn't know "`, `"an user "` → `"a user "`, `"they was "` → `"they were "`); (c) duplicate English function-word collapse (`"the the "` → `"the "`, `"is is "` → `"is "` vs. Vietnamese `"luôn luôn "` preserved); and (d) double-space period + sentence-start auto-capitalization (`"xin chào  em "` → `"xin chào. Em "` when `grammarRepairEnabled == true`) (`REQ-025`).
+- [x] **22.2**: Implement `vietnameseBigramGrammar`, `englishContractionGrammar`, `englishBigramGrammar`, and `englishDuplicateCollapseWords` in `VietnameseDictionary.swift` and `applyInlineBilingualGrammarIfNeeded` + double-space period + sentence-start capitalization in `BilingualAutoSwitchEngine.swift` (`REQ-025`, `ADR-024`).
+
+## Task 23: Cohesion Refactoring (`BilingualAutoSwitchEngine.swift`) & `OpenKeyLogger` Queue Serialization (`REQ-026`, `ADR-025`)
+- [x] **23.1**: Extract bilingual disambiguation, 2-word look-back, wrong-word/grammar auto-correction, single-backspace undo, navigation snapshots, and English-mode keystroke replay from `VietnameseEngine.swift` and `VietnameseEngine+Phonotactics.swift` into `BilingualAutoSwitchEngine.swift`, and serialize `OpenKeyLogger` file lifecycle methods onto `self.queue` (`REQ-026`, `ADR-025`).
+- [x] **23.2**: Run `rtk swift test --package-path Sources/OpenKey/macOS-Swift`, rebuild and deploy `/Applications/OpenKeySwift.app` via `build-app.sh`, run `scripts/real-system-load-test.swift`, and record verbatim verification evidence for `REQ-022`, `REQ-024`, `REQ-025`, and `REQ-026` in `verification.md`.
+
+## Task 24: Independent Double-Space Period Option & Double-Tap Threshold (`REQ-025`, `ADR-026`)
+- [x] **24.1**: Write failing TDD unit tests in `OpenKeyAutoWordingTests.swift` and `OpenKeyEngineTests.swift` verifying:
+  - `doubleSpacePeriodEnabled` defaults to `false` in `OpenKeySettingsStore` and `AutoWordingEngine`.
+  - When `doubleSpacePeriodEnabled == false` (even if `grammarRepairEnabled == true`), typing word + space + space does NOT produce a period (`"."`).
+  - When `doubleSpacePeriodEnabled == true`, rapid double space ($\le 500\text{ms}$) emits `". "`, and slow double space ($> 500\text{ms}$) leaves spaces intact.
+  - Toggling `doubleSpacePeriodEnabled` synchronizes via `OKEngineSyncConfig`.
+- [x] **24.2**: Implement `doubleSpacePeriodEnabled` property and defaults in `OpenKeySettingsStore.swift`, `AutoWordingEngine.swift`, `VietnameseEngine.swift`, and wire the $\le 500\text{ms}$ double-tap timing threshold in `BilingualAutoSwitchEngine.swift`.
+- [x] **24.3**: Expose the `doubleSpacePeriodEnabled` Toggle in `SettingsView.swift` and add English/Vietnamese labels in `OpenKeyL10n.swift`.
+- [x] **24.4**: Run `rtk swift test --package-path Sources/OpenKey/macOS-Swift`, build and test via `build-app.sh`, verify live app behavior, and record verbatim verification evidence in `verification.md`.
+
+## Task 25: Escape Keystroke Consumption, Composed Word Protection & History Synchronization (`REQ-027`, `REQ-028`, `ADR-027`, `ADR-028`)
+- [x] **25.1**: Write failing TDD unit tests in `OpenKeyEngineTests.swift` verifying:
+  - (a) `testTrailingModifierAppendedOnSpace`: typing `c-h-a-o-s-s` (Telex `chaos`) + `Space` produces `"chaos "` (not `"chaoss "`), and typing `t-h-o-i-w-f` + `i` + `Space` preserves `"thời "` (not `"thoiwfi "`).
+  - (b) `testEnglishWordRestoreWithToneCancelEscape`: typing `s-e-r-r-v-i-c-e` + `,` produces `"service,"` (not `"serrvice,"`).
+  - (c) `testDuplicateWordExpansionOnSpace`: typing `ò` + `Space`, backspacing over the space and the word, then typing `o-f-f` + `Space` outputs `"of "` with `bs=0` (not `"of off "`).
+  - (d) `testEnglishDoubleLetterPreserved`: typing `c-o-f-f-e-e` + `Space` and `p-r-o-c-e-s-s` + `Space` correctly restores `"coffee "` and `"process "` (`REQ-015`).
+- [x] **25.2**: Update `BilingualAutoSwitchEngine.swift`:
+  - Enforce composed English word protection and restrict swallowed-key restoration in `evaluateWordBreakRestore`: `dict.englishWords.contains(fullRawLower) && !dict.englishWords.contains(composedLower)`.
+  - In `previousWords.append` on `KEY_SPACE`, if `composedLower` is in `englishWords` without diacritics, set `rawString = composed`, `rawKeys = stdRawKeys`, and `wasRestoredToEnglish = true`.
+- [x] **25.3**: Update `VietnameseEngine.swift`:
+  - In `handleDeleteKey()`, pop `previousWords.removeLast()` when `spaceCount` decrements to `0`, and call `previousWords.removeAll()` when `index == 0 && typingStates.isEmpty`.
+  - In `restoreLastTypingState()`, call `previousWords.removeAll()` when `typingStates.isEmpty`.
+- [x] **25.4**: Run `rtk swift test --package-path Sources/OpenKey/macOS-Swift`, rebuild and deploy `/Applications/OpenKeySwift.app` via `build-app.sh`, run `scripts/real-system-load-test.swift`, and record verbatim verification evidence in `verification.md`.
+
+## Task 26: English Mode Pure Passthrough & Elimination of Autonomous Mode Switching (`REQ-029`, `ADR-029`)
+- [x] **26.1**: Write failing TDD unit tests in `OpenKeyEventTapTests.swift` and `OpenKeyEngineTests.swift` verifying:
+  - (a) `testEnglishModePurePassthroughNeverSwitchesToVietnamese`: When `context.language == 0`, typing `"did "`, `"as "`, `"war "`, `"code "` returns `.passThrough(resetSession: false)` with zero backspaces, zero replacements, and `settings.language` remaining 0.
+  - (b) `testHighFrequencyEnglishVerbsPreservedInVietnameseMode`: Verify `"did"`, `"said"`, `"went"`, `"got"`, `"made"`, `"came"`, `"took"`, `"gave"`, `"saw"`, etc. are present in `dict.englishWords` and `keepWords`, and typing `"did you "` in Vietnamese mode produces `"did you "` (not `"đi you "`).
+  - (c) `testZeroAutonomousLanguageFlippingOnInlineTyping`: Typing 3+ English words in Vietnamese mode does not mutate `settings.language`.
+- [x] **26.2**: Implement pure passthrough in `EventTapCoordinator.swift`:
+  - When `context.language == 0`: immediately return `.passThrough(resetSession: false)`.
+  - Remove autonomous `settings.language = newLang` on `snapshot.languageSwitchRequest`.
+- [x] **26.3**: Expand English dictionary in `VietnameseDictionary.swift`:
+  - Add missing common verbs and vocabulary (`did`, `said`, `went`, `got`, `made`, `came`, `took`, `gave`, `saw`, `told`, `felt`, `kept`, `began`, `held`, `wrote`, `sat`, `stood`, `paid`, `spent`, `grew`, `won`, `bought`, `fell`, `cut`, `sold`, `ate`, `drew`, `chose`, `fought`, `threw`, `hid`, `done`, `seen`, `gone`) to `extraEngRaw`.
+- [x] **26.4**: Run `rtk swift test --package-path Sources/OpenKey/macOS-Swift`, rebuild and deploy `/Applications/OpenKeySwift.app` via `build-app.sh`, run `scripts/real-system-load-test.swift`, and record verbatim verification evidence in `verification.md`.
+
+## Task 27: Onset-Preserving Transposition Matching, Word-Initial Standalone `w` Auto-Revert, Idempotent `"I"` Replacement & Candidate Bar Race Elimination (`REQ-030`, `ADR-030`)
+- [x] **27.1**: Write failing TDD unit tests in `OpenKeyAutoWordingTests.swift` and `OpenKeyEngineTests.swift` verifying:
+  - (a) `testOnsetPreservingTranspositionCandidates`: `computeCurrentWordCandidates` for `"muo"`, `"phuo"`, and `"phuow"` returns zero coda-scrambled anagrams (`"uôm"`, `"hướp"` are excluded), while valid same-onset rime transpositions (`"tineg"` → `"tiếng"`, `"veit"` → `"việt"`, `"ngheing"` → `"nghiêng"`, `"taon"` → `"toàn"`) still match.
+  - (b) `testUppercaseIDoesNotTriggerRedundantReplacement`: Typing uppercase `"I"` (`Shift+I`) + `Space` emits `backspaceCount == 0` (`code == HookCodeState.doNothing`) and sets `OKEngineGetEffectiveLanguagePriority() == .englishFirst`, while lowercase `"i "` still auto-capitalizes to `"I "`.
+  - (c) `testStandaloneWImmediateAutoRevertOnEnglishSecondLetters`: Typing `"we"`, `"with"`, `"what"`, `"when"`, `"where"`, `"which"`, `"while"`, or `"window"` in Vietnamese Telex mode immediately reverts `"ư"` to `"w"` on the 2nd keystroke (`"we"`, `"wi"`, `"wh"`) without leaving `"ưe"`, `"ưi"`, or `"ưh"` on screen, and typing `"I think we need "` in Vietnamese mode produces `"I think we need "` without requiring `w-w`.
+- [x] **27.2**: Implement `extractVietnameseOnset(_:)` and expand `prioRaw` (`englishPriorityWords`) in `VietnameseDictionary.swift`, and filter `telexSignatureToWords` matches by onset + guard stale async candidate callbacks in `AutoWordingEngine.swift`.
+- [x] **27.3**: Implement idempotent `"I"` / `replacementWord == composed` handling in `BilingualAutoSwitchEngine.swift`, word-initial standalone `w` auto-revert + startup dictionary pre-warming + dirty-gated `OKEngineResetSession` logging in `VietnameseEngine.swift`, and candidate staleness check in `CandidateBarController.swift`.
+- [x] **27.4**: Run `rtk swift test --package-path Sources/OpenKey/macOS-Swift`, rebuild and deploy `/Applications/OpenKeySwift.app` via `build-app.sh`, run `scripts/real-system-load-test.swift`, and record verbatim verification evidence in `verification.md`.
+
+
