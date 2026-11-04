@@ -62,9 +62,6 @@ swift build -c release --package-path "${SCRIPT_DIR}"
 BUILD_PRODUCTS_DIR="$(swift build -c release --package-path "${SCRIPT_DIR}" --show-bin-path)"
 BIN_PATH="${BUILD_PRODUCTS_DIR}/OpenKeySwiftApp"
 
-# Emit dynamic library for script / test runners
-swiftc -emit-library "${BUILD_PRODUCTS_DIR}/OpenKeySwiftCore.o" "${BUILD_PRODUCTS_DIR}/OpenKeyEngineBridge.o" -lc++ -o "${BUILD_PRODUCTS_DIR}/libOpenKeySwiftCore.dylib"
-
 echo "=== Assembling OpenKeySwift.app bundle ==="
 rm -rf "${APP_BUNDLE}"
 mkdir -p "${MACOS_DIR}"
