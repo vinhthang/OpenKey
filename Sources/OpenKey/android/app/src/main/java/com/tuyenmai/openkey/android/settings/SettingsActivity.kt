@@ -1,5 +1,7 @@
 package com.tuyenmai.openkey.android.settings
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -12,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,6 +58,7 @@ import com.tuyenmai.openkey.core.AutoWordingEngine
 import com.tuyenmai.openkey.core.BatchReplacementCoordinator
 import com.tuyenmai.openkey.core.OneHandedMode
 import com.tuyenmai.openkey.core.OpenKeyL10n
+import com.tuyenmai.openkey.core.OpenKeyLogger
 import com.tuyenmai.openkey.core.OpenKeySettingsStore
 import com.tuyenmai.openkey.core.TextCommitterTarget
 
@@ -815,7 +819,69 @@ fun SettingsScreen(
             }
         }
 
-        // 5. About Card
+        // 5. Debug & Diagnostics Card (REQ-017, ADR-017)
+        var debugLogsText by remember { mutableStateOf(OpenKeyLogger.shared.readRecentLogs()) }
+        var debugModeEnabled by remember { mutableStateOf(settingsStore.debugModeEnabled) }
+
+        SettingsSectionCard(title = OpenKeyL10n.Debug.sectionTitle(uiLang)) {
+            SettingSwitchRow(
+                title = OpenKeyL10n.Debug.toggleTitle(uiLang),
+                subtitle = OpenKeyL10n.Debug.toggleSubtitle(uiLang),
+                checked = debugModeEnabled,
+                onCheckedChange = {
+                    debugModeEnabled = it
+                    settingsStore.debugModeEnabled = it
+                    debugLogsText = OpenKeyLogger.shared.readRecentLogs()
+                }
+            )
+
+            HorizontalDivider()
+
+            val displayLogs = debugLogsText.ifBlank { OpenKeyL10n.Debug.emptyLogs(uiLang) }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                    .padding(8.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = displayLogs,
+                    fontSize = 11.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                        val clip = ClipData.newPlainText("OpenKey Logs", OpenKeyLogger.shared.readRecentLogs())
+                        clipboard?.setPrimaryClip(clip)
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(OpenKeyL10n.Debug.copyLogs(uiLang), fontSize = 13.sp)
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        OpenKeyLogger.shared.clearLog()
+                        debugLogsText = OpenKeyLogger.shared.readRecentLogs()
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(OpenKeyL10n.Debug.clearLogs(uiLang), fontSize = 13.sp)
+                }
+            }
+        }
+
+        // 6. About Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -849,5 +915,56 @@ fun SettingsScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+fun SettingsSectionCard(
+    title: String,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            content()
+        }
+    }
+}
+
+@Composable
+fun SettingSwitchRow(
+    title: String,
+    subtitle: String? = null,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+            Text(text = title, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

@@ -20,6 +20,26 @@ class AutoWordingEngine private constructor() {
     companion object {
         val shared = AutoWordingEngine()
 
+        private val TONE_CHARS = setOf(
+            'á', 'à', 'ả', 'ã', 'ạ',
+            'ắ', 'ằ', 'ẳ', 'ẵ', 'ặ',
+            'ấ', 'ầ', 'ẩ', 'ẫ', 'ậ',
+            'é', 'è', 'ẻ', 'ẽ', 'ẹ',
+            'ế', 'ề', 'ể', 'ễ', 'ệ',
+            'í', 'ì', 'ỉ', 'ĩ', 'ị',
+            'ó', 'ò', 'ỏ', 'õ', 'ọ',
+            'ố', 'ồ', 'ổ', 'ỗ', 'ộ',
+            'ớ', 'ờ', 'ở', 'ỡ', 'ợ',
+            'ú', 'ù', 'ủ', 'ũ', 'ụ',
+            'ứ', 'ừ', 'ử', 'ữ', 'ự',
+            'ý', 'ỳ', 'ỷ', 'ỹ', 'ỵ'
+        )
+
+        fun hasToneMark(syllable: String): Boolean {
+            val lower = syllable.lowercase()
+            return lower.any { TONE_CHARS.contains(it) }
+        }
+
         fun extractVowelModifiers(text: String): Set<Char> {
             val mods = mutableSetOf<Char>()
             for (ch in text.lowercase()) {
@@ -129,6 +149,7 @@ class AutoWordingEngine private constructor() {
 
     val activeCandidates: List<WordCandidate>
         get() = lock.withLock { _activeCandidates.toList() }
+    val candidates: List<WordCandidate> get() = activeCandidates
     private var _activeCandidates: List<WordCandidate> = emptyList()
 
     var onCandidatesChanged: ((List<WordCandidate>) -> Unit)? = null
@@ -174,6 +195,20 @@ class AutoWordingEngine private constructor() {
         }
 
         return baseExpansion
+    }
+
+    fun computeCandidates(
+        currentSyllable: String,
+        rawStem: String,
+        previousWord: String? = null,
+        languagePriority: LanguagePriority = LanguagePriority.VIETNAMESE_FIRST
+    ): List<WordCandidate> {
+        return computeCurrentWordCandidates(
+            rawStem = rawStem,
+            currentSyllable = currentSyllable,
+            isWrongSpelling = false,
+            languagePriority = languagePriority
+        )
     }
 
     fun computeCurrentWordCandidates(
@@ -261,7 +296,11 @@ class AutoWordingEngine private constructor() {
                 distinctAccented.add(w)
             }
         }
-        val vietnameseSorted = distinctAccented + exactMatches
+        val vietnameseSorted = if (distinctAccented.isNotEmpty() && !hasToneMark(currentSyllable)) {
+            distinctAccented + exactMatches
+        } else {
+            exactMatches + distinctAccented
+        }
 
         val engCandidates = dict.computeEnglishCandidates(rawStem)
         val combinedTexts = mutableListOf<String>()

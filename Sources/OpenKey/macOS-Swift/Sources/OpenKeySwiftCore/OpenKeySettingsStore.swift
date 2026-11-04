@@ -22,10 +22,12 @@ import AppKit
         public static let smartSwitchData = "SmartSwitchData"
         public static let autoWordingEnabled = "AutoWordingEnabled"
         public static let grammarRepairEnabled = "GrammarRepairEnabled"
+        public static let doubleSpacePeriodEnabled = "DoubleSpacePeriodEnabled"
         public static let shorthandExpansionEnabled = "ShorthandExpansionEnabled"
         public static let candidateSuggestionsEnabled = "CandidateSuggestionsEnabled"
         public static let customShorthands = "CustomShorthandsData"
         public static let uiLanguage = "UILanguage" // 1: Vietnamese, 0: English
+        public static let debugModeEnabled = "DebugModeEnabled"
     }
     
     // Default switch key: Option + Z (0x7A000206)
@@ -52,6 +54,7 @@ import AppKit
     public var language: Int {
         didSet {
             UserDefaults.standard.set(language, forKey: Keys.language)
+            OpenKeyLogger.shared.log(.settings, "Language changed to \(language == 1 ? "Vietnamese" : "English")")
             syncToEngine()
             if let callback = onLanguageChanged {
                 if Thread.isMainThread {
@@ -76,6 +79,15 @@ import AppKit
                 return
             }
             UserDefaults.standard.set(uiLanguage, forKey: Keys.uiLanguage)
+            OpenKeyLogger.shared.log(.settings, "UILanguage changed to \(uiLanguage == 1 ? "Vietnamese" : "English")")
+        }
+    }
+    
+    public var debugModeEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(debugModeEnabled, forKey: Keys.debugModeEnabled)
+            OpenKeyLogger.shared.isEnabled = debugModeEnabled
+            OpenKeyLogger.shared.log(.settings, "DebugModeEnabled changed to \(debugModeEnabled)")
         }
     }
     
@@ -178,6 +190,15 @@ import AppKit
         }
     }
     
+    public var doubleSpacePeriodEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(doubleSpacePeriodEnabled, forKey: Keys.doubleSpacePeriodEnabled)
+            if !isBatchUpdatingAutoWording {
+                syncToEngine()
+            }
+        }
+    }
+    
     public var shorthandExpansionEnabled: Bool {
         didSet {
             UserDefaults.standard.set(shorthandExpansionEnabled, forKey: Keys.shorthandExpansionEnabled)
@@ -225,8 +246,10 @@ import AppKit
             Keys.beepOnSwitch: false,
             Keys.autoWordingEnabled: false,
             Keys.grammarRepairEnabled: false,
+            Keys.doubleSpacePeriodEnabled: false,
             Keys.shorthandExpansionEnabled: false,
-            Keys.candidateSuggestionsEnabled: false
+            Keys.candidateSuggestionsEnabled: false,
+            Keys.debugModeEnabled: false
         ])
         
         self.language = defaults.integer(forKey: Keys.language)
@@ -256,9 +279,13 @@ import AppKit
         }
         self.autoWordingEnabled = autoWording
         self.grammarRepairEnabled = gr
+        self.doubleSpacePeriodEnabled = defaults.bool(forKey: Keys.doubleSpacePeriodEnabled)
         self.shorthandExpansionEnabled = se
         self.candidateSuggestionsEnabled = cs
+        let debugMode = defaults.bool(forKey: Keys.debugModeEnabled)
+        self.debugModeEnabled = debugMode
         self.customShorthands = defaults.dictionary(forKey: Keys.customShorthands) as? [String: String] ?? [:]
+        OpenKeyLogger.shared.isEnabled = debugMode
         
         OKEngineInit()
         
@@ -299,7 +326,8 @@ import AppKit
             autoWordingEnabled ? 1 : 0,
             grammarRepairEnabled ? 1 : 0,
             shorthandExpansionEnabled ? 1 : 0,
-            candidateSuggestionsEnabled ? 1 : 0
+            candidateSuggestionsEnabled ? 1 : 0,
+            doubleSpacePeriodEnabled ? 1 : 0
         )
         AutoWordingEngine.shared.customShorthands = customShorthands
     }

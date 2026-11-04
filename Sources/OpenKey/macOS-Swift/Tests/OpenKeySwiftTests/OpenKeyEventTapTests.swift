@@ -116,7 +116,8 @@ struct OpenKeyEventTapTests {
     }
     
     // REQ-008, Task 6: OpenKeySettingsStore persistence, clamping, and smart switch
-    @Test("OpenKeySettingsStore persistence and sync")
+    @Test("OpenKeySettingsStore synchronizes with OpenKeyEngineConfig and UserDefaults")
+    @MainActor
     func openKeySettingsStoreSync() {
         let store = OpenKeySettingsStore.shared
         
@@ -416,6 +417,138 @@ struct OpenKeyEventTapTests {
         
         store.uiLanguage = -1
         #expect(store.uiLanguage == 1, "Setting uiLanguage to -1 must clamp to 1 (Vietnamese)")
+    }
+    
+    // REQ-013: Debug mode logging, secure-input redaction, and per-version log retention
+    @Test("REQ-013: Debug mode logging, secure-input redaction, and per-version log retention")
+    func testDebugModeLoggingAndRetention() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("OpenKeyTestLogs-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        
+        let logger = OpenKeyLogger.shared
+        let store = OpenKeySettingsStore.shared
+        let origDebug = store.debugModeEnabled
+        defer { store.debugModeEnabled = origDebug }
+        
+        // (a) Zero file writes & zero @autoclosure evaluation when debugModeEnabled == false
+        store.debugModeEnabled = false
+        logger.configureForTesting(logDirectoryURL: tempDir, appVersionStamp: "2.0.0-build1", maxFileSizeBytes: 1024 * 1024)
+        var evaluated = false
+        logger.log(.eventTap, { evaluated = true; return "disabled" }())
+        logger.flushForTesting()
+        #expect(!evaluated, "Autoclosure must not be evaluated when debug mode is disabled")
+        let logFileURL = tempDir.appendingPathComponent("openkey-debug.log")
+        #expect(!FileManager.default.fileExists(atPath: logFileURL.path), "Log file must not be created when debug mode is disabled")
+        
+        // (b) Multi-subsystem log emission when debugModeEnabled == true
+        store.debugModeEnabled = true
+        #expect(logger.isEnabled == true)
+        logger.log(.lifecycle, "Lifecycle startup")
+        logger.log(.settings, "Setting changed")
+        logger.log(.eventTap, "Event tap key 14")
+        logger.log(.engine, "Engine composed 'tiếng'")
+        logger.log(.autoWording, "AutoWording candidate 'việt'")
+        logger.flushForTesting()
+        #expect(FileManager.default.fileExists(atPath: logFileURL.path))
+        let contentB = try String(contentsOf: logFileURL, encoding: .utf8)
+        #expect(contentB.contains("# OpenKeySwiftVersionStamp: 2.0.0-build1"))
+        #expect(contentB.contains("[LIFECYCLE] Lifecycle startup"))
+        #expect(contentB.contains("[SETTINGS] Setting changed"))
+        #expect(contentB.contains("[EVENT_TAP] Event tap key 14"))
+        #expect(contentB.contains("[ENGINE] Engine composed 'tiếng'"))
+        #expect(contentB.contains("[AUTO_WORDING] AutoWording candidate 'việt'"))
+        
+        // (c) Strict keystroke redaction when KeyEventContext.isSecureInput == true
+        let coordinator = EventTapCoordinator()
+        let secureContext = KeyEventContext(
+            eventType: .keyDown, keyCode: 6,
+            activeAppBundleId: "com.apple.Terminal", isSecureInput: true
+        )
+        _ = coordinator.evaluateKeyEvent(secureContext)
+        logger.flushForTesting()
+        let contentC = try String(contentsOf: logFileURL, encoding: .utf8)
+        #expect(contentC.contains("Secure input active — keystroke redacted, bypassing IME"))
+        #expect(!contentC.contains("keyCode: 6") && !contentC.contains("secret") && !contentC.contains("code=6"))
+        
+        // (d) Automatic log truncation/purge when appVersionStamp changes
+        logger.configureForTesting(logDirectoryURL: tempDir, appVersionStamp: "2.0.0-build2", maxFileSizeBytes: 1024 * 1024)
+        logger.log(.lifecycle, "New version startup")
+        logger.flushForTesting()
+        let contentD = try String(contentsOf: logFileURL, encoding: .utf8)
+        #expect(contentD.contains("# OpenKeySwiftVersionStamp: 2.0.0-build2"))
+        #expect(!contentD.contains("2.0.0-build1"), "Old logs purged on version change")
+        #expect(!contentD.contains("Lifecycle startup"))
+        #expect(contentD.contains("[LIFECYCLE] New version startup"))
+        
+        // (e) Automatic size-cap truncation when maxFileSizeBytes is exceeded
+        logger.configureForTesting(logDirectoryURL: tempDir, appVersionStamp: "2.0.0-build2", maxFileSizeBytes: 200)
+        logger.log(.lifecycle, "Small line")
+        logger.flushForTesting()
+        logger.log(.engine, String(repeating: "DATA-CHUNK-TEST-", count: 20))
+        logger.flushForTesting()
+        let contentE = try String(contentsOf: logFileURL, encoding: .utf8)
+        #expect(contentE.contains("# OpenKeySwiftVersionStamp: 2.0.0-build2"))
+        let fileAttrs = try FileManager.default.attributesOfItem(atPath: logFileURL.path)
+        let fileSize = (fileAttrs[.size] as? NSNumber)?.intValue ?? 0
+        #expect(fileSize <= 800, "Log file size must be bounded after cap rotation, got \(fileSize) bytes")
+    }
+
+    // REQ-029, ADR-029: English Mode Pure Passthrough & Elimination of Autonomous Mode Switching
+    @Test("REQ-029, ADR-029: English mode pure passthrough never switches to Vietnamese")
+    func testEnglishModePurePassthroughNeverSwitchesToVietnamese() {
+        let store = OpenKeySettingsStore.shared
+        let origLang = store.language
+        defer { store.language = origLang }
+        store.language = 0
+
+        let coordinator = EventTapCoordinator()
+
+        // Type "did " (keyCodes 2, 34, 2, 49), "as " (keyCodes 0, 1, 49), "war " (keyCodes 13, 0, 15, 49), "code " (keyCodes 8, 31, 2, 14, 49)
+        let sequences: [[Int64]] = [
+            [2, 34, 2, 49],          // "did "
+            [0, 1, 49],              // "as "
+            [13, 0, 15, 49],         // "war "
+            [8, 31, 2, 14, 49]       // "code "
+        ]
+        for seq in sequences {
+            for keyCode in seq {
+                let ctx = KeyEventContext(
+                    eventType: .keyDown,
+                    keyCode: keyCode,
+                    language: store.language
+                )
+                let action = coordinator.evaluateKeyEvent(ctx)
+                #expect(action == .passThrough(resetSession: false), "Keycode \(keyCode) in sequence \(seq) must pass through without resetting session")
+            }
+        }
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        #expect(store.language == 0, "store.language must remain 0 (English mode)")
+    }
+
+    @Test("REQ-029, ADR-029: Zero autonomous language flipping on inline typing")
+    func testZeroAutonomousLanguageFlippingOnInlineTyping() {
+        let store = OpenKeySettingsStore.shared
+        let origLang = store.language
+        defer { store.language = origLang }
+        store.language = 1
+
+        let coordinator = EventTapCoordinator()
+
+        // Simulate typing 3 English words in Vietnamese mode: "test list more "
+        let words = [
+            [17, 14, 1, 17, 49],     // "test "
+            [37, 34, 1, 17, 49],     // "list "
+            [46, 31, 15, 14, 49]     // "more "
+        ]
+        for word in words {
+            for k in word {
+                let ctx = KeyEventContext(eventType: .keyDown, keyCode: Int64(k), language: 1)
+                _ = coordinator.evaluateKeyEvent(ctx)
+            }
+        }
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        #expect(store.language == 1, "store.language must remain 1 after typing 3+ English words")
     }
 }
 }

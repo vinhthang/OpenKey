@@ -454,4 +454,120 @@ class SmoothArchitectureTest {
             return true
         }
     }
+
+    // -------------------------------------------------------------------------
+    // 6. REQ-017: Android Debug Mode, OpenKeyLogger, Version Scoping & Redaction
+    // -------------------------------------------------------------------------
+    @Test
+    fun testOpenKeyLoggerLazyEvaluationWhenDisabled() {
+        val tempLog = java.io.File.createTempFile("openkey-test-lazy", ".log")
+        tempLog.deleteOnExit()
+        val logger = OpenKeyLogger(logFile = tempLog)
+        logger.isDebugEnabled = false
+
+        var lambdaEvaluated = false
+        logger.log(LogSubsystem.ENGINE) {
+            lambdaEvaluated = true
+            "Expensive log message"
+        }
+
+        assertFalse(lambdaEvaluated, "Logger must not evaluate lambda when isDebugEnabled == false")
+        assertFalse(tempLog.exists() && tempLog.length() > 0, "No file content must be written when isDebugEnabled == false")
+
+        // Enable debug
+        logger.isDebugEnabled = true
+        logger.log(LogSubsystem.ENGINE) {
+            lambdaEvaluated = true
+            "Engine initialized"
+        }
+        assertTrue(lambdaEvaluated, "Lambda must be evaluated when isDebugEnabled == true")
+        val content = logger.readRecentLogs()
+        assertTrue(content.contains("Engine initialized"))
+        assertTrue(content.contains("# OpenKeyAndroidVersionStamp: 1.0.0 (1)"))
+    }
+
+    @Test
+    fun testOpenKeyLoggerVersionStampPruningAndRotationAndClearLog() {
+        val tempLog = java.io.File.createTempFile("openkey-test-prune", ".log")
+        tempLog.deleteOnExit()
+        val logger = OpenKeyLogger(logFile = tempLog, maxFileSizeBytes = 250L, currentVersion = "1.0.0 (1)")
+        logger.isDebugEnabled = true
+
+        // Write outdated version stamp
+        tempLog.writeText("# OpenKeyAndroidVersionStamp: 0.9.0\nOld legacy log line\n")
+        logger.pruneOutdatedLogsIfNeeded("1.0.0 (1)")
+
+        val pruned = logger.readRecentLogs()
+        assertTrue(pruned.startsWith("# OpenKeyAndroidVersionStamp: 1.0.0 (1)"))
+        assertFalse(pruned.contains("Old legacy log line"), "Outdated logs must be pruned on version mismatch")
+
+        // Test size cap rotation
+        for (i in 1..20) {
+            logger.log(LogSubsystem.SESSION) { "Test log payload line $i for size cap rotation checking" }
+        }
+        val rotated = logger.readRecentLogs()
+        assertTrue(rotated.contains("[LOG_ROTATED_SIZE_CAP]"), "File exceeding size cap must be rotated/truncated")
+
+        // Test clearLog()
+        logger.clearLog()
+        val cleared = logger.readRecentLogs()
+        assertEquals("# OpenKeyAndroidVersionStamp: 1.0.0 (1)\n", cleared, "clearLog must reset file to version stamp header")
+    }
+
+    @Test
+    fun testOpenKeySettingsStoreDebugModeSyncAndKeystrokeRedaction() {
+        val storage = InMemoryKeyValueStorage()
+        val tempLog = java.io.File.createTempFile("openkey-test-sec", ".log")
+        tempLog.deleteOnExit()
+        OpenKeyLogger.shared.configureLogFile(tempLog)
+        OpenKeyLogger.shared.clearLog()
+
+        val store = OpenKeySettingsStore(storage)
+        assertFalse(store.debugModeEnabled)
+        assertFalse(OpenKeyLogger.shared.isDebugEnabled)
+
+        // Sync settings store -> logger
+        store.debugModeEnabled = true
+        assertTrue(OpenKeyLogger.shared.isDebugEnabled)
+        val afterEnableLog = OpenKeyLogger.shared.readRecentLogs()
+        assertTrue(afterEnableLog.contains("[SETTINGS] debugModeEnabled = true"))
+
+        // Secure field keystroke redaction in KeyboardSessionController
+        val secureController = KeyboardSessionController(
+            settingsStore = store,
+            committer = mockCommitter,
+            logger = OpenKeyLogger.shared
+        )
+        val secureContext = EditorContext(
+            inputType = InputContextEvaluator.TYPE_CLASS_TEXT or InputContextEvaluator.TYPE_TEXT_VARIATION_PASSWORD,
+            imeOptions = InputContextEvaluator.IME_ACTION_DONE,
+            packageName = "com.banking.app"
+        )
+        secureController.onStartInput(secureContext)
+        assertTrue(secureController.editorUiState.isSecureField)
+
+        // Type 'p' in secure field
+        val res = secureController.onKeyPress("p")
+        assertTrue(res.isBypassed)
+        assertEquals("p", res.text)
+
+        val logText = OpenKeyLogger.shared.readRecentLogs()
+        assertTrue(logText.contains("[SESSION] Secure input active — keystroke redacted, bypassing IME"))
+
+        val sessionLines = logText.lines().filter { it.contains("[SESSION]") }
+        assertTrue(sessionLines.isNotEmpty())
+        for (line in sessionLines) {
+            val msgOnly = line.substringAfter("[SESSION] ")
+            assertEquals("Secure input active — keystroke redacted, bypassing IME", msgOnly)
+        }
+
+        // Test that confidential keystrokes like "secret123" are not in log
+        secureController.onKeyPress("secret123")
+        val updatedLogText = OpenKeyLogger.shared.readRecentLogs()
+        assertFalse(updatedLogText.contains("secret123"), "Secure field must never log raw input text")
+
+        // Clean up
+        store.debugModeEnabled = false
+        assertFalse(OpenKeyLogger.shared.isDebugEnabled)
+    }
 }

@@ -49,6 +49,28 @@ struct OpenKeyAutoWordingTests {
         #expect(engine.isEnabled == false && engine.grammarRepairEnabled == false && engine.shorthandExpansionEnabled == false && engine.candidateSuggestionsEnabled == false)
     }
 
+    // MARK: - REQ-025, ADR-026: Double-Space Period Option Persistence & Sync
+    @Test("REQ-025, ADR-026: Double-space period option persistence and sync")
+    func settingsStoreDoubleSpacePeriod() {
+        let settings = OpenKeySettingsStore.shared
+        // Reset to default
+        settings.doubleSpacePeriodEnabled = false
+        #expect(settings.doubleSpacePeriodEnabled == false)
+        #expect(UserDefaults.standard.bool(forKey: OpenKeySettingsStore.Keys.doubleSpacePeriodEnabled) == false)
+        
+        // Toggle on
+        settings.doubleSpacePeriodEnabled = true
+        #expect(UserDefaults.standard.bool(forKey: OpenKeySettingsStore.Keys.doubleSpacePeriodEnabled) == true)
+        settings.syncToEngine()
+        #expect(AutoWordingEngine.shared.doubleSpacePeriodEnabled == true)
+        
+        // Toggle off
+        settings.doubleSpacePeriodEnabled = false
+        #expect(UserDefaults.standard.bool(forKey: OpenKeySettingsStore.Keys.doubleSpacePeriodEnabled) == false)
+        settings.syncToEngine()
+        #expect(AutoWordingEngine.shared.doubleSpacePeriodEnabled == false)
+    }
+
 
     // MARK: - REQ-003: Shorthand Auto-Expansion on Space
     @Test("REQ-003: Shorthand auto-expansion on Space")
@@ -56,7 +78,11 @@ struct OpenKeyAutoWordingTests {
         OKEngineInit()
         OKEngineResetSession()
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1)
-        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0) }
+        AutoWordingEngine.shared.customShorthands = ["ko": "không", "dc": "được", "vn": "Việt Nam", "cty": "công ty"]
+        defer {
+            OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+            AutoWordingEngine.shared.customShorthands = [:]
+        }
         
         // 1. "ko " -> "không "
         typeKeys([40, 31])
@@ -202,17 +228,8 @@ struct OpenKeyAutoWordingTests {
         let engine = AutoWordingEngine.shared
         
         // 1. Built-in expanded shorthands
-        #expect(engine.expandShorthand(rawWord: "k") == "không")
-        #expect(engine.expandShorthand(rawWord: "K") == "Không")
-        #expect(engine.expandShorthand(rawWord: "j") == "gì")
-        #expect(engine.expandShorthand(rawWord: "bh") == "bây giờ")
-        #expect(engine.expandShorthand(rawWord: "Bh") == "Bây giờ")
-        #expect(engine.expandShorthand(rawWord: "mn") == "mọi người")
-        #expect(engine.expandShorthand(rawWord: "cty") == "công ty")
-        #expect(engine.expandShorthand(rawWord: "nv") == "nhân viên")
-        #expect(engine.expandShorthand(rawWord: "gd") == "gia đình")
-        #expect(engine.expandShorthand(rawWord: "sdt") == "số điện thoại")
-        #expect(engine.expandShorthand(rawWord: "tks") == "cảm ơn")
+        #expect(AutoWordingShorthandCatalog.builtInTable.isEmpty == true)
+        #expect(engine.expandShorthand(rawWord: "ko") == nil)
         
         // 2. Custom shorthands persistence via OpenKeySettingsStore
         store.setCustomShorthand(trigger: "cv", replacement: "công việc")
@@ -236,7 +253,11 @@ struct OpenKeyAutoWordingTests {
         OKEngineInit()
         OKEngineResetSession()
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1)
-        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0) }
+        AutoWordingEngine.shared.customShorthands = ["ko": "không"]
+        defer {
+            OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+            AutoWordingEngine.shared.customShorthands = [:]
+        }
         
         // (a) Typing toned words and pressing KEY_DELETE (51) 1..6 times
         let testWords = [[45, 4, 0, 0, 1, 17], [17, 34, 14, 14, 45, 5, 1], [17, 15, 32, 31, 13, 45, 5, 3], [4, 31, 0, 45, 3]]
@@ -338,6 +359,7 @@ struct OpenKeyAutoWordingTests {
         
         OKEngineResetSession()
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+        AutoWordingEngine.shared.customShorthands = ["ko": "không"]
         defer {
             OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
             settings.autoWordingEnabled = false
@@ -345,6 +367,7 @@ struct OpenKeyAutoWordingTests {
             settings.shorthandExpansionEnabled = false
             settings.candidateSuggestionsEnabled = false
             AutoWordingEngine.shared.onCandidatesChanged = nil
+            AutoWordingEngine.shared.customShorthands = [:]
         }
         
         typeKeys([17, 4, 0, 45, 4]) // "thanh"
@@ -453,6 +476,41 @@ struct OpenKeyAutoWordingTests {
             #expect(first.contains("ơ") || first.contains("ớ") || first.contains("ời") || first.contains("ởi"),
                     "Top candidate for 'giơi' must retain horn ơ, got \(first)")
         }
+    }
+
+    // MARK: - REQ-030, ADR-030: Onset-preserving transposition candidate matching and stale callback suppression
+    @Test("REQ-030, ADR-030: Onset-preserving transposition candidate matching and stale callback suppression")
+    func testOnsetPreservingTranspositionCandidates() {
+        let engine = AutoWordingEngine.shared
+        let wasEnabled = engine.isEnabled
+        let wasSuggestions = engine.candidateSuggestionsEnabled
+        engine.isEnabled = true
+        engine.candidateSuggestionsEnabled = true
+        defer {
+            engine.isEnabled = wasEnabled
+            engine.candidateSuggestionsEnabled = wasSuggestions
+        }
+
+        // Verify "muo" does NOT contain "uôm", "uốm", or "uồm"
+        let muoCandidates = engine.computeCurrentWordCandidates(rawStem: "muo", currentSyllable: "muo").map(\.text)
+        #expect(!muoCandidates.contains("uôm"), "Candidates for 'muo' must not contain 'uôm', got \(muoCandidates)")
+        #expect(!muoCandidates.contains("uốm"), "Candidates for 'muo' must not contain 'uốm', got \(muoCandidates)")
+        #expect(!muoCandidates.contains("uồm"), "Candidates for 'muo' must not contain 'uồm', got \(muoCandidates)")
+
+        // Verify "phuo" and "phuow" do NOT contain "hướp" or "hượp"
+        let phuoCandidates = engine.computeCurrentWordCandidates(rawStem: "phuo", currentSyllable: "phuo").map(\.text)
+        #expect(!phuoCandidates.contains("hướp"), "Candidates for 'phuo' must not contain 'hướp', got \(phuoCandidates)")
+        #expect(!phuoCandidates.contains("hượp"), "Candidates for 'phuo' must not contain 'hượp', got \(phuoCandidates)")
+
+        let phuowCandidates = engine.computeCurrentWordCandidates(rawStem: "phuow", currentSyllable: "phươ").map(\.text)
+        #expect(!phuowCandidates.contains("hướp"), "Candidates for 'phuow' must not contain 'hướp', got \(phuowCandidates)")
+        #expect(!phuowCandidates.contains("hượp"), "Candidates for 'phuow' must not contain 'hượp', got \(phuowCandidates)")
+
+        // Verify same-onset rime transpositions still work:
+        #expect(engine.computeCurrentWordCandidates(rawStem: "tineg", currentSyllable: "").map(\.text).contains("tiếng") == true)
+        #expect(engine.computeCurrentWordCandidates(rawStem: "veit", currentSyllable: "").map(\.text).contains("việt") == true)
+        #expect(engine.computeCurrentWordCandidates(rawStem: "ngheing", currentSyllable: "").map(\.text).contains("nghiêng") == true)
+        #expect(engine.computeCurrentWordCandidates(rawStem: "taon", currentSyllable: "").map(\.text).contains("toàn") == true)
     }
 
 }

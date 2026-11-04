@@ -33,6 +33,11 @@ func typeKeys(_ keyCodes: [Int], caps: Int = 0, isKeypad: Bool = false) -> [OKHo
 struct VirtualScreen {
     var text: String = ""
     
+    init(text: String = "") {
+        self.text = text
+        OKEngineResetSession()
+    }
+    
     mutating func typeKeys(_ keys: [Int]) {
         for k in keys { typeKey(k) }
     }
@@ -80,7 +85,6 @@ struct VirtualScreen {
         case 15: return caps ? "R" : "r"
         case 16: return caps ? "Y" : "y"
         case 17: return caps ? "T" : "t"
-        case 27: return "-"
         case 30: return "]"
         case 31: return caps ? "O" : "o"
         case 32: return caps ? "U" : "u"
@@ -94,9 +98,45 @@ struct VirtualScreen {
         case 43: return ","
         case 45: return caps ? "N" : "n"
         case 46: return caps ? "M" : "m"
+        case 18: return "1"
+        case 19: return caps ? "@" : "2"
+        case 20: return "3"
+        case 21: return "4"
+        case 22: return "6"
+        case 23: return "5"
+        case 25: return "9"
+        case 26: return "7"
+        case 27: return caps ? "_" : "-"
+        case 28: return "8"
+        case 29: return "0"
+        case 39: return caps ? "\"" : "'"
+        case 44: return "/"
         case 47: return "."
         case 49: return " "
         default: return nil
+        }
+    }
+    
+    mutating func typeASCII(_ str: String) {
+        let map: [Character: (Int, Int)] = [
+            "a": (0, 0), "A": (0, 1), "s": (1, 0), "S": (1, 1), "d": (2, 0), "D": (2, 1),
+            "f": (3, 0), "F": (3, 1), "h": (4, 0), "H": (4, 1), "g": (5, 0), "G": (5, 1),
+            "z": (6, 0), "Z": (6, 1), "x": (7, 0), "X": (7, 1), "c": (8, 0), "C": (8, 1),
+            "v": (9, 0), "V": (9, 1), "b": (11, 0), "B": (11, 1), "q": (12, 0), "Q": (12, 1),
+            "w": (13, 0), "W": (13, 1), "e": (14, 0), "E": (14, 1), "r": (15, 0), "R": (15, 1),
+            "y": (16, 0), "Y": (16, 1), "t": (17, 0), "T": (17, 1), "1": (18, 0), "2": (19, 0),
+            "@": (19, 1), "3": (20, 0), "4": (21, 0), "6": (22, 0), "5": (23, 0), "9": (25, 0),
+            "7": (26, 0), "-": (27, 0), "_": (27, 1), "8": (28, 0), "0": (29, 0), "]": (30, 0),
+            "o": (31, 0), "O": (31, 1), "u": (32, 0), "U": (32, 1), "[": (33, 0), "i": (34, 0),
+            "I": (34, 1), "p": (35, 0), "P": (35, 1), "l": (37, 0), "L": (37, 1), "j": (38, 0),
+            "J": (38, 1), "'": (39, 0), "\"": (39, 1), "k": (40, 0), "K": (40, 1), ";": (41, 0),
+            ":": (41, 1), ",": (43, 0), "/": (44, 0), "n": (45, 0), "N": (45, 1), "m": (46, 0),
+            "M": (46, 1), ".": (47, 0), " ": (49, 0)
+        ]
+        for ch in str {
+            if let (code, caps) = map[ch] {
+                typeKey(code, caps: caps)
+            }
         }
     }
 }

@@ -8,6 +8,32 @@
 
 import Foundation
 
+public enum CandidateKind: String, Sendable, Equatable {
+    case correction
+    case stemCompletion
+    case nextWord
+}
+
+public struct WordCandidate: Sendable, Equatable, Identifiable {
+    public let id: Int
+    public let text: String
+    public let kind: CandidateKind
+    public let replaceLength: Int
+    
+    public init(id: Int, text: String, kind: CandidateKind, replaceLength: Int) {
+        self.id = id
+        self.text = text
+        self.kind = kind
+        self.replaceLength = replaceLength
+    }
+}
+
+public enum AutoWordingShorthandCatalog {
+    public static let builtInTable: [String: String] = [:]
+    
+    public static let properNouns: Set<String> = []
+}
+
 public final class AutoWordingEngine: @unchecked Sendable {
     public static let shared = AutoWordingEngine()
     
@@ -44,17 +70,25 @@ public final class AutoWordingEngine: @unchecked Sendable {
     }
     private var _candidateSuggestionsEnabled: Bool = false
     
+    public var doubleSpacePeriodEnabled: Bool {
+        get { lock.withLock { _doubleSpacePeriodEnabled } }
+        set { lock.withLock { _doubleSpacePeriodEnabled = newValue } }
+    }
+    private var _doubleSpacePeriodEnabled: Bool = false
+    
     public func syncConfig(
         isEnabled: Bool,
         grammarRepair: Bool,
         shorthandExpansion: Bool,
-        candidateSuggestions: Bool
+        candidateSuggestions: Bool,
+        doubleSpacePeriod: Bool = false
     ) {
         lock.withLock {
             self._isEnabled = isEnabled
             self._grammarRepairEnabled = grammarRepair
             self._shorthandExpansionEnabled = shorthandExpansion
             self._candidateSuggestionsEnabled = candidateSuggestions
+            self._doubleSpacePeriodEnabled = doubleSpacePeriod
         }
         if !isEnabled || !candidateSuggestions { clearCandidates() }
     }
@@ -98,6 +132,7 @@ public final class AutoWordingEngine: @unchecked Sendable {
             return _userFrequencies
         }
         UserDefaults.standard.set(snapshot, forKey: "UserWordFrequencyData")
+        OpenKeyLogger.shared.log(.autoWording, "Accepted candidate: '\(clean)', count=\(snapshot[clean] ?? 0)")
     }
     
     public func resetLearnedFrequencies() {
@@ -114,18 +149,13 @@ public final class AutoWordingEngine: @unchecked Sendable {
         
         let lower = rawWord.lowercased()
         
-        let baseExpansion: String
+        var resolved: String? = nil
         lock.lock()
         if let custom = _customShorthands[lower] {
-            baseExpansion = custom
-            lock.unlock()
-        } else if let builtin = shorthandTable[lower] {
-            baseExpansion = builtin
-            lock.unlock()
-        } else {
-            lock.unlock()
-            return nil
+            resolved = custom
         }
+        lock.unlock()
+        guard let baseExpansion = resolved else { return nil }
         
         // Proper nouns
         if properNounShorthands.contains(lower) {
@@ -147,18 +177,51 @@ public final class AutoWordingEngine: @unchecked Sendable {
         return baseExpansion
     }
     
-    // MARK: - Current Syllable Correction & Stem Candidates (REQ-004, REQ-008)
+    // MARK: - Current Syllable Correction & Stem Candidates (REQ-004, REQ-008, REQ-024)
+    
+    private static let tonedCharacters: Set<Character> = Set(
+        "áàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ" +
+        "ÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴ"
+    )
+    
+    public static func hasToneMark(_ text: String) -> Bool {
+        text.contains { tonedCharacters.contains($0) }
+    }
+    
+    public func hasToneMark(_ text: String) -> Bool {
+        Self.hasToneMark(text)
+    }
+    
+    public static func computeCandidates(
+        currentSyllable: String,
+        rawStem: String,
+        previousWord: String? = nil,
+        languagePriority: LanguagePriority = .vietnameseFirst
+    ) -> [WordCandidate] {
+        shared.computeCurrentWordCandidates(
+            rawStem: rawStem,
+            currentSyllable: currentSyllable,
+            isWrongSpelling: false,
+            languagePriority: languagePriority,
+            bypassEnabledCheck: true
+        )
+    }
     
     /// Computes up to 3 valid Vietnamese candidates for transposed keystrokes or unaccented stems in < 0.1ms.
     public func computeCurrentWordCandidates(
         rawStem: String,
         currentSyllable: String,
-        isWrongSpelling: Bool = false
+        isWrongSpelling: Bool = false,
+        languagePriority: LanguagePriority = .vietnameseFirst,
+        bypassEnabledCheck: Bool = false
     ) -> [WordCandidate] {
-        guard isEnabled && candidateSuggestionsEnabled else { return [] }
+        guard bypassEnabledCheck || (isEnabled && candidateSuggestionsEnabled) else { return [] }
         guard !rawStem.isEmpty || !currentSyllable.isEmpty else { return [] }
         
         let dict = VietnameseDictionary.shared
+        if isWrongSpelling && dict.keepWords.contains(rawStem.lowercased()) {
+            return []
+        }
         var results: [String] = []
         
         // 1. Check unaccented stem lookup FIRST (REQ-008, REQ-010)
@@ -169,11 +232,12 @@ public final class AutoWordingEngine: @unchecked Sendable {
             results.append(m)
         }
         
-        // 2. Check sorted signature (O(1) transposition lookup) SECOND (REQ-008)
+        // 2. Check sorted signature (O(1) transposition lookup) SECOND (REQ-008, REQ-030)
+        let stemOnset = VietnameseDictionary.extractVietnameseOnset(cleanStem)
         let cleanRaw = rawStem.lowercased()
         let rawSig = String(cleanRaw.sorted())
         if results.count < 8, let matches = dict.telexSignatureToWords[rawSig] {
-            for m in matches where !results.contains(m) {
+            for m in matches where !results.contains(m) && VietnameseDictionary.extractVietnameseOnset(VietnameseDictionary.stripVietnameseDiacritics(m)) == stemOnset {
                 results.append(m)
                 if results.count >= 8 { break }
             }
@@ -186,15 +250,13 @@ public final class AutoWordingEngine: @unchecked Sendable {
                 let trimmed = String(cleanRaw.dropLast())
                 let trimmedSig = String(trimmed.sorted())
                 if let matches = dict.telexSignatureToWords[trimmedSig] {
-                    for m in matches where !results.contains(m) {
+                    for m in matches where !results.contains(m) && VietnameseDictionary.extractVietnameseOnset(VietnameseDictionary.stripVietnameseDiacritics(m)) == stemOnset {
                         results.append(m)
                         if results.count >= 8 { break }
                     }
                 }
             }
         }
-        
-        guard !results.isEmpty else { return [] }
         
         // Boost ranking with learned user frequencies (REQ-005)
         let freqs = lock.withLock { _userFrequencies }
@@ -222,13 +284,49 @@ public final class AutoWordingEngine: @unchecked Sendable {
                 distinctAccented.append(word)
             }
         }
-        let sortedResults = distinctAccented + exactMatches
+        let vietnameseSorted: [String]
+        if currentSyllable.count < rawStem.count && !distinctAccented.isEmpty && !hasToneMark(currentSyllable) {
+            vietnameseSorted = distinctAccented + exactMatches
+        } else if !distinctAccented.isEmpty && !hasToneMark(currentSyllable) {
+            vietnameseSorted = distinctAccented + exactMatches
+        } else {
+            vietnameseSorted = exactMatches + distinctAccented
+        }
+        
+        let engCandidates = dict.computeEnglishCandidates(for: rawStem)
+        
+        var combinedTexts: [String] = []
+        if languagePriority == .englishFirst {
+            for eng in engCandidates where !combinedTexts.contains(eng) {
+                combinedTexts.append(eng)
+            }
+            for vn in vietnameseSorted where !combinedTexts.contains(vn) {
+                combinedTexts.append(vn)
+            }
+        } else {
+            for vn in vietnameseSorted.prefix(2) where !combinedTexts.contains(vn) {
+                combinedTexts.append(vn)
+            }
+            for eng in engCandidates where !combinedTexts.contains(eng) {
+                combinedTexts.append(eng)
+            }
+            for vn in vietnameseSorted.dropFirst(2) where !combinedTexts.contains(vn) {
+                combinedTexts.append(vn)
+            }
+        }
+        
+        guard !combinedTexts.isEmpty else { return [] }
         
         let replaceLen = currentSyllable.isEmpty ? rawStem.count : currentSyllable.count
-        return sortedResults.prefix(3).enumerated().map { index, text in
-            let kind: CandidateKind = isWrongSpelling ? .correction : (stemMatches.contains(text) ? .stemCompletion : .correction)
+        let candidates = Array(combinedTexts.prefix(3).enumerated().map { index, text in
+            let isEng = engCandidates.contains(text)
+            let kind: CandidateKind = isEng ? .correction : (isWrongSpelling ? .correction : (stemMatches.contains(text) ? .stemCompletion : .correction))
             return WordCandidate(id: index, text: text, kind: kind, replaceLength: replaceLen)
+        })
+        if !candidates.isEmpty {
+            OpenKeyLogger.shared.log(.autoWording, "Stem '\(rawStem)' candidates: \(candidates.map(\.text))")
         }
+        return candidates
     }
     
     // MARK: - Compound Next-Word Candidates (REQ-004, REQ-005)
@@ -263,7 +361,8 @@ public final class AutoWordingEngine: @unchecked Sendable {
         lock.unlock()
         
         if let callback = onCandidatesChanged {
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self, self.activeCandidates == copy else { return }
                 callback(copy)
             }
         }
@@ -347,6 +446,7 @@ public final class AutoWordingEngine: @unchecked Sendable {
         guard let expanded = expandShorthand(rawWord: preContext.composedWord) else {
             return nil
         }
+        OpenKeyLogger.shared.log(.autoWording, "Expanded shorthand '\(preContext.composedWord)' -> '\(expanded)'")
         
         let fullText = expanded + " "
         let utf16 = Array(fullText.utf16)
@@ -401,7 +501,8 @@ public final class AutoWordingEngine: @unchecked Sendable {
                 let candidates = computeCurrentWordCandidates(
                     rawStem: postContext.rawKeystrokes,
                     currentSyllable: postContext.composedWord,
-                    isWrongSpelling: postContext.isWrongSpelling
+                    isWrongSpelling: postContext.isWrongSpelling,
+                    languagePriority: OKEngineGetEffectiveLanguagePriority()
                 )
                 if !candidates.isEmpty { updateCandidates(candidates) } else { clearCandidates() }
             } else {

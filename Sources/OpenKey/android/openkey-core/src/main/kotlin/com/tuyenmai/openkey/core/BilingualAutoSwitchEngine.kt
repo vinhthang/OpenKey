@@ -343,6 +343,9 @@ object BilingualAutoSwitchEngine {
             } else if (dict.englishPriorityWords.contains(fullRawLower)) {
                 shouldRestore = true
                 targetKeys = fullKeys
+            } else if (priority == LanguagePriority.ENGLISH_FIRST && dict.englishWords.contains(fullRawLower)) {
+                shouldRestore = true
+                targetKeys = fullKeys
             } else if (dict.englishWords.contains(fullRawLower) && (!dict.isValidVietnameseSyllable(composedLower) || countVowelGroups(fullKeys) >= 2)) {
                 shouldRestore = true
                 targetKeys = fullKeys

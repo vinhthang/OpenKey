@@ -91,6 +91,7 @@ public final class SmartSwitchStore: @unchecked Sendable {
     public func setAppInputMethodStatus(bundleId: String, language: Int32) {
         lock.lock()
         defer { lock.unlock() }
+        OpenKeyLogger.shared.log(.smartSwitch, "setAppInputMethodStatus: bundleId='\(bundleId)', language=\(language)")
         smartSwitchData[bundleId] = Int8(language)
         smartSwitchCacheKey = bundleId
         smartSwitchCacheData = Int8(language)

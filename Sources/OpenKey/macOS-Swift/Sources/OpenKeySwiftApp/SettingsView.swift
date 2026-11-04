@@ -114,6 +114,9 @@ public struct SettingsView: View {
                     Toggle(l10n.grammarRepair, isOn: $settings.grammarRepairEnabled)
                         .disabled(!settings.autoWordingEnabled)
                         
+                    Toggle(l10n.doubleSpacePeriod, isOn: $settings.doubleSpacePeriodEnabled)
+                        .disabled(!settings.autoWordingEnabled)
+                        
                     Toggle(l10n.shorthandExpansion, isOn: $settings.shorthandExpansionEnabled)
                         .disabled(!settings.autoWordingEnabled)
                         
@@ -212,6 +215,33 @@ public struct SettingsView: View {
                             Text(errorText)
                                 .font(.caption)
                                 .foregroundColor(.red)
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle(l10n.debugModeTitle, isOn: $settings.debugModeEnabled)
+                        Text(l10n.debugModeSubtitle)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        if settings.debugModeEnabled {
+                            HStack(spacing: 8) {
+                                Button(l10n.openLogFile) {
+                                    OpenKeyLogger.shared.openLogFile()
+                                }
+                                Button(l10n.revealLogInFinder) {
+                                    OpenKeyLogger.shared.revealLogInFinder()
+                                }
+                                Button(role: .destructive, action: {
+                                    OpenKeyLogger.shared.clearLog()
+                                }) {
+                                    Text(l10n.clearLog)
+                                }
+                            }
+                            .controlSize(.small)
+                            .padding(.top, 2)
                         }
                     }
                 }

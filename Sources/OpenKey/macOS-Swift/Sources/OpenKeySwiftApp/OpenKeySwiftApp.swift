@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         ProcessInfo.processInfo.disableAutomaticTermination("OpenKey Menu Bar Input Method")
+        OpenKeyLogger.shared.checkVersionRetention()
         setupStatusItem()
         coordinator.start()
         CandidateBarController.shared.start()
@@ -117,6 +118,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         autoWordingItem.state = settings.autoWordingEnabled ? .on : .off
         menu.addItem(autoWordingItem)
         
+        let debugModeItem = NSMenuItem(title: l10n.menuDebugMode, action: #selector(toggleDebugMode), keyEquivalent: "")
+        debugModeItem.target = self
+        debugModeItem.state = settings.debugModeEnabled ? .on : .off
+        menu.addItem(debugModeItem)
+        
+        if settings.debugModeEnabled {
+            let openLogItem = NSMenuItem(title: l10n.menuOpenLogFile, action: #selector(openDebugLog), keyEquivalent: "")
+            openLogItem.target = self
+            menu.addItem(openLogItem)
+        }
+        
         menu.addItem(NSMenuItem.separator())
         
         let telexItem = NSMenuItem(title: "Telex", action: #selector(selectTelex), keyEquivalent: "")
@@ -159,6 +171,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     
     @objc private func toggleAutoWording() {
         settings.autoWordingEnabled.toggle()
+    }
+    
+    @objc private func toggleDebugMode() {
+        settings.debugModeEnabled.toggle()
+    }
+    
+    @objc private func openDebugLog() {
+        OpenKeyLogger.shared.openLogFile()
     }
     
     @objc private func selectTelex() {

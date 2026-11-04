@@ -219,4 +219,34 @@ class AutoWordingEngineTest {
         screenDc.typeASCII("dc ")
         assertEquals("dc ", screenDc.text, "Built-in teencode 'dc ' must NOT expand when customShorthands is empty")
     }
+
+    // 6. Context-Ordered Homograph Disambiguation Candidate Ranking (REQ-018, ADR-019)
+    @Test
+    fun testHomographDisambiguationCandidateRanking() {
+        val engine = AutoWordingEngine.shared
+
+        // In VIETNAMESE_FIRST priority:
+        // "sẽ" must rank first, and "sex" must be included in candidates
+        val vnCandidates = engine.computeCandidates(
+            currentSyllable = "sẽ",
+            rawStem = "sex",
+            previousWord = null,
+            languagePriority = LanguagePriority.VIETNAMESE_FIRST
+        )
+        assertTrue(vnCandidates.isNotEmpty(), "Candidates must not be empty")
+        assertEquals("sẽ", vnCandidates[0].text, "VIETNAMESE_FIRST must rank 'sẽ' first")
+        assertTrue(vnCandidates.any { it.text == "sex" }, "VIETNAMESE_FIRST must include 'sex' candidate")
+
+        // In ENGLISH_FIRST priority:
+        // "sex" must rank first, and "sẽ" must rank second
+        val engCandidates = engine.computeCandidates(
+            currentSyllable = "sẽ",
+            rawStem = "sex",
+            previousWord = null,
+            languagePriority = LanguagePriority.ENGLISH_FIRST
+        )
+        assertTrue(engCandidates.size >= 2, "Candidates must have at least 2 entries")
+        assertEquals("sex", engCandidates[0].text, "ENGLISH_FIRST must rank 'sex' first")
+        assertEquals("sẽ", engCandidates[1].text, "ENGLISH_FIRST must rank 'sẽ' second")
+    }
 }

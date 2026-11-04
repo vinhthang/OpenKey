@@ -112,6 +112,7 @@ public final class CandidateBarController: ObservableObject {
         guard let panel = panel else { return }
         
         if candidates.isEmpty {
+            OpenKeyLogger.shared.log(.candidateBar, "Hide candidate bar")
             panel.orderOut(nil)
             EventTapCoordinator.candidatePanelFrame = .zero
             return
@@ -119,6 +120,7 @@ public final class CandidateBarController: ObservableObject {
         
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self, let panel = self.panel else { return }
+            OpenKeyLogger.shared.log(.candidateBar, "Show candidate bar with \(candidates.count) candidates: \(candidates.map(\.text))")
             
             let candidateView = CandidateBarView(candidates: candidates) { [weak self] selected in
                 self?.acceptCandidate(selected)
@@ -148,6 +150,7 @@ public final class CandidateBarController: ObservableObject {
                         EventTapCoordinator.candidatePanelFrame = .zero
                         return
                     }
+                    guard AutoWordingEngine.shared.activeCandidates == candidates else { return }
                     
                     // Clamp to screen bounds of active display (REQ-003, ADR-003)
                     let targetScreen = CaretPositionResolver.screenContaining(point: caretPoint)
@@ -178,6 +181,7 @@ public final class CandidateBarController: ObservableObject {
     }
     
     private func acceptCandidate(_ candidate: WordCandidate) {
+        OpenKeyLogger.shared.log(.candidateBar, "Accept candidate: '\(candidate.text)' (id=\(candidate.id))")
         AutoWordingEngine.shared.recordCandidateAcceptance(text: candidate.text)
         let fullText = candidate.text + " "
         let chars = Array(fullText.utf16)

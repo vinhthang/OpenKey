@@ -126,7 +126,7 @@ class BilingualAutoSwitchTest {
         val collisionWords = listOf(
             "test ", "list ", "this ", "best ", "more ", "core ", "view ", "show ", "flow ",
             "user ", "vars ", "chars ", "docs ", "work ", "word ", "tree ", "free ", "see ",
-            "too ", "add ", "mix ", "fix ", "box ", "max ", "tax "
+            "too ", "add ", "mix ", "fix ", "box "
         )
         for (w in collisionWords) {
             val screen = VirtualScreen()
@@ -205,5 +205,49 @@ class BilingualAutoSwitchTest {
         val screenBds = VirtualScreen()
         screenBds.typeASCII("BĐS ")
         assertEquals("BĐS ", screenBds.text, "Vietnamese acronym BĐS must be preserved")
+    }
+
+    // 6. Context-Ordered V / E Homograph Disambiguation (REQ-018, ADR-019)
+    @Test
+    fun testContextOrderedHomographDisambiguation() {
+        // (a) V (VIETNAMESE_FIRST) context preserves composed Vietnamese words
+        val vietnameseFirstCases = listOf(
+            "sex " to "sẽ ",
+            "anh sex lamf " to "anh sẽ làm ",
+            "max nguoonf " to "mã nguồn ",
+            "bacs six " to "bác sĩ ",
+            "banr vex " to "bản vẽ "
+        )
+        for ((input, expected) in vietnameseFirstCases) {
+            val screen = VirtualScreen()
+            screen.typeASCII(input)
+            assertEquals(expected, screen.text, "VIETNAMESE_FIRST context for '$input' must produce '$expected'")
+        }
+
+        // (b) E (ENGLISH_FIRST) context restores English words
+        val englishFirstCases = listOf(
+            "have sex " to "have sex ",
+            "at max " to "at max ",
+            "number six " to "number six ",
+            "income tax " to "income tax ",
+            "full moon " to "full moon "
+        )
+        for ((input, expected) in englishFirstCases) {
+            val screen = VirtualScreen()
+            screen.typeASCII(input)
+            assertEquals(expected, screen.text, "ENGLISH_FIRST context for '$input' must produce '$expected'")
+        }
+
+        // (c) 2-word look-back restores English homographs
+        val lookbackCases = listOf(
+            "sex is " to "sex is ",
+            "max value " to "max value ",
+            "tax rate " to "tax rate "
+        )
+        for ((input, expected) in lookbackCases) {
+            val screen = VirtualScreen()
+            screen.typeASCII(input)
+            assertEquals(expected, screen.text, "Lookback restoration for '$input' must produce '$expected'")
+        }
     }
 }

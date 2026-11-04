@@ -117,6 +117,35 @@ object OpenKeyL10n {
         override fun getStrings(lang: Language): Map<String, String> = if (lang == Language.VI) vi else en
     }
 
+    object Debug : SectionStrings {
+        fun sectionTitle(lang: Language): String = if (lang == Language.VI) "Gỡ lỗi & Chẩn đoán" else "Debug & Diagnostics"
+        fun toggleTitle(lang: Language): String = if (lang == Language.VI) "Chế độ Gỡ lỗi (Debug Mode)" else "Debug Mode"
+        fun toggleSubtitle(lang: Language): String = if (lang == Language.VI) "Ghi nhật ký chi tiết vào tệp để phân tích sự cố" else "Log detailed diagnostic events to file"
+        fun copyLogs(lang: Language): String = if (lang == Language.VI) "Sao chép nhật ký" else "Copy Logs"
+        fun clearLogs(lang: Language): String = if (lang == Language.VI) "Xóa nhật ký" else "Clear Log"
+        fun emptyLogs(lang: Language): String = if (lang == Language.VI) "Chưa có nhật ký nào được ghi." else "No diagnostic logs recorded yet."
+
+        private val vi = mapOf(
+            "sectionTitle" to sectionTitle(Language.VI),
+            "toggleTitle" to toggleTitle(Language.VI),
+            "toggleSubtitle" to toggleSubtitle(Language.VI),
+            "copyLogs" to copyLogs(Language.VI),
+            "clearLogs" to clearLogs(Language.VI),
+            "emptyLogs" to emptyLogs(Language.VI)
+        )
+
+        private val en = mapOf(
+            "sectionTitle" to sectionTitle(Language.EN),
+            "toggleTitle" to toggleTitle(Language.EN),
+            "toggleSubtitle" to toggleSubtitle(Language.EN),
+            "copyLogs" to copyLogs(Language.EN),
+            "clearLogs" to clearLogs(Language.EN),
+            "emptyLogs" to emptyLogs(Language.EN)
+        )
+
+        override fun getStrings(lang: Language): Map<String, String> = if (lang == Language.VI) vi else en
+    }
+
     object About : SectionStrings {
         private val vi = mapOf(
             "sectionTitle" to "Thông tin ứng dụng",

@@ -23,7 +23,10 @@ import com.tuyenmai.openkey.core.InMemoryKeyValueStorage
 import com.tuyenmai.openkey.core.InputContextEvaluator
 import com.tuyenmai.openkey.core.KeyAction
 import com.tuyenmai.openkey.core.KeyboardSessionController
+import com.tuyenmai.openkey.core.LogSubsystem
 import com.tuyenmai.openkey.core.OneHandedMode
+import com.tuyenmai.openkey.core.OpenKeyL10n
+import com.tuyenmai.openkey.core.OpenKeyLogger
 import com.tuyenmai.openkey.core.OpenKeySettingsStore
 import com.tuyenmai.openkey.core.SmartSwitchStore
 import com.tuyenmai.openkey.core.VietnameseEngine
@@ -390,5 +393,77 @@ class OpenKeyAndroidAppTest {
         AutoWordingEngine.shared.asyncCandidateExecutionEnabled = false
         AutoWordingEngine.shared.clearCandidates()
         VietnameseEngine.resetSession()
+    }
+
+    // 10. OpenKeyL10n.Debug strings & SettingsActivity Logger integration (REQ-017, ADR-017)
+    @Test
+    fun testOpenKeyL10nDebugStringsAndSettingsActivityLoggerIntegration() {
+        // (a) Verify localized strings for VI and EN
+        for (lang in listOf(OpenKeyL10n.Language.VI, OpenKeyL10n.Language.EN)) {
+            val section = OpenKeyL10n.Debug.sectionTitle(lang)
+            val toggle = OpenKeyL10n.Debug.toggleTitle(lang)
+            val subtitle = OpenKeyL10n.Debug.toggleSubtitle(lang)
+            val copy = OpenKeyL10n.Debug.copyLogs(lang)
+            val clear = OpenKeyL10n.Debug.clearLogs(lang)
+            val empty = OpenKeyL10n.Debug.emptyLogs(lang)
+
+            assertTrue("sectionTitle must not be blank for $lang", section.isNotBlank())
+            assertTrue("toggleTitle must not be blank for $lang", toggle.isNotBlank())
+            assertTrue("toggleSubtitle must not be blank for $lang", subtitle.isNotBlank())
+            assertTrue("copyLogs must not be blank for $lang", copy.isNotBlank())
+            assertTrue("clearLogs must not be blank for $lang", clear.isNotBlank())
+            assertTrue("emptyLogs must not be blank for $lang", empty.isNotBlank())
+
+            val map = OpenKeyL10n.Debug.getStrings(lang)
+            assertEquals(6, map.size)
+        }
+
+        // (b) OpenKeyLogger clear and clipboard export test
+        val tempLog = File.createTempFile("openkey-app-test", ".log")
+        tempLog.deleteOnExit()
+        OpenKeyLogger.shared.configureLogFile(tempLog)
+        OpenKeyLogger.shared.clearLog()
+        OpenKeyLogger.shared.isDebugEnabled = true
+
+        OpenKeyLogger.shared.log(LogSubsystem.LIFECYCLE) { "App test lifecycle event" }
+        val logs = OpenKeyLogger.shared.readRecentLogs()
+        assertTrue(logs.contains("App test lifecycle event"))
+
+        // Simulate ClipboardManager action
+        assertTrue("Recent logs text for clipboard must not be empty", logs.isNotBlank())
+        val clipData = try {
+            android.content.ClipData.newPlainText("OpenKey Logs", logs)
+        } catch (_: Exception) {
+            null
+        }
+        if (clipData != null) {
+            assertEquals(1, clipData.itemCount)
+            assertEquals(logs, clipData.getItemAt(0).text?.toString())
+        }
+
+        // Verify SettingsActivity has ClipboardManager and OpenKeyLogger integration
+        val possibleSettingsPaths = listOf(
+            File("src/main/java/com/tuyenmai/openkey/android/settings/SettingsActivity.kt"),
+            File("app/src/main/java/com/tuyenmai/openkey/android/settings/SettingsActivity.kt"),
+            File("../app/src/main/java/com/tuyenmai/openkey/android/settings/SettingsActivity.kt"),
+            File("Sources/OpenKey/android/app/src/main/java/com/tuyenmai/openkey/android/settings/SettingsActivity.kt")
+        )
+        val settingsFile = possibleSettingsPaths.firstOrNull { it.exists() }
+        if (settingsFile != null) {
+            val content = settingsFile.readText()
+            assertTrue("SettingsActivity must reference ClipboardManager", content.contains("ClipboardManager"))
+            assertTrue("SettingsActivity must reference OpenKeyLogger", content.contains("OpenKeyLogger"))
+            assertTrue("SettingsActivity must reference SettingsSectionCard", content.contains("SettingsSectionCard"))
+            assertTrue("SettingsActivity must reference SettingSwitchRow", content.contains("SettingSwitchRow"))
+        }
+
+        // Clear log
+        OpenKeyLogger.shared.clearLog()
+        val clearedLogs = OpenKeyLogger.shared.readRecentLogs()
+        assertFalse(clearedLogs.contains("App test lifecycle event"))
+        assertTrue(clearedLogs.startsWith("# OpenKeyAndroidVersionStamp:"))
+
+        // Teardown
+        OpenKeyLogger.shared.isDebugEnabled = false
     }
 }

@@ -43,6 +43,7 @@ public struct OpenKeyL10n: Sendable {
     public var sectionAutoWording: String { isVietnamese ? "Auto Wording & Gợi ý từ" : "Auto Wording & Suggestions" }
     public var enableAutoWording: String { isVietnamese ? "Bật Auto Wording & Gợi ý từ" : "Enable Auto Wording & suggestions" }
     public var grammarRepair: String { isVietnamese ? "Tự sửa cụm nguyên âm (ie/ye → iê/yê, uow → ươ)" : "Auto-repair vowel clusters (ie/ye → iê/yê, uow → ươ)" }
+    public var doubleSpacePeriod: String { isVietnamese ? "Gõ 2 phím cách chèn dấu chấm (. )" : "Double-space inserts period (. )" }
     public var shorthandExpansion: String { isVietnamese ? "Tự bung từ viết tắt khi nhấn Space" : "Expand shorthands on Space (ko → không, dc → được...)" }
     public var candidateBar: String { isVietnamese ? "Hiện thanh gợi ý từ nổi Liquid Glass" : "Show floating Liquid Glass candidate bar" }
     public var customShorthandsTitle: String { isVietnamese ? "Từ viết tắt tùy chỉnh:" : "Custom Shorthands:" }
@@ -61,6 +62,11 @@ public struct OpenKeyL10n: Sendable {
     // System Section
     public var sectionSystem: String { isVietnamese ? "Hệ thống" : "System" }
     public var launchAtLogin: String { isVietnamese ? "Khởi động cùng macOS" : "Launch at login" }
+    public var debugModeTitle: String { isVietnamese ? "Chế độ Gỡ lỗi (Debug Mode)" : "Debug Mode & Logging" }
+    public var debugModeSubtitle: String { isVietnamese ? "Ghi nhật ký chẩn đoán chi tiết ra ~/Library/Logs/OpenKeySwift/openkey-debug.log (Tự dọn dẹp theo bản build, che giấu mật khẩu)" : "Write verbose diagnostics to ~/Library/Logs/OpenKeySwift/openkey-debug.log (Auto-purged per version, keystrokes redacted in password fields)" }
+    public var openLogFile: String { isVietnamese ? "Mở tệp nhật ký" : "Open Log File" }
+    public var revealLogInFinder: String { isVietnamese ? "Hiện trong Finder" : "Reveal in Finder" }
+    public var clearLog: String { isVietnamese ? "Xóa nhật ký" : "Clear Log" }
     
     // About Section
     public var sectionAbout: String { isVietnamese ? "Giới thiệu" : "About" }
@@ -76,6 +82,8 @@ public struct OpenKeyL10n: Sendable {
     public var menuVietnamese: String { isVietnamese ? "Tiếng Việt (⌥Z)" : "Vietnamese Input (⌥Z)" }
     public var menuSmartSwitch: String { isVietnamese ? "Nhớ ngôn ngữ theo ứng dụng" : "Remember Language Per App" }
     public var menuAutoWording: String { isVietnamese ? "Auto Wording & Gợi ý từ" : "Auto Wording & Suggestions" }
+    public var menuDebugMode: String { isVietnamese ? "Chế độ Gỡ lỗi (Debug Mode)" : "Debug Mode" }
+    public var menuOpenLogFile: String { isVietnamese ? "Mở tệp nhật ký gỡ lỗi..." : "Open Debug Log..." }
     public var menuSettings: String { isVietnamese ? "Cài đặt..." : "Settings..." }
     public var menuAbout: String { "OpenKeySwift v2.0.0 • Antigravity (Gemini 4 Argon High) & Mai Vũ Tuyên" }
     public var menuQuit: String { isVietnamese ? "Thoát OpenKeySwift" : "Quit OpenKeySwift" }

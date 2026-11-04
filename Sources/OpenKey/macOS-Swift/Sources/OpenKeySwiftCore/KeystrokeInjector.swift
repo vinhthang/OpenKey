@@ -86,6 +86,7 @@ public final class KeystrokeInjector: @unchecked Sendable {
         newChars: [UInt16],
         proxy: CGEventTapProxy
     ) {
+        OpenKeyLogger.shared.log(.injector, "executeReplacement: strategy=\(strategy), bs=\(backspaceCount), chars=\(String(utf16CodeUnits: newChars, count: newChars.count))")
         switch strategy {
         case .emptyCharBreaker(let emptyChar):
             // Post empty breaker character, increment backspace count by 1

@@ -16,20 +16,33 @@ data class EditorUiState(
 )
 
 /**
- * Unified 120Hz session coordinator in :openkey-core (REQ-011, REQ-012, ADR-011, ADR-012).
+ * Result of onKeyPress invocation for touch/test session tracking.
+ */
+data class KeyPressSessionResult(
+    val success: Boolean = true,
+    val isBypassed: Boolean = false,
+    val text: String = ""
+)
+
+/**
+ * Unified 120Hz session coordinator in :openkey-core (REQ-011, REQ-012, REQ-017, ADR-011, ADR-012, ADR-017).
  * Centralizes keystroke routing, EditorInfo evaluation, SmartSwitchStore per-app language,
- * BatchReplacementCoordinator atomic commits, and candidate selection for touch inputs.
+ * BatchReplacementCoordinator atomic commits, candidate selection for touch inputs, and diagnostic logging.
  */
 class KeyboardSessionController(
     val settingsStore: OpenKeySettingsStore = OpenKeySettingsStore(InMemoryKeyValueStorage()),
     val smartSwitchStore: SmartSwitchStore = SmartSwitchStore(InMemoryKeyValueStorage()),
     var committer: TextCommitterTarget? = null,
     val batchCoordinator: BatchReplacementCoordinator = BatchReplacementCoordinator(),
-    val autoWordingEngine: AutoWordingEngine = AutoWordingEngine.shared
+    val autoWordingEngine: AutoWordingEngine = AutoWordingEngine.shared,
+    private val logger: OpenKeyLogger = OpenKeyLogger.shared
 ) {
 
     var editorUiState: EditorUiState = EditorUiState(language = settingsStore.language)
         private set
+
+    private var _composingWord: String = ""
+    val composingWord: String get() = _composingWord
 
     private val uiStateListeners = CopyOnWriteArrayList<(EditorUiState) -> Unit>()
 
@@ -66,6 +79,7 @@ class KeyboardSessionController(
     fun onStartInput(context: EditorContext, initialSelStart: Int = 0, initialSelEnd: Int = 0) {
         VietnameseEngine.resetSession()
         autoWordingEngine.clearCandidates()
+        _composingWord = ""
 
         val eval = InputContextEvaluator.evaluate(context)
         val appLang = if (settingsStore.useSmartSwitchKey) {
@@ -106,12 +120,27 @@ class KeyboardSessionController(
         val resetOccurred = batchCoordinator.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd)
         if (resetOccurred) {
             autoWordingEngine.clearCandidates()
+            _composingWord = ""
         }
         return resetOccurred
     }
 
     /**
-     * Touch key action router executing the commit-first pipeline (REQ-011, REQ-012).
+     * Convenience key press entry point with secure-field redaction (REQ-017, ADR-017).
+     */
+    fun onKeyPress(label: String): KeyPressSessionResult {
+        if (editorUiState.isSecureField) {
+            logger.log(LogSubsystem.SESSION) { "Secure input active — keystroke redacted, bypassing IME" }
+            val res = onKeyAction(KeyAction.CommitChar(label))
+            return KeyPressSessionResult(success = res, isBypassed = true, text = label)
+        }
+        val res = onKeyAction(KeyAction.CommitChar(label))
+        logger.log(LogSubsystem.ENGINE) { "Processed key press (composing=${_composingWord.length})" }
+        return KeyPressSessionResult(success = res, isBypassed = editorUiState.bypassVietnamese, text = label)
+    }
+
+    /**
+     * Touch key action router executing the commit-first pipeline (REQ-011, REQ-012, REQ-017).
      */
     fun onKeyAction(action: KeyAction): Boolean {
         val target = committer ?: return false
@@ -119,7 +148,11 @@ class KeyboardSessionController(
         when (action) {
             is KeyAction.CommitChar -> {
                 val charStr = action.char
+                if (editorUiState.isSecureField) {
+                    logger.log(LogSubsystem.SESSION) { "Secure input active — keystroke redacted, bypassing IME" }
+                }
                 if (editorUiState.bypassVietnamese || editorUiState.language != 1) {
+                    _composingWord = ""
                     batchCoordinator.commitBatch(target, 0, charStr)
                     return true
                 }
@@ -131,6 +164,7 @@ class KeyboardSessionController(
                     val caps = mapping.second
 
                     if (keyCode == VietnameseData.KEY_EMPTY.toInt()) {
+                        _composingWord = ""
                         batchCoordinator.commitBatch(target, 0, charStr)
                         return true
                     }
@@ -145,8 +179,11 @@ class KeyboardSessionController(
                             batchCoordinator.commitBatch(target, 0, charStr)
                         }
                     }
+                    val wordContext = VietnameseEngine.getWordContext()
+                    _composingWord = wordContext.composedWord
                     return true
                 } else {
+                    _composingWord = ""
                     batchCoordinator.commitBatch(target, 0, charStr)
                     return true
                 }
@@ -154,6 +191,7 @@ class KeyboardSessionController(
 
             is KeyAction.Backspace -> {
                 if (editorUiState.bypassVietnamese || editorUiState.language != 1) {
+                    _composingWord = ""
                     target.deleteSurroundingText(1, 0)
                     batchCoordinator.onCursorMovedByTrackpad(-1)
                     VietnameseEngine.resetSession()
@@ -173,10 +211,13 @@ class KeyboardSessionController(
                         batchCoordinator.onCursorMovedByTrackpad(-1)
                     }
                 }
+                val wordContext = VietnameseEngine.getWordContext()
+                _composingWord = wordContext.composedWord
                 return true
             }
 
             is KeyAction.Space -> {
+                _composingWord = ""
                 if (editorUiState.bypassVietnamese || editorUiState.language != 1) {
                     batchCoordinator.commitBatch(target, 0, " ")
                     VietnameseEngine.resetSession()
@@ -199,6 +240,7 @@ class KeyboardSessionController(
             }
 
             is KeyAction.Enter -> {
+                _composingWord = ""
                 VietnameseEngine.resetSession()
                 autoWordingEngine.clearCandidates()
                 if (editorUiState.shouldSendNewlineOnEnter) {
@@ -210,6 +252,7 @@ class KeyboardSessionController(
             }
 
             is KeyAction.SwitchLanguage -> {
+                _composingWord = ""
                 val nextLang = if (editorUiState.language == 1) 0 else 1
                 settingsStore.language = nextLang
                 if (editorUiState.packageName.isNotBlank()) {
@@ -229,10 +272,27 @@ class KeyboardSessionController(
     }
 
     /**
+     * Candidate selection by index with diagnostic logging (REQ-017).
+     */
+    fun onCandidateSelected(index: Int): Boolean {
+        logger.log(LogSubsystem.AUTO_WORDING) { "Candidate index=$index selected" }
+        val cands = autoWordingEngine.candidates
+        if (index in cands.indices) {
+            return onCandidateSelected(cands[index])
+        }
+        return false
+    }
+
+    /**
      * Candidate selection handling.
      */
     fun onCandidateSelected(candidate: WordCandidate): Boolean {
         val target = committer ?: return false
+        val idx = autoWordingEngine.candidates.indexOf(candidate)
+        if (idx >= 0) {
+            logger.log(LogSubsystem.AUTO_WORDING) { "Candidate index=$idx selected" }
+        }
+        _composingWord = ""
         batchCoordinator.commitBatch(target, candidate.replaceLength, candidate.text + " ")
         autoWordingEngine.recordCandidateAcceptance(candidate.text)
         VietnameseEngine.resetSession()
@@ -254,6 +314,7 @@ class KeyboardSessionController(
      */
     fun onDeletePreviousWord(): Boolean {
         val target = committer ?: return false
+        _composingWord = ""
         VietnameseEngine.resetSession()
         autoWordingEngine.clearCandidates()
         return target.deletePreviousWord()

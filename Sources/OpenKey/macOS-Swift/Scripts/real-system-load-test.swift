@@ -350,6 +350,61 @@ final class RealSystemTestRunner: NSObject {
         let burstSentence = "coong ngheej thoong tin phast trieern nhanh chosng "
         postString(burstSentence, delayMs: 4) // 4ms high-speed burst
         assertResult(name: "High-speed burst typing", expected: "công nghệ thông tin phát triển nhanh chóng ")
+        
+        print("\n--- Test Suite 8: Escape Keystroke Consumption & Composed Word Protection (REQ-027, REQ-028) ---")
+        clearTextView()
+        postString("chaoss ")
+        assertResult(name: "Telex 'chaoss ' -> 'chaos '", expected: "chaos ")
+        
+        clearTextView()
+        postString("thoiwfi ")
+        assertResult(name: "Telex 'thoiwfi ' -> 'thời '", expected: "thời ")
+        
+        clearTextView()
+        postString("serrvice,")
+        assertResult(name: "Telex 'serrvice,' -> 'service,'", expected: "service,")
+        
+        clearTextView()
+        postString("coffee process ")
+        assertResult(name: "English double letter words 'coffee process '", expected: "coffee process ")
+        
+        print("\n--- Test Suite 9: English Mode Pure Passthrough & High Frequency Verbs (REQ-029, ADR-029) ---")
+        clearTextView()
+        postString("did you ")
+        assertResult(name: "Preserved verb 'did you ' in Vietnamese mode", expected: "did you ")
+        
+        print("\n--- Test Suite 10: Onset-Preserving Transpositions, Uppercase I & Standalone W Revert (REQ-030, ADR-030) ---")
+        clearTextView()
+        postString("I think we need ")
+        assertResult(name: "Sentence 'I think we need '", expected: "I think we need ")
+        
+        clearTextView()
+        postString("with what when where ")
+        assertResult(name: "English w- words 'with what when where '", expected: "with what when where ")
+        
+        // Candidate check for 'muo' and 'phuo' / 'phuow'
+        let autoEngine = AutoWordingEngine.shared
+        let wasEnabled = autoEngine.isEnabled
+        let wasSuggestions = autoEngine.candidateSuggestionsEnabled
+        autoEngine.isEnabled = true
+        autoEngine.candidateSuggestionsEnabled = true
+        defer {
+            autoEngine.isEnabled = wasEnabled
+            autoEngine.candidateSuggestionsEnabled = wasSuggestions
+        }
+        
+        let muoCands = autoEngine.computeCurrentWordCandidates(rawStem: "muo", currentSyllable: "muo").map(\.text)
+        let muoPass = !muoCands.contains("uôm") && !muoCands.contains("uốm") && !muoCands.contains("uồm")
+        clearTextView()
+        textView.string = muoPass ? "pass" : "fail"
+        assertResult(name: "Transposition 'muo' excludes non-onset 'uôm', 'uốm', 'uồm'", expected: "pass")
+        
+        let phuoCands = autoEngine.computeCurrentWordCandidates(rawStem: "phuo", currentSyllable: "phuo").map(\.text)
+        let phuowCands = autoEngine.computeCurrentWordCandidates(rawStem: "phuow", currentSyllable: "phươ").map(\.text)
+        let phuoPass = !phuoCands.contains("hướp") && !phuoCands.contains("hượp") && !phuowCands.contains("hướp") && !phuowCands.contains("hượp")
+        clearTextView()
+        textView.string = phuoPass ? "pass" : "fail"
+        assertResult(name: "Transposition 'phuo'/'phuow' excludes non-onset 'hướp', 'hượp'", expected: "pass")
     }
 }
 

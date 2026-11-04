@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
 APP_BUNDLE="${BUILD_DIR}/OpenKeySwift.app"
 MACOS_DIR="${APP_BUNDLE}/Contents/MacOS"
@@ -53,7 +59,11 @@ fi
 echo "=== Building OpenKeySwift release binary ==="
 swift build -c release --package-path "${SCRIPT_DIR}"
 
-BIN_PATH="$(swift build -c release --package-path "${SCRIPT_DIR}" --show-bin-path)/OpenKeySwiftApp"
+BUILD_PRODUCTS_DIR="$(swift build -c release --package-path "${SCRIPT_DIR}" --show-bin-path)"
+BIN_PATH="${BUILD_PRODUCTS_DIR}/OpenKeySwiftApp"
+
+# Emit dynamic library for script / test runners
+swiftc -emit-library "${BUILD_PRODUCTS_DIR}/OpenKeySwiftCore.o" "${BUILD_PRODUCTS_DIR}/OpenKeyEngineBridge.o" -lc++ -o "${BUILD_PRODUCTS_DIR}/libOpenKeySwiftCore.dylib"
 
 echo "=== Assembling OpenKeySwift.app bundle ==="
 rm -rf "${APP_BUNDLE}"
@@ -64,10 +74,15 @@ cp "${BIN_PATH}" "${MACOS_DIR}/OpenKeySwift"
 chmod +x "${MACOS_DIR}/OpenKeySwift"
 cp "${SCRIPT_DIR}/Info.plist" "${APP_BUNDLE}/Contents/Info.plist"
 
-# Detect Signing Identity (REQ-009)
+# Stamp dynamic build version (REQ-013, ADR-012)
+BUILD_VERSION="1.$(date -u +%Y%m%d%H%M%S)"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_VERSION}" "${APP_BUNDLE}/Contents/Info.plist" || \
+/usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${BUILD_VERSION}" "${APP_BUNDLE}/Contents/Info.plist"
+echo "=== Stamped CFBundleVersion: ${BUILD_VERSION} ==="
+
+# Detect Signing Identity (REQ-009, REQ-012, REQ-013)
 SIGNING_IDENTITY="${CODESIGN_IDENTITY:-}"
 if [[ -z "${SIGNING_IDENTITY}" ]]; then
-    # Look for any valid code signing identity in Keychain
     KEYCHAIN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | grep -E '^[[:space:]]*[0-9]+\)' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || true)"
     if [[ -n "${KEYCHAIN_IDENTITY}" ]]; then
         SIGNING_IDENTITY="${KEYCHAIN_IDENTITY}"
@@ -76,6 +91,8 @@ if [[ -z "${SIGNING_IDENTITY}" ]]; then
         SIGNING_IDENTITY="-"
         echo "=== No certificate found in Keychain; using ad-hoc (-) signing ==="
     fi
+else
+    echo "=== Using specified signing identity: ${SIGNING_IDENTITY} ==="
 fi
 
 echo "=== Signing OpenKeySwift.app with identity '${SIGNING_IDENTITY}' ==="
@@ -95,3 +112,15 @@ else
 fi
 
 echo "=== Build completed successfully: ${APP_BUNDLE} ==="
+
+DEPLOY_DIR="/Applications"
+if [[ -d "${DEPLOY_DIR}" && -w "${DEPLOY_DIR}" ]]; then
+    echo "=== Deploying to ${DEPLOY_DIR}/OpenKeySwift.app ==="
+    if pgrep -x "OpenKeySwift" >/dev/null 2>&1; then
+        pkill -x "OpenKeySwift"
+    fi
+    rm -rf "${DEPLOY_DIR}/OpenKeySwift.app"
+    cp -R "${APP_BUNDLE}" "${DEPLOY_DIR}/OpenKeySwift.app"
+    echo "=== Deployed successfully to ${DEPLOY_DIR}/OpenKeySwift.app ==="
+    open -a "${DEPLOY_DIR}/OpenKeySwift.app"
+fi

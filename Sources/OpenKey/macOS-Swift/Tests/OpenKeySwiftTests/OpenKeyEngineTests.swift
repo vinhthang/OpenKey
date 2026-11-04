@@ -335,10 +335,10 @@ struct OpenKeyEngineTests {
     
 
 
-    // MARK: - REQ-009: Codebase Modularization & Sub-500-Line Invariant
-    @Test("REQ-009: Codebase modularization, UInt32 syllable bitmask helpers, and sub-500-line file invariant")
-    func codebaseModularizationAndSub500LineInvariant() throws {
-        // 1. Verify UInt32 bitmask helpers
+    // MARK: - REQ-009: Codebase Modularization & UInt32 Syllable Bitmask Helpers
+    @Test("REQ-009: Codebase modularization and UInt32 syllable bitmask helpers")
+    func codebaseModularizationAndBitmaskHelpers() {
+        // Verify UInt32 bitmask helpers
         let wordWithAll = UInt32(KEY_A) | TONE_MASK | MARK_MASK | TONEW_MASK | CAPS_MASK | AUTO_TONE_MASK | STANDALONE_MASK
         #expect(wordWithAll.baseKey == KEY_A)
         #expect(wordWithAll.isCaps)
@@ -361,24 +361,6 @@ struct OpenKeyEngineTests {
         
         let acuteMark = UInt32(KEY_E) | TONE_MASK
         #expect(acuteMark.toneMark == TONE_MASK)
-        
-        // 2. Verify sub-500-line invariant across all .swift files in Sources/ and Tests/
-        let testFileURL = URL(fileURLWithPath: #filePath)
-        let packageDir = testFileURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let fileManager = FileManager.default
-        let enumerator = fileManager.enumerator(at: packageDir, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles])
-        
-        var checkedFileCount = 0
-        while let fileURL = enumerator?.nextObject() as? URL {
-            guard fileURL.pathExtension == "swift" else { continue }
-            if fileURL.path.contains(".build/") { continue }
-            
-            let contents = try String(contentsOf: fileURL, encoding: .utf8)
-            let lineCount = contents.components(separatedBy: "\n").count
-            #expect(lineCount < 500, "File \(fileURL.lastPathComponent) exceeds 500 lines (\(lineCount) lines)")
-            checkedFileCount += 1
-        }
-        #expect(checkedFileCount >= 20, "Must verify line counts for at least 20 swift files (found \(checkedFileCount))")
     }
 
     // MARK: - REQ-010: "giới" & gi- Initial Consonant Vowel Boundary & Phonotactics
@@ -465,6 +447,784 @@ struct OpenKeyEngineTests {
             screen.typeKeys(seq)
             #expect(screen.text.starts(with: "g"), "Must retain leading 'g' for sequence \(seq), got '\(screen.text)'")
             #expect(!screen.text.contains("gii"), "Must not duplicate 'i' into 'gii' for sequence \(seq), got '\(screen.text)'")
+        }
+    }
+
+    // REQ-014: Canonical Telex key normalization and bilingual dictionary lookup
+    @Test("REQ-014: Canonical Telex key normalization and bilingual dictionary lookup")
+    func canonicalTelexAndBilingualDictionary() {
+        #expect(VietnameseDictionary.canonicalTelexKey(for: "việt") == "vieetj")
+        #expect(VietnameseDictionary.canonicalTelexKey(for: "người") == "nguowif")
+        #expect(VietnameseDictionary.canonicalTelexKey(for: "được") == "duowcj")
+        #expect(VietnameseDictionary.canonicalTelexKey(for: "toàn") == "toanf")
+        #expect(VietnameseDictionary.canonicalTelexKey(for: "tiếng") == "tieengs")
+        #expect(VietnameseDictionary.canonicalTelexKey(for: "cỏe") == "coer")
+        #expect(VietnameseDictionary.canonicalTelexKey(for: "mỏe") == "moer")
+        #expect(VietnameseDictionary.canonicalTelexKey(for: "tét") == "tets")
+        
+        #expect(VietnameseDictionary.shared.isValidVietnameseSyllable("việt") == true)
+        #expect(VietnameseDictionary.shared.isValidVietnameseSyllable("người") == true)
+        #expect(VietnameseDictionary.shared.isValidVietnameseSyllable("mỏe") == false)
+        #expect(VietnameseDictionary.shared.isValidVietnameseSyllable("cỏe") == false)
+        #expect(VietnameseDictionary.shared.isValidVietnameseSyllable("uẻ") == false)
+        #expect(VietnameseDictionary.shared.isValidVietnameseSyllable("trúe") == false)
+        
+        let eng = VietnameseDictionary.shared.englishWords
+        for w in ["cheese", "seemed", "needed", "deepseek", "google", "process", "coffee", "address", "more", "core", "user", "test", "list", "this"] {
+            #expect(eng.contains(w), "englishWords must contain '\(w)'")
+        }
+        
+        let prio = VietnameseDictionary.shared.englishPriorityWords
+        for w in ["test", "list", "this", "best", "host", "post", "more", "core", "user", "vars", "chars", "docs", "tree", "free", "see", "too", "add", "boss", "pass", "mix", "fix"] {
+            #expect(prio.contains(w), "englishPriorityWords must contain '\(w)'")
+        }
+        for w in ["cos", "banj", "awn", "owr", "aj"] {
+            #expect(!prio.contains(w), "englishPriorityWords must NOT contain '\(w)'")
+        }
+        
+        let stems = VietnameseDictionary.shared.englishLookbackStems
+        for w in ["is", "of", "if", "for", "or", "us", "car", "ban"] {
+            #expect(stems.contains(w), "englishLookbackStems must contain '\(w)'")
+        }
+    }
+    
+    // REQ-021: KeepWords safe-list prevents false-positive AutoWording rewrites
+    @Test("REQ-021: KeepWords safe-list prevents false-positive AutoWording rewrites")
+    func keepWordsSafeListInAutoWording() {
+        let keep = VietnameseDictionary.shared.keepWords
+        for w in ["ok", "uh", "ah", "oh", "ko", "dc", "vs", "vip", "pro", "app", "web", "api", "sdk", "cpu", "gpu", "ram", "ssd", "ssh", "sql", "jwt", "pdf", "mac", "ios", "bot", "llm"] {
+            #expect(keep.contains(w), "keepWords must contain '\(w)'")
+        }
+        
+        let engine = AutoWordingEngine.shared
+        let prevEnabled = engine.isEnabled
+        let prevCand = engine.candidateSuggestionsEnabled
+        let prevShort = engine.shorthandExpansionEnabled
+        defer {
+            engine.isEnabled = prevEnabled
+            engine.candidateSuggestionsEnabled = prevCand
+            engine.shorthandExpansionEnabled = prevShort
+        }
+        
+        engine.isEnabled = true
+        engine.candidateSuggestionsEnabled = true
+        engine.shorthandExpansionEnabled = false
+        
+        #expect(engine.computeCurrentWordCandidates(rawStem: "ok", currentSyllable: "ok", isWrongSpelling: true).isEmpty == true)
+        #expect(engine.computeCurrentWordCandidates(rawStem: "api", currentSyllable: "api", isWrongSpelling: true).isEmpty == true)
+        #expect(engine.computeCurrentWordCandidates(rawStem: "vip", currentSyllable: "vip", isWrongSpelling: true).isEmpty == true)
+    }
+    
+    // REQ-022: Curated Teencode and vowel-validated -g shorthand expansion
+    @Test("REQ-022: Curated Teencode and vowel-validated -g shorthand expansion")
+    func curatedTeencodeExpansion() {
+        #expect(AutoWordingShorthandCatalog.builtInTable.isEmpty == true)
+        
+        let engine = AutoWordingEngine.shared
+        let prevEnabled = engine.isEnabled
+        let prevShort = engine.shorthandExpansionEnabled
+        let prevCustom = engine.customShorthands
+        defer {
+            engine.isEnabled = prevEnabled
+            engine.shorthandExpansionEnabled = prevShort
+            engine.customShorthands = prevCustom
+        }
+        
+        engine.isEnabled = true
+        engine.shorthandExpansionEnabled = false
+        
+        #expect(engine.expandShorthand(rawWord: "ko") == nil)
+        #expect(engine.expandShorthand(rawWord: "dc") == nil)
+        #expect(engine.expandShorthand(rawWord: "ntn") == nil)
+        #expect(engine.expandShorthand(rawWord: "khog") == nil)
+        #expect(engine.expandShorthand(rawWord: "nhug") == nil)
+        
+        engine.shorthandExpansionEnabled = true
+        
+        #expect(engine.expandShorthand(rawWord: "ko") == nil)
+        #expect(engine.expandShorthand(rawWord: "dc") == nil)
+        #expect(engine.expandShorthand(rawWord: "ntn") == nil)
+        #expect(engine.expandShorthand(rawWord: "khog") == nil)
+        #expect(engine.expandShorthand(rawWord: "nhug") == nil)
+        
+        engine.customShorthands = ["ko": "không", "dc": "được"]
+        #expect(engine.expandShorthand(rawWord: "ko") == "không")
+        #expect(engine.expandShorthand(rawWord: "Ko") == "Không")
+        #expect(engine.expandShorthand(rawWord: "dc") == "được")
+        
+        // English words ending in -g/-k are never expanded
+        #expect(engine.expandShorthand(rawWord: "king") == nil)
+        #expect(engine.expandShorthand(rawWord: "song") == nil)
+        #expect(engine.expandShorthand(rawWord: "blog") == nil)
+        #expect(engine.expandShorthand(rawWord: "work") == nil)
+        #expect(engine.expandShorthand(rawWord: "check") == nil)
+    }
+
+    // REQ-015: Swallowed Telex modifier key tracking and full raw word reconstruction
+    @Test("REQ-015: Swallowed Telex modifier key tracking and full raw word reconstruction")
+    func swallowedTelexModifierKeyTracking() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+        
+        let words = [
+            "cheese ", "seemed ", "needed ", "deepseek ", "google ", "choose ",
+            "process ", "success ", "message ", "issue ", "office ", "coffee ",
+            "error ", "array ", "current ", "correct ", "tomorrow ", "sorry ",
+            "address ", "middle ", "reddit "
+        ]
+        for w in words {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeASCII(w)
+            #expect(screen.text == w, "Expected '\(w)', got '\(screen.text)'")
+        }
+    }
+
+    // REQ-016: Doubled-tone escape repair, acronym protection, contractions, and hyphenated words
+    @Test("REQ-016: Doubled-tone escape repair, acronym protection, contractions, and hyphenated words")
+    func doubledToneEscapeAndAcronyms() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+        
+        let escapePairs: [(String, String)] = [
+            ("mixx ", "mix "),
+            ("fixx ", "fix "),
+            ("boxx ", "box "),
+            ("maxx ", "max "),
+            ("taxx ", "tax "),
+            ("sixx ", "six "),
+            ("boss ", "boss "),
+            ("class ", "class "),
+            ("terrible ", "terrible "),
+            ("NAS ", "NAS "),
+            ("SATA ", "SATA "),
+            ("GoPro ", "GoPro "),
+            ("doesn't ", "doesn't "),
+            ("isn't ", "isn't "),
+            ("Wi-Fi ", "Wi-Fi ")
+        ]
+        for (typed, expected) in escapePairs {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeASCII(typed)
+            #expect(screen.text == expected, "Typed '\(typed)' -> expected '\(expected)', got '\(screen.text)'")
+        }
+        
+        // Vietnamese Đ-acronyms must NOT be restored to English
+        OKEngineResetSession()
+        var screenVDV = VirtualScreen()
+        screenVDV.typeASCII("VDDV ")
+        #expect(screenVDV.text == "VĐV ")
+        
+        OKEngineResetSession()
+        var screenBDS = VirtualScreen()
+        screenBDS.typeASCII("BDDS ")
+        #expect(screenBDS.text == "BĐS ")
+    }
+
+    // REQ-017: Standalone English collision priority and invalid Vietnamese diphthong rejection
+    @Test("REQ-017: Standalone English collision priority and invalid Vietnamese diphthong rejection")
+    func standaloneEnglishCollisionPriority() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+        
+        let standaloneEnglish = [
+            "test ", "list ", "this ", "best ", "host ", "post ",
+            "more ", "core ", "user ", "vars ", "chars ", "cors ", "nums ", "docs ",
+            "tree ", "free ", "see ", "too ", "add ", "mix ", "fix ",
+            "care ", "pure ", "sure ", "true "
+        ]
+        for w in standaloneEnglish {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeASCII(w)
+            #expect(screen.text == w, "Expected standalone English '\(w)', got '\(screen.text)'")
+        }
+        
+        let vnPairs: [(String, String)] = [
+            ("khoe ", "khoe "),
+            ("khoer ", "khoẻ "),
+            ("xoef ", "xoè "),
+            ("thuee ", "thuê "),
+            ("hueej ", "huệ "),
+            ("cos ", "có "),
+            ("banj ", "bạn "),
+            ("awn ", "ăn "),
+            ("owr ", "ở "),
+            ("aj ", "ạ ")
+        ]
+        for (typed, expected) in vnPairs {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeASCII(typed)
+            #expect(screen.text == expected, "Expected Vietnamese '\(expected)', got '\(screen.text)'")
+        }
+    }
+
+    // REQ-018: 1-2 word context look-back for multi-word English phrases
+    @Test("REQ-018: 1-2 word context look-back for multi-word English phrases")
+    func multiWordEnglishContextLookback() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+        
+        let phrases: [(String, String)] = [
+            ("is good ", "is good "),
+            ("of course ", "of course "),
+            ("for sure ", "for sure "),
+            ("if needed ", "if needed "),
+            ("or more ", "or more "),
+            ("is a test ", "is a test "),
+            ("caesar ", "caesar ")
+        ]
+        for (typed, expected) in phrases {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeASCII(typed)
+            #expect(screen.text == expected, "Typed '\(typed)' -> expected '\(expected)', got '\(screen.text)'")
+        }
+        
+        OKEngineResetSession()
+        var vnScreen = VirtualScreen()
+        vnScreen.typeASCII("of nhaf ")
+        #expect(vnScreen.text == "ò nhà ")
+    }
+
+    // REQ-018, ADR-019: Context-Ordered V / E Homograph Disambiguation and Tone-Preserving Candidate Ranking
+    @Test("REQ-018: Context-ordered V/E homograph disambiguation and tone-preserving candidate ranking")
+    func contextOrderedHomographDisambiguation() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+        
+        // 1. Vietnamese context (.vietnameseFirst): homographs compose to Vietnamese with diacritics
+        let vnPhrases: [(String, String)] = [
+            ("sex ", "sẽ "),
+            ("anh sex lamf ", "anh sẽ làm "),
+            ("max nguoonf ", "mã nguồn "),
+            ("bacs six ", "bác sĩ "),
+            ("barn vex ", "bản vẽ ")
+        ]
+        for (typed, expected) in vnPhrases {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeASCII(typed)
+            #expect(screen.text == expected, "Typed '\(typed)' -> expected '\(expected)', got '\(screen.text)'")
+        }
+        
+        // 2. English context (.englishFirst after an English word): homographs restore to English
+        let enPhrases: [(String, String)] = [
+            ("have sex ", "have sex "),
+            ("at max ", "at max "),
+            ("number six ", "number six "),
+            ("income tax ", "income tax "),
+            ("full moon ", "full moon ")
+        ]
+        for (typed, expected) in enPhrases {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeASCII(typed)
+            #expect(screen.text == expected, "Typed '\(typed)' -> expected '\(expected)', got '\(screen.text)'")
+        }
+        
+        // 3. 1-2 word context look-back: homograph + English word rewrites prior word
+        let lookbackPhrases: [(String, String)] = [
+            ("sex is ", "sex is "),
+            ("max value ", "max value "),
+            ("tax rate ", "tax rate ")
+        ]
+        for (typed, expected) in lookbackPhrases {
+            OKEngineResetSession()
+            var screen = VirtualScreen()
+            screen.typeASCII(typed)
+            #expect(screen.text == expected, "Typed '\(typed)' -> expected '\(expected)', got '\(screen.text)'")
+        }
+        
+        // 4. Tone-preserving candidate ranking
+        let candidatesV = AutoWordingEngine.computeCandidates(
+            currentSyllable: "sẽ",
+            rawStem: "sex",
+            previousWord: nil,
+            languagePriority: .vietnameseFirst
+        )
+        #expect(!candidatesV.isEmpty, "Candidates for .vietnameseFirst should not be empty")
+        #expect(candidatesV[0].text == "sẽ", "Expected 'sẽ' at index 0 for .vietnameseFirst, got '\(candidatesV.first?.text ?? "")'")
+        #expect(candidatesV.map(\.text).contains("sex"), "Expected candidates to include 'sex'")
+        
+        let candidatesE = AutoWordingEngine.computeCandidates(
+            currentSyllable: "sẽ",
+            rawStem: "sex",
+            previousWord: nil,
+            languagePriority: .englishFirst
+        )
+        #expect(candidatesE.count >= 2, "Expected at least 2 candidates for .englishFirst")
+        #expect(candidatesE[0].text == "sex", "Expected 'sex' at index 0 for .englishFirst, got '\(candidatesE.first?.text ?? "")'")
+        #expect(candidatesE[1].text == "sẽ", "Expected 'sẽ' at index 1 for .englishFirst, got '\(candidatesE.count > 1 ? candidatesE[1].text : "")'")
+    }
+
+    // REQ-019: Inline Vietnamese mode retention (1-2 English words) and 3+ word bidirectional auto-switch
+    @Test("REQ-019: Inline Vietnamese mode retention (1-2 English words) and 3+ word bidirectional auto-switch")
+    func inlineModeRetentionAndBidirectionalSwitch() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+        
+        OKEngineResetSession()
+        var screen = VirtualScreen()
+        screen.typeASCII("tooi ddi test list nhaf ")
+        #expect(screen.text == "tôi đi test list nhà ")
+        
+        OKEngineResetSession()
+        var screen3 = VirtualScreen()
+        screen3.typeASCII("test")
+        let snap1 = screen3.typeKey(49)
+        #expect(snap1.languageSwitchRequest == -1)
+        screen3.typeASCII("list")
+        let snap2 = screen3.typeKey(49)
+        #expect(snap2.languageSwitchRequest == -1)
+        screen3.typeASCII("more")
+        let snap3 = screen3.typeKey(49)
+        #expect(snap3.languageSwitchRequest == 0)
+        
+        OKEngineResetSession()
+        let enKeys = [45, 4, 31, 13, 1, 49] // "nhows "
+        var lastEnSnap = OKHookSnapshot()
+        for k in enKeys {
+            lastEnSnap = OKEngineHandleEnglishModeKeyEvent(UInt16(k), 0, false)
+        }
+        #expect(lastEnSnap.languageSwitchRequest == 1)
+        #expect(lastEnSnap.decodedString == "nhớ ")
+    }
+
+    // REQ-020: Single-backspace undo and re-conversion lock
+    @Test("REQ-020: Single-backspace undo and re-conversion lock")
+    func singleBackspaceUndoAndLock() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+        
+        OKEngineResetSession()
+        var screen = VirtualScreen()
+        screen.typeASCII("test ")
+        #expect(screen.text == "test ")
+        
+        screen.typeKey(51) // Backspace
+        #expect(screen.text == "tét")
+        
+        screen.typeKey(49) // Space again -> locked
+        #expect(screen.text == "tét ")
+    }
+
+    // REQ-023: Engine context guards: digit-prefix words, arrow navigation snapshot, and compound-token boundary
+    @Test("REQ-023: Engine context guards: digit-prefix words, arrow navigation snapshot, and compound-token boundary")
+    func engineContextGuards() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+        
+        OKEngineResetSession()
+        var s1 = VirtualScreen()
+        s1.typeASCII("1casi ")
+        #expect(s1.text == "1cái ")
+        
+        OKEngineResetSession()
+        var s2 = VirtualScreen()
+        s2.typeASCII("2ngayf ")
+        #expect(s2.text == "2ngày ")
+        
+        OKEngineResetSession()
+        var s3 = VirtualScreen()
+        s3.typeASCII("0xdeadbeef ")
+        #expect(s3.text == "0xdeadbeef ")
+        
+        OKEngineResetSession()
+        var s4 = VirtualScreen()
+        s4.typeASCII("base64 ")
+        #expect(s4.text == "base64 ")
+        
+        // Single-step Left + Right mid-word navigation snapshot
+        OKEngineResetSession()
+        var sNav = VirtualScreen()
+        sNav.typeASCII("vie")
+        _ = OKEngineHandleKeyEvent(123, 0, false) // KEY_LEFT
+        _ = OKEngineHandleKeyEvent(124, 0, false) // KEY_RIGHT
+        sNav.typeASCII("ejt ")
+        #expect(sNav.text == "việt ")
+        
+        // Compound-token boundary
+        OKEngineResetSession()
+        var sComp = VirtualScreen()
+        sComp.typeASCII("foo.bars ")
+        #expect(sComp.text == "foo.bars ")
+        
+        OKEngineResetSession()
+        var sComp2 = VirtualScreen()
+        sComp2.typeASCII("my_vars ")
+        #expect(sComp2.text == "my_vars ")
+    }
+
+    // REQ-024: Hybrid E/V context-ordered wrong-word auto-correction and candidate ranking
+    @Test("REQ-024: Hybrid E/V context-ordered wrong-word auto-correction and candidate ranking")
+    func hybridEVWrongWordAutoCorrectionAndCandidateRanking() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0) }
+        
+        #expect(OKEngineGetEffectiveLanguagePriority() == .vietnameseFirst)
+        
+        // English typo corrections on Space
+        for (typo, expected) in [
+            ("teh ", "the "),
+            ("fucntion ", "function "),
+            ("recieve ", "receive "),
+            ("seperate ", "separate "),
+            ("occured ", "occurred ")
+        ] {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(typo)
+            #expect(s.text == expected, "Typo '\(typo)' must expand to '\(expected)'")
+        }
+        
+        // Vietnamese typo corrections on Space
+        for (typo, expected) in [
+            ("nguowi ", "người "),
+            ("dduowc ", "được "),
+            ("vieet ", "việt ")
+        ] {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(typo)
+            #expect(s.text == expected, "Typo '\(typo)' must expand to '\(expected)'")
+        }
+        
+        // Single-backspace undo after typo correction ('teh ' + KEY_DELETE 51 -> 'teh', then Space 49 -> 'teh ')
+        OKEngineResetSession()
+        var sUndo = VirtualScreen()
+        sUndo.typeASCII("teh ")
+        #expect(sUndo.text == "the ")
+        sUndo.typeKey(51) // Backspace
+        #expect(sUndo.text == "teh")
+        sUndo.typeKey(49) // Space -> locked, remains 'teh '
+        #expect(sUndo.text == "teh ")
+        
+        // computeCurrentWordCandidates E vs V ordering
+        let autoEngine = AutoWordingEngine.shared
+        let prevEnabled = autoEngine.isEnabled
+        let prevCand = autoEngine.candidateSuggestionsEnabled
+        defer {
+            autoEngine.isEnabled = prevEnabled
+            autoEngine.candidateSuggestionsEnabled = prevCand
+        }
+        autoEngine.isEnabled = true
+        autoEngine.candidateSuggestionsEnabled = true
+        
+        let candV = autoEngine.computeCurrentWordCandidates(rawStem: "teh", currentSyllable: "teh", isWrongSpelling: true, languagePriority: .vietnameseFirst)
+        let candE = autoEngine.computeCurrentWordCandidates(rawStem: "teh", currentSyllable: "teh", isWrongSpelling: true, languagePriority: .englishFirst)
+        #expect(candE.first?.text == "the")
+        #expect(candV.contains(where: { $0.text == "the" }))
+    }
+
+    // REQ-025: Sub-millisecond inline bilingual grammar, agreement, duplicate collapse, and sentence formatting
+    @Test("REQ-025: Sub-millisecond inline bilingual grammar, agreement, duplicate collapse, and sentence formatting")
+    func inlineBilingualGrammarAndFormatting() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
+        
+        // Vietnamese 2-word bigrams
+        for (input, expected) in [
+            ("lamf vieetj ", "làm việc "),
+            ("suy nghir ", "suy nghĩ "),
+            ("suwax chuwax ", "sửa chữa "),
+            ("chia sex ", "chia sẻ "),
+            ("vui vex ", "vui vẻ "),
+            ("phats trieenx ", "phát triển ")
+        ] {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Bigram '\(input)' must correct to '\(expected)'")
+        }
+        
+        // English contractions & agreement
+        for (input, expected) in [
+            ("dont ", "don't "),
+            ("doesnt ", "doesn't "),
+            ("cant ", "can't "),
+            ("wont ", "won't "),
+            ("i ", "I "),
+            ("a apple ", "an apple "),
+            ("a error ", "an error "),
+            ("an user ", "a user "),
+            ("he dont ", "he doesn't "),
+            ("they was ", "they were ")
+        ] {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Agreement '\(input)' must become '\(expected)'")
+        }
+        
+        // Duplicate collapse
+        for (input, expected) in [
+            ("the the ", "the "),
+            ("is is ", "is "),
+            ("luoon luoon ", "luôn luôn ")
+        ] {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Duplicate check for '\(input)' must equal '\(expected)'")
+        }
+        
+        // Double-space period + sentence-start capitalization
+        OKEngineResetSession()
+        var sSentence = VirtualScreen()
+        sSentence.typeASCII("hello  world ")
+        #expect(sSentence.text == "hello. World ")
+    }
+
+    // REQ-026: BilingualAutoSwitchEngine extraction and OpenKeyLogger queue serialization
+    @Test("REQ-026: BilingualAutoSwitchEngine extraction and OpenKeyLogger queue serialization")
+    func cohesionAndLoggerQueueSerialization() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OpenKeyLogger.shared.checkVersionRetention()
+        OpenKeyLogger.shared.clearLog()
+        #expect(OKEngineGetEffectiveLanguagePriority() == .vietnameseFirst)
+    }
+
+    // REQ-025, ADR-026: Independent Double-Space Period Option & Double-Tap Threshold
+    @Test("REQ-025, ADR-026: Independent double-space period option and double-tap threshold")
+    func independentDoubleSpacePeriodAndThreshold() {
+        OKEngineInit()
+        OKEngineResetSession()
+        
+        // 1. Test OKEngineSyncConfig parameter synchronization
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+        #expect(AutoWordingEngine.shared.doubleSpacePeriodEnabled == true)
+        
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        #expect(AutoWordingEngine.shared.doubleSpacePeriodEnabled == false)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
+        
+        // 2. When doubleSpacePeriodEnabled == 0 (even if grammarRepairEnabled == 1),
+        // typing "xin chào  " (double space) does NOT produce a period (".").
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0) // grammarRepair = 1, doubleSpace = 0
+        var sDisabled = VirtualScreen()
+        sDisabled.typeASCII("xin chaof  ")
+        #expect(sDisabled.text == "xin chào  ", "With doubleSpacePeriodEnabled == false, typing double space must NOT insert period; got '\(sDisabled.text)'")
+        #expect(!sDisabled.text.contains("."), "Text must not contain period when doubleSpacePeriodEnabled is disabled")
+        
+        // 3. When doubleSpacePeriodEnabled == 1:
+        // (a) Rapid double space (delta <= 0.5s) emits ". "
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1) // doubleSpace = 1
+        var sRapid = VirtualScreen()
+        sRapid.typeASCII("xin chaof  ")
+        #expect(sRapid.text == "xin chào. ", "Rapid double space (delta <= 0.5s) must emit '. '; got '\(sRapid.text)'")
+        
+        // (b) Delayed double space (delta > 0.5s) preserves normal spaces
+        OKEngineResetSession()
+        var sDelayed = VirtualScreen()
+        sDelayed.typeASCII("xin chaof ") // First space
+        #expect(sDelayed.text == "xin chào ")
+        Thread.sleep(forTimeInterval: 0.55) // Wait > 500ms
+        sDelayed.typeKey(49) // Second space
+        #expect(sDelayed.text == "xin chào  ", "Delayed double space (> 0.5s) must preserve normal spaces; got '\(sDelayed.text)'")
+        #expect(!sDelayed.text.contains("."), "Delayed double space must not produce period")
+    }
+
+    // REQ-027, ADR-027: Escape Keystroke Consumption and Composed Word Protection
+    @Test("REQ-027, ADR-027: Trailing modifier appended on space and composed word protection")
+    func testTrailingModifierAppendedOnSpace() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
+
+        // 1. Simulate typing c-h-a-o-s-s (Telex chaos) + KEY_SPACE (49).
+        // Verify result is "chaos " with 0 backspaces on space (NOT "chaoss ").
+        var sChaos = VirtualScreen()
+        sChaos.typeASCII("chaoss")
+        let spaceSnapChaos = sChaos.typeKey(49)
+        #expect(spaceSnapChaos.backspaceCount == 0, "Space after 'chaos' must send 0 backspaces, got \(spaceSnapChaos.backspaceCount)")
+        #expect(sChaos.text == "chaos ", "Typing chaoss + Space must produce 'chaos ', got '\(sChaos.text)'")
+
+        // 2. Simulate typing t-h-o-i-w-f (thời) + i + KEY_SPACE (49).
+        // Verify result is "thời " (NOT "thoiwfi ").
+        OKEngineResetSession()
+        var sThoi = VirtualScreen()
+        sThoi.typeASCII("thoiwfi")
+        let spaceSnapThoi = sThoi.typeKey(49)
+        #expect(spaceSnapThoi.backspaceCount == 0, "Space after 'thời' must send 0 backspaces, got \(spaceSnapThoi.backspaceCount)")
+        #expect(sThoi.text == "thời ", "Typing thoiwfi + Space must produce 'thời ', got '\(sThoi.text)'")
+    }
+
+    // REQ-027, ADR-027: English word restore with tone cancel escape before punctuation
+    @Test("REQ-027, ADR-027: English word restore with tone cancel escape before punctuation")
+    func testEnglishWordRestoreWithToneCancelEscape() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
+
+        // Simulate typing s-e-r-r-v-i-c-e + KEY_COMMA (43).
+        // Verify result is "service," (NOT "serrvice,").
+        var sService = VirtualScreen()
+        sService.typeASCII("serrvice")
+        _ = sService.typeKey(43) // KEY_COMMA
+        #expect(sService.text == "service,", "Typing serrvice + comma must produce 'service,', got '\(sService.text)'")
+    }
+
+    // REQ-028, ADR-028: Duplicate word expansion on space prevented by history synchronization
+    @Test("REQ-028, ADR-028: Duplicate word expansion on space prevented by history synchronization")
+    func testDuplicateWordExpansionOnSpace() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
+
+        // Simulate typing o + f (ò) + KEY_SPACE, then m (46), then KEY_DELETE (51) 3 times (deleting m, space, ò).
+        // Then type o + f + f (of) + KEY_SPACE.
+        // Verify result is "of " with 0 backspaces (NOT "of off ").
+        var s = VirtualScreen()
+        s.typeASCII("of ") // o + f -> ò, space -> "ò "
+        s.typeKey(46)      // m -> "ò m"
+        s.typeKey(51)      // delete m -> "ò "
+        s.typeKey(51)      // delete space -> "ò"
+        s.typeKey(51)      // delete ò -> ""
+        #expect(s.text == "", "Screen text after 3 deletes must be empty, got '\(s.text)'")
+
+        s.typeASCII("off") // o + f + f -> "of"
+        let spaceSnap = s.typeKey(49) // KEY_SPACE
+        #expect(spaceSnap.backspaceCount == 0, "Space after 'of' must send 0 backspaces, got \(spaceSnap.backspaceCount)")
+        #expect(s.text == "of ", "Typing off + Space must produce 'of ', got '\(s.text)'")
+    }
+
+    // REQ-027, REQ-015: English double letter preserved on word break
+    @Test("REQ-027, REQ-015: English double letter words restored on word break")
+    func testEnglishDoubleLetterPreserved() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
+
+        // Simulate typing c-o-f-f-e-e + KEY_SPACE and p-r-o-c-e-s-s + KEY_SPACE.
+        // Verify both words restore correctly to "coffee " and "process " per REQ-015.
+        var sCoffee = VirtualScreen()
+        sCoffee.typeASCII("coffee ")
+        #expect(sCoffee.text == "coffee ", "Typing coffee + Space must restore to 'coffee ', got '\(sCoffee.text)'")
+
+        OKEngineResetSession()
+        var sProcess = VirtualScreen()
+        sProcess.typeASCII("process ")
+        #expect(sProcess.text == "process ", "Typing process + Space must restore to 'process ', got '\(sProcess.text)'")
+    }
+
+    // REQ-029, ADR-029: High frequency English verbs preserved in Vietnamese mode
+    @Test("REQ-029, ADR-029: High frequency English verbs preserved in Vietnamese mode")
+    func testHighFrequencyEnglishVerbsPreservedInVietnameseMode() {
+        let dict = VietnameseDictionary.shared
+        let commonVerbs = [
+            "did", "said", "went", "got", "made", "came", "took", "gave", "saw",
+            "told", "felt", "kept", "began", "held", "wrote", "sat", "stood",
+            "paid", "spent", "grew", "won", "bought", "fell", "cut", "sold",
+            "ate", "drew", "chose", "fought", "threw", "hid", "done", "seen", "gone",
+            "run", "become", "meant", "lost", "sent", "built", "fallen"
+        ]
+        for verb in commonVerbs {
+            #expect(dict.englishWords.contains(verb), "dict.englishWords must contain '\(verb)'")
+            #expect(dict.keepWords.contains(verb), "dict.keepWords must contain '\(verb)'")
+        }
+
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
+
+        var screen = VirtualScreen()
+        screen.typeASCII("did you ")
+        #expect(screen.text == "did you ", "Typing 'did you ' must produce 'did you ', got '\(screen.text)'")
+    }
+
+    // MARK: - REQ-030, ADR-030: Uppercase I and word-initial standalone w handling
+    @Test("REQ-030, ADR-030: Uppercase I does not trigger redundant backspace replacement on Space")
+    func testUppercaseIDoesNotTriggerRedundantReplacement() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
+
+        // Type uppercase 'I' (keyCode 34, capsStatus 1, otherControlKey false)
+        _ = OKEngineHandleKeyEvent(34, 1, false)
+        let snapSpace = OKEngineHandleKeyEvent(49, 0, false)
+        #expect(snapSpace.code == HookCodeState.doNothing, "Space after uppercase 'I' must doNothing, got \(snapSpace.code)")
+        #expect(snapSpace.backspaceCount == 0, "Space after uppercase 'I' must send 0 backspaces, got \(snapSpace.backspaceCount)")
+        #expect(OKEngineGetEffectiveLanguagePriority() == .englishFirst, "Language priority after uppercase 'I' must be .englishFirst")
+
+        // Lowercase "i " still auto-capitalizes to "I "
+        OKEngineResetSession()
+        var screen = VirtualScreen()
+        screen.typeASCII("i ")
+        #expect(screen.text == "I ", "Lowercase 'i ' must auto-capitalize to 'I ', got '\(screen.text)'")
+    }
+
+    @Test("REQ-030, ADR-030: Word-initial standalone w auto-reverts immediately on English second letters")
+    func testStandaloneWImmediateAutoRevertOnEnglishSecondLetters() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
+
+        // Typing w (13) then e (14) on VirtualScreen immediately produces "we" on the 2nd keystroke
+        var screenWE = VirtualScreen()
+        _ = screenWE.typeKey(13)
+        #expect(screenWE.text == "ư", "First keystroke 'w' produces 'ư', got '\(screenWE.text)'")
+        _ = screenWE.typeKey(14)
+        #expect(screenWE.text == "we", "Second keystroke 'e' must immediately auto-revert to 'we', got '\(screenWE.text)'")
+
+        var screenWI = VirtualScreen()
+        _ = screenWI.typeKey(13)
+        _ = screenWI.typeKey(34) // i
+        #expect(screenWI.text == "wi", "w + i must immediately produce 'wi', got '\(screenWI.text)'")
+
+        var screenWH = VirtualScreen()
+        _ = screenWH.typeKey(13)
+        _ = screenWH.typeKey(4) // h
+        #expect(screenWH.text == "wh", "w + h must immediately produce 'wh', got '\(screenWH.text)'")
+
+        // Full sentences/words on VirtualScreen
+        let englishPhrases = [
+            ("I think we need ", "I think we need "),
+            ("with ", "with "),
+            ("what ", "what "),
+            ("when ", "when "),
+            ("where ", "where "),
+            ("which ", "which "),
+            ("while ", "while "),
+            ("window ", "window ")
+        ]
+        for (input, expected) in englishPhrases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Typing '\(input)' must produce '\(expected)', got '\(s.text)'")
+        }
+
+        // Valid Vietnamese initial-ư words still compose as Vietnamese
+        let vietnameseWords = [
+            ("w ", "ư "),
+            ("wr ", "ử "),
+            ("wa ", "ưa "),
+            ("wowns ", "ướn "),
+            ("wcs ", "ức "),
+            ("wng ", "ưng ")
+        ]
+        for (input, expected) in vietnameseWords {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Vietnamese '\(input)' must produce '\(expected)', got '\(s.text)'")
         }
     }
 

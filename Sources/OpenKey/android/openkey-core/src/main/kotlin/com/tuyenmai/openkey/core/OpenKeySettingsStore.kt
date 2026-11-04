@@ -1,8 +1,30 @@
 package com.tuyenmai.openkey.core
 
+data class OpenKeySettingsSnapshot(
+    val language: Int = 1,
+    val inputType: Int = 0,
+    val useModernOrthography: Boolean = true,
+    val checkSpelling: Boolean = true,
+    val restoreIfWrongSpelling: Boolean = true,
+    val bilingualAutoRestore: Boolean = true,
+    val useSmartSwitchKey: Boolean = true,
+    val showNumberRow: Boolean = true,
+    val heightScalePercent: Int = 100,
+    val bottomChinPaddingDp: Int = 14,
+    val oneHandedMode: OneHandedMode = OneHandedMode.OFF,
+    val hapticFeedbackEnabled: Boolean = true,
+    val keyPopupPreviewEnabled: Boolean = true,
+    val grammarRepairEnabled: Boolean = true,
+    val shorthandExpansionEnabled: Boolean = true,
+    val candidateSuggestionsEnabled: Boolean = true,
+    val doubleSpacePeriodEnabled: Boolean = false,
+    val autoWordingEnabled: Boolean = true,
+    val debugModeEnabled: Boolean = false
+)
+
 class OpenKeySettingsStore(private val storage: KeyValueStorage) {
 
-    companion object {
+    companion object Keys {
         const val KEY_LANGUAGE = "setting_language"
         const val KEY_INPUT_TYPE = "setting_input_type"
         const val KEY_USE_MODERN_ORTHOGRAPHY = "setting_use_modern_orthography"
@@ -22,9 +44,15 @@ class OpenKeySettingsStore(private val storage: KeyValueStorage) {
         const val KEY_CANDIDATE_SUGGESTIONS_ENABLED = "setting_candidate_suggestions_enabled"
         const val KEY_DOUBLE_SPACE_PERIOD_ENABLED = "setting_double_space_period_enabled"
         const val KEY_CUSTOM_SHORTHANDS = "setting_custom_shorthands"
+        const val KEY_DEBUG_MODE_ENABLED = "openkey.debugModeEnabled"
     }
 
     private val listeners = mutableListOf<(String) -> Unit>()
+
+    init {
+        val initialDebug = storage.getBoolean(Keys.KEY_DEBUG_MODE_ENABLED, false)
+        OpenKeyLogger.shared.isDebugEnabled = initialDebug
+    }
 
     @Synchronized
     fun addListener(listener: (String) -> Unit) {
@@ -36,7 +64,7 @@ class OpenKeySettingsStore(private val storage: KeyValueStorage) {
         listeners.remove(listener)
     }
 
-    private fun notifyChanged(key: String) {
+    fun notifyChanged(key: String = Keys.KEY_DEBUG_MODE_ENABLED) {
         val currentListeners = synchronized(this) { listeners.toList() }
         for (listener in currentListeners) {
             listener(key)
@@ -185,6 +213,37 @@ class OpenKeySettingsStore(private val storage: KeyValueStorage) {
             }
             notifyChanged(KEY_AUTO_WORDING_ENABLED)
         }
+
+    var debugModeEnabled: Boolean
+        get() = storage.getBoolean(Keys.KEY_DEBUG_MODE_ENABLED, false)
+        set(value) {
+            storage.putBoolean(Keys.KEY_DEBUG_MODE_ENABLED, value)
+            OpenKeyLogger.shared.isDebugEnabled = value
+            OpenKeyLogger.shared.log(LogSubsystem.SETTINGS) { "debugModeEnabled = $value" }
+            notifyChanged(Keys.KEY_DEBUG_MODE_ENABLED)
+        }
+
+    fun snapshot(): OpenKeySettingsSnapshot = OpenKeySettingsSnapshot(
+        language = language,
+        inputType = inputType,
+        useModernOrthography = useModernOrthography,
+        checkSpelling = checkSpelling,
+        restoreIfWrongSpelling = restoreIfWrongSpelling,
+        bilingualAutoRestore = bilingualAutoRestore,
+        useSmartSwitchKey = useSmartSwitchKey,
+        showNumberRow = showNumberRow,
+        heightScalePercent = heightScalePercent,
+        bottomChinPaddingDp = bottomChinPaddingDp,
+        oneHandedMode = oneHandedMode,
+        hapticFeedbackEnabled = hapticFeedbackEnabled,
+        keyPopupPreviewEnabled = keyPopupPreviewEnabled,
+        grammarRepairEnabled = grammarRepairEnabled,
+        shorthandExpansionEnabled = shorthandExpansionEnabled,
+        candidateSuggestionsEnabled = candidateSuggestionsEnabled,
+        doubleSpacePeriodEnabled = doubleSpacePeriodEnabled,
+        autoWordingEnabled = autoWordingEnabled,
+        debugModeEnabled = debugModeEnabled
+    )
 
     // Custom Shorthands
     fun getCustomShorthands(): Map<String, String> {

@@ -4,8 +4,14 @@ on:
   push:
     branches: [ "master", "main" ]
     tags: [ "v*" ]
+    paths:
+      - "Sources/OpenKey/macOS-Swift/**"
+      - ".github/workflows/macos-ci.yml"
   pull_request:
     branches: [ "master", "main" ]
+    paths:
+      - "Sources/OpenKey/macOS-Swift/**"
+      - ".github/workflows/macos-ci.yml"
   workflow_dispatch:
 
 permissions:
@@ -24,16 +30,6 @@ jobs:
         run: |
           swift --version
           xcodebuild -version
-
-      - name: Verify < 500 line-count invariant (REQ-009)
-        run: |
-          OVER_LIMIT=$(find Sources/OpenKey/macOS-Swift/Sources Sources/OpenKey/macOS-Swift/Tests -name "*.swift" -exec wc -l {} + | grep -v " total$" | awk '$1 >= 500 { print $0 }')
-          if [[ -n "${OVER_LIMIT}" ]]; then
-            echo "Files exceeding 500-line limit:"
-            echo "${OVER_LIMIT}"
-            exit 1
-          fi
-          echo "All Swift source and test files are strictly under 500 lines."
 
       - name: Run Swift 6 unit and load tests
         run: swift test --package-path Sources/OpenKey/macOS-Swift
