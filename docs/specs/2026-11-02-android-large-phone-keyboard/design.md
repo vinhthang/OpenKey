@@ -275,3 +275,28 @@ flowchart TD
   - `VietnameseDictionary.kt` & `VietnameseDictionary.swift`: Move Vietnamese-homograph words (`sex`, `vex`, `max`, `six`, `tax`, `lax`, `hex`, `moon`, `noon`, `soon`, `seen`, `seem`, `beef`, `reef`, `room`, `boom`, `doom`, `loom`, `boots`, `roots`, `loops`, `meets`, `keeps`, `moor`, `door`) from `prioRaw` (`englishPriorityWords`) into `lookbackRaw` (`englishLookbackStems`) and boost `"sẽ"`, `"sẻ"`, `"vẽ"`, `"mã"`, `"sĩ"`, `"tã"`, `"lã"`, `"môn"`, `"nôn"` in `priorityMap`.
   - `BilingualAutoSwitchEngine.kt` & `BilingualAutoSwitchEngine.swift`: In `evaluateWordBreakRestore`, preserve composed Vietnamese words (`"sẽ"`, `"vẽ"`, `"mã"`, `"sĩ"`, etc.) when `priority == VIETNAMESE_FIRST` (`V`), and restore to English when `priority == ENGLISH_FIRST` (`E` — after an English word) or via 2-word look-back (`englishLookbackStems` — before an English word).
   - `AutoWordingEngine.kt` & `AutoWordingEngine.swift`: Preserve toned `currentSyllable` (`"sẽ"`) at the head of `vietnameseSorted` and rank `V` vs. `E` candidates according to `languagePriority`.
+
+### 3.7 Vietnamese Syllable Protection (`"thể"` vs. `"there"`) & Standalone-`W` Escape Buffer Normalization (`"Why"` vs. `"Wwhy"`) (`REQ-019`, `ADR-020`)
+- **`VietnameseEnginePhonotactics.kt` & `VietnameseEngine+Phonotactics.swift` (`insertW`)**:
+  - When `typingWord[ii].isStandaloneW` is `true` and `ch == KEY_U` (reverting standalone `'Ư'`/`'ư'` back to literal `'W'`/`'w'` on the second `w` keystroke), pop the redundant escape `w` that `handleCharacterKey` pushed via `insertState`:
+    ```kotlin
+    if (ch == KEY_U) {
+        if (stateIndex > 0) {
+            stateIndex--
+            keyStates[stateIndex] = KEY_EMPTY
+        }
+        if (rawStateIndex > 0) {
+            rawStateIndex--
+            rawKeyStates[rawStateIndex] = KEY_EMPTY
+        }
+    }
+    ```
+- **`VietnameseDictionary.kt` & `VietnameseDictionary.swift`**:
+  - Precompute `validTelexKeys: Set<String>` during dictionary initialization from `rawSyllables.map { canonicalTelexKey(it) }`.
+  - In `findEnglishTranspositionMatch(rawLower)`: return `null` immediately if `isValidVietnameseSyllable(rawLower) || validTelexKeys.contains(rawLower)`.
+  - Include `"there"`, `"these"`, `"here"`, `"mere"`, `"were"` in `englishLookbackStems` (`lookbackRaw`).
+- **`BilingualAutoSwitchEngine.kt` & `BilingualAutoSwitchEngine.swift`**:
+  - Step 5 (`Typo & Transposition Corrections`): guard both `englishTypoCorrections` and `findEnglishTranspositionMatch` with `if (!dict.isValidVietnameseSyllable(composedLower))` in both `ENGLISH_FIRST` and `VIETNAMESE_FIRST` branches.
+  - Step 6 (`Sentence Capitalization`): when `dict.englishWords.contains(composedLower) && !hasAnyDiacritic`, select `composed` as `wordToCap`.
+  - Step 7 (`VIETNAMESE_FIRST` branch): change `else if (dict.englishWords.contains(fullRawLower) && (!dict.isValidVietnameseSyllable(composedLower) || countVowelGroups(fullKeys) >= 2))` to `else if (dict.englishWords.contains(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower))`.
+  - Uncommitted/Committed State Tracking (`shouldRestore == false` branch): when `priority == LanguagePriority.VIETNAMESE_FIRST` and `dict.isValidVietnameseSyllable(composedLower)` (and `composed != "I"`), set `isEng = false` so valid unaccented Vietnamese words (`"con"`, `"hay"`, `"may"`, `"ban"`, `"can"`) do not flip `wasRestoredToEnglish` to `true`.

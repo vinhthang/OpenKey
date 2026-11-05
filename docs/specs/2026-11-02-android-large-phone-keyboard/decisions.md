@@ -226,3 +226,29 @@
   - *Mitigation*: In Vietnamese mode (`V`), `"sẽ"` (*will/shall*) and `"mã"` (*code*) are orders of magnitude more frequent than standalone single-word `"sex"` or `"max"`, while multi-word English phrases (`"have sex "`, `"sex education "`, `"at max "`, `"max value "`), `sexx ` doubled-tone escape, and the 3-slot candidate bar (`["sẽ", "sẻ", "sex"]`) handle English seamlessly.
 - **Rejected Alternatives**:
   - *Keeping `"sex"` in unconditional `englishPriorityWords`*: Rejected because it corrupts `"sẽ"`—one of the most common words in the Vietnamese language—every time a user types Vietnamese.
+
+---
+
+## `ADR-020`: Vietnamese Syllable Protection Against Transposition/Homograph Overwrite (`"thể"` vs. `"there"`) & Standalone-`W` Escape Normalization (`"Why"` vs. `"Wwhy"`) (`REQ-019`, `REQ-002`, `REQ-003`)
+- **Date**: `2026-11-05`
+- **Status**: `Accepted`
+- **Context**: Two high-impact regressions in `V` mode (`LanguagePriority.VIETNAMESE_FIRST`) were identified:
+  1. **`"thể"` → `"there"` in `V` Mode**:
+     - When `"thể"` is typed in free-order Telex (`t-h-e-r-e`), `fullRawLower` is `"there"` (`dict.englishWords.contains("there") == true`) and `countVowelGroups(fullKeys)` counts `e`...`r`...`e` as `2` vowel groups (`>= 2`), triggering `(!dict.isValidVietnameseSyllable(composedLower) || countVowelGroups(fullKeys) >= 2)` in `BilingualAutoSwitchEngine.evaluateWordBreakRestore` and overwriting the valid single-syllable Vietnamese word `"thể"` with `"there"`.
+     - When `"thể"` is typed in standard Telex (`t-h-e-e-r`, `fullRawLower = "theer"`), `VietnameseDictionary.findEnglishTranspositionMatch("theer")` swaps adjacent indices 3 and 4 (`'e'` and `'r'`) to match `"there"`, and Step 5 (`Typo & Transposition Corrections`) in `BilingualAutoSwitchEngine` ran without checking `!dict.isValidVietnameseSyllable(composedLower)` whenever `priority == LanguagePriority.ENGLISH_FIRST`. Compounding this, typing a valid unaccented Vietnamese syllable that happens to be in `englishWords` (e.g., `"con"`, `"hay"`, `"may"`, `"ban"`, `"can"`) falsely set `wasRestoredToEnglish = true` in `V` mode, flipping the next word's `priority` to `ENGLISH_FIRST` and converting `"thể"` (`theer`) into `"there"`.
+  2. **`"Why"` (`W-w-h-y` / `w-w-h-y`) → `"Wwhy"` in `V` Mode**:
+     - Typing `W` (or `w`) at word start in `V` mode produces standalone `"Ư"` (or `"ư"`). Pressing `w` a second time escapes `"Ư"`/`"ư"` to literal `"W"`/`"w"` inside `VietnameseEnginePhonotactics.insertW` (`typingWord[ii].isStandaloneW && ch == KEY_U`). However, `handleCharacterKey` had already pushed the second `w` into `keyStates` and `rawKeyStates` via `insertState`, and `insertW` returned `WILL_PROCESS` without popping that consumed escape `w`. As a result, `typingWord` held `"Why"` (`3` chars) while `keyStates` and `rawKeyStates` held `"Wwhy"` (`4` chars). Any subsequent sentence capitalization (`. wwhy ` / `. Why `) or raw-key restoration read `fullRawStr` (`"Wwhy"`) and replaced `"Why"` on screen with `"Wwhy"`.
+- **Decision**:
+  1. **Protect Valid Vietnamese Syllables (`VietnameseDictionary` & `BilingualAutoSwitchEngine` in Kotlin and Swift)**:
+     - Precompute `validTelexKeys: Set<String>` from `rawSyllables.map { canonicalTelexKey(it) }` in `VietnameseDictionary` and reject `validTelexKeys.contains(rawLower)` inside `findEnglishTranspositionMatch(rawLower)`.
+     - In `BilingualAutoSwitchEngine.evaluateWordBreakRestore` Step 5, require `!dict.isValidVietnameseSyllable(composedLower)` before applying `englishTypoCorrections` or `findEnglishTranspositionMatch` in both `ENGLISH_FIRST` and `VIETNAMESE_FIRST` branches.
+     - In `BilingualAutoSwitchEngine.evaluateWordBreakRestore` Step 7 (`VIETNAMESE_FIRST` branch), remove `|| countVowelGroups(fullKeys) >= 2` so `dict.englishWords.contains(fullRawLower)` only restores when `!dict.isValidVietnameseSyllable(composedLower)`. Add `"there"`, `"these"`, `"here"`, `"mere"`, `"were"` to `englishLookbackStems` so English phrases (`"there is "`, `"these are "`, `"in there "`) still restore in English context.
+     - When `shouldRestore == false` in `VIETNAMESE_FIRST` (`V`) mode, only mark `isEng = true` (`wasRestoredToEnglish = true`) if `!dict.isValidVietnameseSyllable(composedLower)` (or `composed == "I"`), preventing valid unaccented Vietnamese words (`"con"`, `"hay"`, `"may"`, `"ban"`, `"can"`) from flipping session priority to `ENGLISH_FIRST`.
+  2. **Normalize Standalone-`W` Escape Key Buffers (`VietnameseEnginePhonotactics` & `BilingualAutoSwitchEngine` in Kotlin and Swift)**:
+     - In `insertW`, when `typingWord[ii].isStandaloneW && ch == KEY_U` reverts standalone `'Ư'`/`'ư'` to `'W'`/`'w'`, pop the consumed escape `w` from `keyStates` (`stateIndex--`) and `rawKeyStates` (`rawStateIndex--`).
+     - In `BilingualAutoSwitchEngine` Step 6 (`Sentence Capitalization`), prefer `composed` over `fullRawStr` whenever `dict.englishWords.contains(composedLower) && !hasAnyDiacritic`.
+- **Trade-offs & Risks**:
+  - *Trade-off*: Precomputing `validTelexKeys` adds ~7,200 strings to `VietnameseDictionary` initialization.
+  - *Mitigation*: `VietnameseDictionary.shared` is a lazy singleton prewarmed asynchronously on a background daemon thread via `VietnameseDictionary.prewarmAsync()` (`REQ-012`), adding `< 2ms` one-time startup work and `O(1)` lookup on the hot path.
+- **Rejected Alternatives**:
+  - *Removing `"there"` from `englishWords`*: Rejected because `"there"` is a core English word needed for English phrases (`"there is "`, `"in there "`, `"over there "`) and candidate completion.

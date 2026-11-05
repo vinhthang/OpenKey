@@ -387,3 +387,67 @@ rtk gh run list --limit 2 --repo vinhthang/OpenKey
 | `OpenKeySwiftTests` | `OpenKeyEngineTests` + `OpenKeyEventTapTests` | `REQ-016`, `REQ-018` | 63 | 0 | PASSED |
 | GitHub Actions | `Android CI/CD` (`41794423272`) & `macOS CI/CD` (`41794423347`) | `REQ-016`, `REQ-017`, `REQ-018` | 123 tests + APK & `.app` artifacts | 0 | PASSED |
 | **Total** | **Android (60) + macOS (63) + GitHub CI (2 Workflows)** | **`REQ-001`..`REQ-018`** | **123** | **0** | **100% PASSED** |
+
+---
+
+## Run 5: Vietnamese Syllable Protection (`"thể"` vs. `"there"`) & Standalone-`W` Escape Buffer Normalization (`"Why"` vs. `"Wwhy"`) (`2026-11-05T15:51:00+07:00`)
+
+### 1. Android Unit Test Suites & Debug APK Build (`REQ-001`..`REQ-019`, `ADR-020`)
+**Command:**
+```bash
+cd /Users/thanghoang/github/OpenKey/Sources/OpenKey/android && rtk ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug
+```
+
+**Verbatim JUnit XML Report (`TEST-com.tuyenmai.openkey.core.BilingualAutoSwitchTest.xml` — `REQ-003`, `REQ-018`, `REQ-019`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-05T08:32:42" hostname="mba.local" time="0.041">
+  <properties/>
+  <testcase name="testDoubledToneEscapeRepairAndDoubleLetterPreservation()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.004"/>
+  <testcase name="testContextOrderedHomographDisambiguation()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.01"/>
+  <testcase name="testStandaloneEnglishCollisionsAndMixedSentences()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.008"/>
+  <testcase name="testContractionsHyphensAndAcronyms()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.002"/>
+  <testcase name="testTwoWordLookbackRestoration()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.003"/>
+  <testcase name="testDroppedKeysReconstructionForDoubledTelexEnglishWords()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.006"/>
+  <testcase name="testVietnameseSyllableProtectionAndStandaloneWEscape()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+### 2. macOS Swift Unit Test Suite (`REQ-016`, `REQ-018`, `REQ-019`, `ADR-020`)
+**Command:**
+```bash
+rtk swift test --package-path /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift
+```
+- **Result**: `64/64` tests passed across 5 suites (`OpenKeyEngineTests`: 33 tests including `testVietnameseSyllableProtectionAndStandaloneWEscape()` verifying `"theer "` → `"thể "`, `"there "` → `"thể "`, `"có thể "`, `"con thể "`, `"hay thể "`, `"như thế "`, `"there is "`, `"there are "`, `"over there "`, `"these are "`, `"Why "`, `"Wwhy "` → `"Why "`, `"why "`, `"wwhy "` → `"why "`, and `"cos there. wwhy also wrong "` → `"có thể. Why also wrong "`; `OpenKeyEventTapTests`: 17 tests; `OpenKeyAutoWordingTests`: 10 tests; `OpenKeyLoadTests`: 4 tests).
+
+### 3. Verbatim GitHub Actions Cross-Platform Pipeline Verification (`REQ-016`, `REQ-019`, `ADR-020`)
+**Command:**
+```bash
+rtk gh run list --limit 3
+```
+**Verbatim Output:**
+```text
+Workflow Runs
+  [ok] Android CI/CD [41996550884]
+  [ok] macOS CI/CD [41996550873]
+  [ok] Android CI/CD [41798552226]
+```
+- **Commit Pushed to `origin/master`**: `d7f14d345fc89d21734345c7c79afd3371596f9e`
+- **`Android CI/CD` (`#41996550884`)**: Completed in `1m47s` with status **`success` (`✓`)** (`61/61` unit tests + `OpenKey-Android-A37-debug-apk`).
+- **`macOS CI/CD` (`#41996550873`)**: Completed in `7m44s` with status **`success` (`✓`)** (`64/64` unit tests + `OpenKeySwift-macOS-arm64`).
+
+### 4. Final Requirement Traceability Matrix (`REQ-001`..`REQ-019`)
+| Module / Pipeline | Test Suite / Workflow | Verified Requirements | Tests / Steps | Failures | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `:openkey-core` | `VietnameseEngineTest` | `REQ-001`, `REQ-002` | 7 | 0 | PASSED |
+| `:openkey-core` | `BilingualAutoSwitchTest` | `REQ-003`, `REQ-018`, `REQ-019` | 7 | 0 | PASSED |
+| `:openkey-core` | `AutoWordingEngineTest` | `REQ-004`, `REQ-018` | 6 | 0 | PASSED |
+| `:openkey-core` | `ImePipelineAndContextTest` | `REQ-005`, `REQ-006`, `REQ-009` | 9 | 0 | PASSED |
+| `:openkey-core` | `PhoneErgonomicsAndGestureTest` | `REQ-007`, `REQ-008`, `REQ-010` | 14 | 0 | PASSED |
+| `:openkey-core` | `SmoothArchitectureTest` | `REQ-011`..`REQ-015`, `REQ-017` | 9 | 0 | PASSED |
+| `:app` | `OpenKeyAndroidAppTest` | `REQ-001`, `REQ-005`, `REQ-007`, `REQ-009`..`REQ-014`, `REQ-017` | 9 | 0 | PASSED |
+| `OpenKeySwiftTests` | `OpenKeyEngineTests` + `OpenKeyEventTapTests` | `REQ-016`, `REQ-018`, `REQ-019` | 64 | 0 | PASSED |
+| GitHub Actions | `Android CI/CD` (`41996550884`) & `macOS CI/CD` (`41996550873`) | `REQ-016`, `REQ-017`, `REQ-018`, `REQ-019` | 125 tests + APK & `.app` artifacts | 0 | PASSED |
+| **Total** | **Android (61) + macOS (64) + GitHub CI (2 Workflows)** | **`REQ-001`..`REQ-019`** | **125** | **0** | **100% PASSED** |

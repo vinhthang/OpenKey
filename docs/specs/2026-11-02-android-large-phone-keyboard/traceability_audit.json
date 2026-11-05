@@ -5,8 +5,8 @@
   "passed": true,
   "phase": 2,
   "verify_evidence": true,
-  "spec_hash": "157cbe435dca6c75d14693f62d0c6aee8b28642ab4a3a917b3bfe85c4941bb49",
-  "evidence_hash": "f6231718a016ac0f8b5884a7d8743bf704adf95c72b8cc6b5c5096d017d78df5",
+  "spec_hash": "bab415ecbc2f175a0c70f381de0baf96b908390eb9d508e0dd608349221f36e1",
+  "evidence_hash": "e10c2c6c5d5fb579f62f7c8d645083def4c2fbaf808b344866d909c45e73d79d",
   "auditor_agent": "traceability-auditor",
   "auditor_model": "claude-opus-4-6",
   "requirements_audited": [
@@ -27,7 +27,8 @@
     "REQ-015",
     "REQ-016",
     "REQ-017",
-    "REQ-018"
+    "REQ-018",
+    "REQ-019"
   ],
   "audited_requirements": [
     "REQ-001",
@@ -47,7 +48,8 @@
     "REQ-015",
     "REQ-016",
     "REQ-017",
-    "REQ-018"
+    "REQ-018",
+    "REQ-019"
   ],
   "audited_decisions": [
     "ADR-001",
@@ -68,11 +70,147 @@
     "ADR-016",
     "ADR-017",
     "ADR-018",
-    "ADR-019"
+    "ADR-019",
+    "ADR-020"
   ],
   "findings": [],
   "issues": [],
-  "summary": "Phase 2 semantic traceability and verification evidence audit passed across all 18 normative requirements (REQ-001..REQ-018), 19 architectural decisions (ADR-001..ADR-019), 15 tasks (Task 1..Task 15), and 4 verification runs (Run 1..Run 4) in verification.md.",
+  "summary": "Phase 2 semantic traceability and verification evidence audit passed across all 19 normative requirements (REQ-001..REQ-019), 20 architectural decisions (ADR-001..ADR-020), 16 tasks (Task 1..Task 16), and 5 verification runs (Run 1..Run 5) in verification.md.",
+  "requirements_coverage": {
+    "REQ-001": {
+      "adrs": ["ADR-001"],
+      "design_sections": ["Section 1", "Section 3.1"],
+      "tasks": ["Task 1.1", "Task 1.2", "Task 7.1", "Task 8.1"],
+      "verification_evidence": "Run 1..Run 5 in verification.md confirm ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug succeeded and OpenKeyAndroidAppTest.testManifestDeclaresDirectBootAndZeroInternetPermission passed.",
+      "passed": true
+    },
+    "REQ-002": {
+      "adrs": ["ADR-002", "ADR-020"],
+      "design_sections": ["Section 3.1.1", "Section 3.7"],
+      "tasks": ["Task 2.1", "Task 2.2", "Task 16.1", "Task 16.2"],
+      "verification_evidence": "Run 2..Run 5 traceability matrices in verification.md confirm VietnameseEngineTest passed all 7 unit tests with 0 failures.",
+      "passed": true
+    },
+    "REQ-003": {
+      "adrs": ["ADR-003", "ADR-019", "ADR-020"],
+      "design_sections": ["Section 3.1.2", "Section 3.6", "Section 3.7"],
+      "tasks": ["Task 3.1", "Task 3.2", "Task 14.1", "Task 14.2", "Task 16.1", "Task 16.2"],
+      "verification_evidence": "Run 4 and Run 5 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.BilingualAutoSwitchTest.xml confirm all 7 bilingual code-switching test cases passed.",
+      "passed": true
+    },
+    "REQ-004": {
+      "adrs": ["ADR-004", "ADR-019"],
+      "design_sections": ["Section 3.1.3", "Section 3.6"],
+      "tasks": ["Task 4.1", "Task 4.2", "Task 14.1", "Task 14.2"],
+      "verification_evidence": "Run 4 and Run 5 in verification.md confirm AutoWordingEngineTest passed all 6 candidate ranking, frequency learning, phonotactic repair, and shorthand tests.",
+      "passed": true
+    },
+    "REQ-005": {
+      "adrs": ["ADR-005"],
+      "design_sections": ["Section 3.2.1", "Section 3.2.2"],
+      "tasks": ["Task 5.1", "Task 5.2", "Task 7.1"],
+      "verification_evidence": "Run 3..Run 5 in verification.md confirm ImePipelineAndContextTest (9/9 passed) and OpenKeyAndroidAppTest (testInputConnectionCommitterBatchOperations) passed.",
+      "passed": true
+    },
+    "REQ-006": {
+      "adrs": ["ADR-006"],
+      "design_sections": ["Section 3.2.3"],
+      "tasks": ["Task 5.1", "Task 5.2", "Task 7.1"],
+      "verification_evidence": "Run 3..Run 5 in verification.md verify ImePipelineAndContextTest (test SmartSwitchStore per-package language persistence and toggle) and OpenKeyAndroidAppTest.testSettingsStoreDefaultsAndSmartSwitchWiring passed.",
+      "passed": true
+    },
+    "REQ-007": {
+      "adrs": ["ADR-007", "ADR-015"],
+      "design_sections": ["Section 3.3.1"],
+      "tasks": ["Task 6.1", "Task 6.2", "Task 7.2", "Task 11.1"],
+      "verification_evidence": "Run 3..Run 5 in verification.md confirm PhoneErgonomicsAndGestureTest passed all 14 Samsung Galaxy A37 One UI layout, symbol layer, theme, and ergonomic tests.",
+      "passed": true
+    },
+    "REQ-008": {
+      "adrs": ["ADR-008"],
+      "design_sections": ["Section 3.3.2"],
+      "tasks": ["Task 6.1", "Task 6.2", "Task 7.2"],
+      "verification_evidence": "Run 3..Run 5 in verification.md confirm PhoneErgonomicsAndGestureTest and OpenKeyAndroidAppTest.testInputConnectionCommitterCursorAndWordDelete passed.",
+      "passed": true
+    },
+    "REQ-009": {
+      "adrs": ["ADR-009", "ADR-015"],
+      "design_sections": ["Section 1", "Section 3.4"],
+      "tasks": ["Task 11.2"],
+      "verification_evidence": "Run 3..Run 5 in verification.md confirm ImePipelineAndContextTest.testTouchOnlyPhoneScopeNoHardwareKeyMapper() and OpenKeyAndroidAppTest.testPhoneTouchOnlyScopeNoHardwareKeyInterception passed.",
+      "passed": true
+    },
+    "REQ-010": {
+      "adrs": ["ADR-010"],
+      "design_sections": ["Section 3.4"],
+      "tasks": ["Task 6.1", "Task 6.2", "Task 7.1", "Task 7.3"],
+      "verification_evidence": "Run 3..Run 5 in verification.md verify PhoneErgonomicsAndGestureTest (OpenKeySettingsStore clamping, shorthand CRUD, cascade, OpenKeyL10n VI/EN) and OpenKeyAndroidAppTest (testImeComposeLifecycleOwnerTransitions) passed.",
+      "passed": true
+    },
+    "REQ-011": {
+      "adrs": ["ADR-011", "ADR-015"],
+      "design_sections": ["Section 3.5"],
+      "tasks": ["Task 9.1", "Task 9.2", "Task 10.1", "Task 11.2"],
+      "verification_evidence": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest (testLiveEditorUiStateAndEnterActionRouting, testTouchBypassInPasswordEmailUriAndTerminalFields) and OpenKeyAndroidAppTest (testSessionControllerEndToEndTouchAndHardwareWithEditorContext) passed.",
+      "passed": true
+    },
+    "REQ-012": {
+      "adrs": ["ADR-012"],
+      "design_sections": ["Section 3.5"],
+      "tasks": ["Task 9.1", "Task 9.2", "Task 10.1"],
+      "verification_evidence": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest.testCommitFirstExecutionOrderAndAsyncGenerationTagging() passed.",
+      "passed": true
+    },
+    "REQ-013": {
+      "adrs": ["ADR-013"],
+      "design_sections": ["Section 3.5"],
+      "tasks": ["Task 9.1", "Task 9.2", "Task 10.1"],
+      "verification_evidence": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest.testBatchReplacementCoordinatorCursorTracking() and OpenKeyAndroidAppTest.testZeroGetExtractedTextCallsAcross50TrackpadDragSteps passed.",
+      "passed": true
+    },
+    "REQ-014": {
+      "adrs": ["ADR-014"],
+      "design_sections": ["Section 3.5"],
+      "tasks": ["Task 9.1", "Task 9.2", "Task 10.1"],
+      "verification_evidence": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest.testCachedKeyboardLayerDefReferentialIdentity() passed.",
+      "passed": true
+    },
+    "REQ-015": {
+      "adrs": ["ADR-012"],
+      "design_sections": ["Section 1", "Section 3.5"],
+      "tasks": ["Task 9.1", "Task 9.2", "Task 10.2"],
+      "verification_evidence": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest.test120HzHotPathThroughputBenchmark() passed at 72270.75 ns/keystroke (0.072 ms, well below the 0.2 ms threshold).",
+      "passed": true
+    },
+    "REQ-016": {
+      "adrs": ["ADR-016", "ADR-018"],
+      "design_sections": ["Section 1", "Section 3.5", "Section 3.6"],
+      "tasks": ["Task 12.1", "Task 12.2", "Task 15.1", "Task 15.2", "Task 16.2"],
+      "verification_evidence": "Run 3 (#41439641403), Run 4 (#41794423272 & #41794423347), and Run 5 (#41996550884 Android CI/CD & #41996550873 macOS CI/CD) in verification.md confirm both GitHub Actions pipelines succeeded.",
+      "passed": true
+    },
+    "REQ-017": {
+      "adrs": ["ADR-017"],
+      "design_sections": ["Section 3.6"],
+      "tasks": ["Task 13.1", "Task 13.2", "Task 15.1", "Task 15.2"],
+      "verification_evidence": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest (testOpenKeyLoggerLazyEvaluationWhenDisabled, testOpenKeySettingsStoreDebugModeSyncAndKeystrokeRedaction, testOpenKeyLoggerVersionStampPruningAndRotationAndClearLog) and OpenKeyAndroidAppTest (testOpenKeyL10nDebugStringsAndSettingsActivityLoggerIntegration) passed.",
+      "passed": true
+    },
+    "REQ-018": {
+      "adrs": ["ADR-019"],
+      "design_sections": ["Section 3.6"],
+      "tasks": ["Task 14.1", "Task 14.2", "Task 15.1", "Task 15.2"],
+      "verification_evidence": "Run 4..Run 5 in verification.md confirm BilingualAutoSwitchTest.testContextOrderedHomographDisambiguation(), AutoWordingEngineTest.testHomographDisambiguationCandidateRanking(), and 64/64 macOS OpenKeySwiftTests passed.",
+      "passed": true
+    },
+    "REQ-019": {
+      "adrs": ["ADR-020"],
+      "design_sections": ["Section 3.7"],
+      "tasks": ["Task 16.1", "Task 16.2"],
+      "verification_evidence": "Run 5 in verification.md confirms BilingualAutoSwitchTest.testVietnameseSyllableProtectionAndStandaloneWEscape() (7/7 tests passed in :openkey-core), OpenKeyEngineTests.testVietnameseSyllableProtectionAndStandaloneWEscape() (64/64 tests passed in OpenKeySwiftTests), and GitHub Actions runs #41996550884 (Android CI/CD) and #41996550873 (macOS CI/CD) succeeded.",
+      "passed": true
+    }
+  },
   "requirements": {
     "REQ-001": {
       "adrs": ["ADR-001"],
@@ -86,13 +224,13 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-001 evaluates value-type boundary trade-offs between :openkey-core and :app and rejects single-module coupling and C++/JNI bridging.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 1..Run 4 in verification.md confirm ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug succeeded and OpenKeyAndroidAppTest.testManifestDeclaresDirectBootAndZeroInternetPermission passed.",
+      "evidence_rationale": "Run 1..Run 5 in verification.md confirm ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug succeeded and OpenKeyAndroidAppTest.testManifestDeclaresDirectBootAndZeroInternetPermission passed.",
       "passed": true
     },
     "REQ-002": {
-      "adrs": ["ADR-002"],
-      "design_sections": ["Section 3.1.1"],
-      "tasks": ["Task 2.1", "Task 2.2"],
+      "adrs": ["ADR-002", "ADR-020"],
+      "design_sections": ["Section 3.1.1", "Section 3.7"],
+      "tasks": ["Task 2.1", "Task 2.2", "Task 16.1", "Task 16.2"],
       "design_aligned": true,
       "design_rationale": "Section 3.1.1 details VietnameseData.kt, VietnameseEngine.kt, and VietnameseEnginePhonotactics.kt bitmask structures, CHR(idx) bounds checks, findAndCalculateVowel(forGrammar) gi-/qu- backward scanning, handleModernMark/handleOldMark purity, handleDeleteKey state synchronization, and checkRestoreIfWrongSpelling.",
       "tasks_actionable": true,
@@ -101,13 +239,13 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-002 justifies the 1:1 unsigned 32-bit syllable bitmask port from OpenKeySwiftCore and rejects ad-hoc regex/string Telex parsers.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 2..Run 4 traceability matrices in verification.md confirm VietnameseEngineTest passed all 7 unit tests with 0 failures.",
+      "evidence_rationale": "Run 2..Run 5 traceability matrices in verification.md confirm VietnameseEngineTest passed all 7 unit tests with 0 failures.",
       "passed": true
     },
     "REQ-003": {
-      "adrs": ["ADR-003", "ADR-019"],
-      "design_sections": ["Section 3.1.2", "Section 3.6"],
-      "tasks": ["Task 3.1", "Task 3.2", "Task 14.1", "Task 14.2"],
+      "adrs": ["ADR-003", "ADR-019", "ADR-020"],
+      "design_sections": ["Section 3.1.2", "Section 3.6", "Section 3.7"],
+      "tasks": ["Task 3.1", "Task 3.2", "Task 14.1", "Task 14.2", "Task 16.1", "Task 16.2"],
       "design_aligned": true,
       "design_rationale": "Section 3.1.2 specifies VietnameseDictionary.kt and BilingualAutoSwitchEngine.kt with droppedKeys raw keystroke reconstruction, doubled-tone escape repair, standalone English collision restoration, and 2-word look-back phrase restoration.",
       "tasks_actionable": true,
@@ -116,7 +254,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-003 analyzes multi-word backspace batch replacement trade-offs and rejects manual VI/EN switching for mid-sentence code-switching.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.BilingualAutoSwitchTest.xml confirms all 6 bilingual code-switching test cases passed.",
+      "evidence_rationale": "Run 5 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.BilingualAutoSwitchTest.xml confirms all 7 bilingual code-switching test cases passed.",
       "passed": true
     },
     "REQ-004": {
@@ -131,7 +269,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-004 justifies in-memory dictionary heap trade-offs (~1.5 MB) and rejects Binder IPC queries to Android UserDictionary ContentProvider.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.AutoWordingEngineTest.xml confirms all 6 candidate ranking, frequency learning, phonotactic repair, and shorthand tests passed.",
+      "evidence_rationale": "Run 4 and Run 5 in verification.md confirm AutoWordingEngineTest passed all 6 candidate ranking, frequency learning, phonotactic repair, and shorthand tests.",
       "passed": true
     },
     "REQ-005": {
@@ -146,7 +284,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-005 evaluates cursor selection tracking via onUpdateSelection and rejects setComposingText due to WebView autocomplete duplication and underline artifacts.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 and Run 4 verbatim JUnit XML reports for ImePipelineAndContextTest (9/9 passed) and OpenKeyAndroidAppTest (testInputConnectionCommitterBatchOperations) confirm atomic batch replacement and EditorInfo context guard.",
+      "evidence_rationale": "Run 3..Run 5 in verification.md confirm ImePipelineAndContextTest (9/9 passed) and OpenKeyAndroidAppTest (testInputConnectionCommitterBatchOperations) confirm atomic batch replacement and EditorInfo context guard.",
       "passed": true
     },
     "REQ-006": {
@@ -161,7 +299,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-006 justifies EditorInfo.packageName inspection in onStartInputView and rejects AccessibilityService foreground app detection.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 and Run 4 JUnit XML reports verify ImePipelineAndContextTest (test SmartSwitchStore per-package language persistence and toggle) and OpenKeyAndroidAppTest.testSettingsStoreDefaultsAndSmartSwitchWiring passed.",
+      "evidence_rationale": "Run 3..Run 5 in verification.md verify ImePipelineAndContextTest (test SmartSwitchStore per-package language persistence and toggle) and OpenKeyAndroidAppTest.testSettingsStoreDefaultsAndSmartSwitchWiring passed.",
       "passed": true
     },
     "REQ-007": {
@@ -176,7 +314,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-007 and ADR-015 justify Samsung One UI stock keyboard layout parity and phone-dedicated naming over generic Material pill buttons or tablet LargeScreen naming.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 and Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest.xml confirms all 14 Samsung Galaxy A37 One UI layout, symbol layer, theme, and ergonomic tests passed.",
+      "evidence_rationale": "Run 3..Run 5 in verification.md confirm PhoneErgonomicsAndGestureTest passed all 14 Samsung Galaxy A37 One UI layout, symbol layer, theme, and ergonomic tests.",
       "passed": true
     },
     "REQ-008": {
@@ -191,7 +329,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-008 analyzes screen-edge gesture non-interference and rejects full-keyboard glide typing due to Vietnamese Telex end-of-syllable tone ambiguity.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 and Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest.xml and OpenKeyAndroidAppTest.testInputConnectionCommitterCursorAndWordDelete confirm all gesture tests passed.",
+      "evidence_rationale": "Run 3..Run 5 in verification.md confirm PhoneErgonomicsAndGestureTest and OpenKeyAndroidAppTest.testInputConnectionCommitterCursorAndWordDelete confirm all gesture tests passed.",
       "passed": true
     },
     "REQ-009": {
@@ -206,7 +344,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-015 explicitly supersedes ADR-009, documenting the trade-offs of dedicating the phone codebase strictly to on-screen touch typing.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 and Run 4 JUnit XML reports confirm ImePipelineAndContextTest.testTouchOnlyPhoneScopeNoHardwareKeyMapper() and OpenKeyAndroidAppTest.testPhoneTouchOnlyScopeNoHardwareKeyInterception passed.",
+      "evidence_rationale": "Run 3..Run 5 in verification.md confirm ImePipelineAndContextTest.testTouchOnlyPhoneScopeNoHardwareKeyMapper() and OpenKeyAndroidAppTest.testPhoneTouchOnlyScopeNoHardwareKeyInterception passed.",
       "passed": true
     },
     "REQ-010": {
@@ -221,7 +359,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-010 evaluates device-protected storage security trade-offs for Direct Boot lock-screen readiness and rejects deprecated XML KeyboardView.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 and Run 4 JUnit XML reports verify PhoneErgonomicsAndGestureTest (OpenKeySettingsStore clamping, shorthand CRUD, cascade, OpenKeyL10n VI/EN) and OpenKeyAndroidAppTest (testImeComposeLifecycleOwnerTransitions) passed.",
+      "evidence_rationale": "Run 3..Run 5 in verification.md verify PhoneErgonomicsAndGestureTest (OpenKeySettingsStore clamping, shorthand CRUD, cascade, OpenKeyL10n VI/EN) and OpenKeyAndroidAppTest (testImeComposeLifecycleOwnerTransitions) passed.",
       "passed": true
     },
     "REQ-011": {
@@ -236,7 +374,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-011 and ADR-015 justify centralizing session orchestration in :openkey-core via TextCommitterTarget and reject duplicating state across KeyboardScreen and OpenKeyImeService.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 JUnit XML reports confirm SmoothArchitectureTest (testLiveEditorUiStateAndEnterActionRouting, testTouchBypassInPasswordEmailUriAndTerminalFields) and OpenKeyAndroidAppTest (testSessionControllerEndToEndTouchAndHardwareWithEditorContext) passed.",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest (testLiveEditorUiStateAndEnterActionRouting, testTouchBypassInPasswordEmailUriAndTerminalFields) and OpenKeyAndroidAppTest (testSessionControllerEndToEndTouchAndHardwareWithEditorContext) passed.",
       "passed": true
     },
     "REQ-012": {
@@ -251,7 +389,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-012 evaluates synchronous vs asynchronous candidate emission trade-offs and rejects blocking character commits on main-thread dictionary sorting.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.SmoothArchitectureTest.xml confirms testCommitFirstExecutionOrderAndAsyncGenerationTagging() passed.",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest.testCommitFirstExecutionOrderAndAsyncGenerationTagging() passed.",
       "passed": true
     },
     "REQ-013": {
@@ -266,7 +404,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-013 analyzes DPAD/selection-offset cursor movement and rejects synchronous getExtractedText Binder IPC reads at 120Hz.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 JUnit XML reports confirm SmoothArchitectureTest.testBatchReplacementCoordinatorCursorTracking() and OpenKeyAndroidAppTest.testZeroGetExtractedTextCallsAcross50TrackpadDragSteps passed.",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest.testBatchReplacementCoordinatorCursorTracking() and OpenKeyAndroidAppTest.testZeroGetExtractedTextCallsAcross50TrackpadDragSteps passed.",
       "passed": true
     },
     "REQ-014": {
@@ -281,7 +419,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-014 evaluates custom Canvas bevel rendering vs multi-layer shadow modifiers and rejects root-level candidate state recomposition.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.SmoothArchitectureTest.xml confirms testCachedKeyboardLayerDefReferentialIdentity() passed.",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest.testCachedKeyboardLayerDefReferentialIdentity() passed.",
       "passed": true
     },
     "REQ-015": {
@@ -296,22 +434,22 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-012 establishes the < 0.2ms hot-path latency target (> 40x faster than the 8.33ms 120Hz frame budget) through commit-first execution.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.SmoothArchitectureTest.xml confirms test120HzHotPathThroughputBenchmark() passed at 72270.75 ns/keystroke (0.072 ms, well below the 0.2 ms threshold).",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest.test120HzHotPathThroughputBenchmark() passed at 72270.75 ns/keystroke (0.072 ms, well below the 0.2 ms threshold).",
       "passed": true
     },
     "REQ-016": {
       "adrs": ["ADR-016", "ADR-018"],
       "design_sections": ["Section 1", "Section 3.5", "Section 3.6"],
-      "tasks": ["Task 12.1", "Task 12.2", "Task 15.1", "Task 15.2"],
+      "tasks": ["Task 12.1", "Task 12.2", "Task 15.1", "Task 15.2", "Task 16.2"],
       "design_aligned": true,
       "design_rationale": "Section 1 and Section 3.6 map REQ-016, ADR-016, and ADR-018 to .github/workflows/android-ci.yml, .github/workflows/macos-ci.yml (path filtering), OpenKeyEventTapTests.openKeySettingsStoreSync() (@MainActor isolation), Sources/OpenKey/android/gradle.properties, and Sources/OpenKey/android/.gitignore.",
       "tasks_actionable": true,
-      "tasks_rationale": "Task 12.1, Task 12.2, Task 15.1, and Task 15.2 define portable Gradle setup, .gitignore, android-ci.yml, macos-ci.yml path triggers, @MainActor annotation on openKeySettingsStoreSync(), and end-to-end GitHub Actions verification.",
+      "tasks_rationale": "Task 12.1, Task 12.2, Task 15.1, Task 15.2, and Task 16.2 define portable Gradle setup, .gitignore, android-ci.yml, macos-ci.yml path triggers, @MainActor annotation on openKeySettingsStoreSync(), and end-to-end GitHub Actions verification.",
       "decisions_consistent": true,
       "architecturally_sound": true,
       "debate_rationale": "ADR-016 and ADR-018 evaluate ubuntu-latest vs macOS runner trade-offs, cross-platform path isolation, and @MainActor test synchronization vs brittle Thread.sleep.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 (#41439641403) and Run 4 (#41794423272 Android CI/CD and #41794423347 macOS CI/CD) in verification.md confirm both GitHub Actions pipelines succeeded and 63/63 macOS Swift tests passed.",
+      "evidence_rationale": "Run 3 (#41439641403), Run 4 (#41794423272 & #41794423347), and Run 5 (#41996550884 Android CI/CD & #41996550873 macOS CI/CD) in verification.md confirm both GitHub Actions pipelines succeeded.",
       "passed": true
     },
     "REQ-017": {
@@ -326,7 +464,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-017 evaluates background file I/O trade-offs mitigated by a < 2ns lazy lambda guard when disabled, daemon writer thread, 5 MB size cap, and strict secure-field redaction, while rejecting logcat-only diagnostics that require a PC and USB debugging.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 JUnit XML reports confirm SmoothArchitectureTest (testOpenKeyLoggerLazyEvaluationWhenDisabled, testOpenKeySettingsStoreDebugModeSyncAndKeystrokeRedaction, testOpenKeyLoggerVersionStampPruningAndRotationAndClearLog) and OpenKeyAndroidAppTest (testOpenKeyL10nDebugStringsAndSettingsActivityLoggerIntegration) passed.",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest (testOpenKeyLoggerLazyEvaluationWhenDisabled, testOpenKeySettingsStoreDebugModeSyncAndKeystrokeRedaction, testOpenKeyLoggerVersionStampPruningAndRotationAndClearLog) and OpenKeyAndroidAppTest (testOpenKeyL10nDebugStringsAndSettingsActivityLoggerIntegration) passed.",
       "passed": true
     },
     "REQ-018": {
@@ -341,7 +479,22 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-019 evaluates standalone first-word English collision trade-offs vs preserving high-frequency Vietnamese words ('sẽ', 'mã', 'sĩ', 'vẽ') in VIETNAMESE_FIRST ('V') context while restoring English in ENGLISH_FIRST ('E') and 2-word lookback contexts, and rejects unconditional englishPriorityWords placement of 'sex'.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 JUnit XML reports confirm BilingualAutoSwitchTest.testContextOrderedHomographDisambiguation(), AutoWordingEngineTest.testHomographDisambiguationCandidateRanking(), and 63/63 macOS OpenKeySwiftTests passed.",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm BilingualAutoSwitchTest.testContextOrderedHomographDisambiguation(), AutoWordingEngineTest.testHomographDisambiguationCandidateRanking(), and 64/64 macOS OpenKeySwiftTests passed.",
+      "passed": true
+    },
+    "REQ-019": {
+      "adrs": ["ADR-020"],
+      "design_sections": ["Section 3.7"],
+      "tasks": ["Task 16.1", "Task 16.2"],
+      "design_aligned": true,
+      "design_rationale": "Section 3.7 specifies validTelexKeys precomputation in VietnameseDictionary.kt/.swift, !dict.isValidVietnameseSyllable(composedLower) guards in Step 5 and Step 7 of BilingualAutoSwitchEngine.kt/.swift, keeping isEng = false for valid unaccented Vietnamese syllables in VIETNAMESE_FIRST mode, popping consumed escape w keystrokes in VietnameseEnginePhonotactics.insertW, and preferring composed in Step 6 Sentence Capitalization.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 16.1 and Task 16.2 define TDD unit tests in BilingualAutoSwitchTest.kt and OpenKeyEngineTests.swift for 'thể' vs. 'there' and 'Why' vs. 'Wwhy' and cross-platform implementation across Android :openkey-core and macOS OpenKeySwiftCore.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-020 evaluates the ~7,200-string validTelexKeys precomputation overhead (mitigated by async background prewarming via VietnameseDictionary.prewarmAsync()) and rejects removing 'there' from englishWords.",
+      "evidence_verified": true,
+      "evidence_rationale": "Run 5 in verification.md confirms BilingualAutoSwitchTest.testVietnameseSyllableProtectionAndStandaloneWEscape() (7/7 tests passed in :openkey-core), OpenKeyEngineTests.testVietnameseSyllableProtectionAndStandaloneWEscape() (64/64 tests passed in OpenKeySwiftTests), and GitHub Actions runs #41996550884 (Android CI/CD) and #41996550873 (macOS CI/CD) succeeded.",
       "passed": true
     }
   },
@@ -355,7 +508,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-001 evaluates value-type boundary trade-offs between :openkey-core and :app and rejects single-module coupling and C++/JNI bridging.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 1..Run 4 in verification.md confirm ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug succeeded and OpenKeyAndroidAppTest.testManifestDeclaresDirectBootAndZeroInternetPermission passed.",
+      "evidence_rationale": "Run 1..Run 5 in verification.md confirm ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug succeeded and OpenKeyAndroidAppTest.testManifestDeclaresDirectBootAndZeroInternetPermission passed.",
       "passed": true
     },
     "REQ-002": {
@@ -367,7 +520,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-002 justifies the 1:1 unsigned 32-bit syllable bitmask port from OpenKeySwiftCore and rejects ad-hoc regex/string Telex parsers.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 2..Run 4 traceability matrices in verification.md confirm VietnameseEngineTest passed all 7 unit tests with 0 failures.",
+      "evidence_rationale": "Run 2..Run 5 traceability matrices in verification.md confirm VietnameseEngineTest passed all 7 unit tests with 0 failures.",
       "passed": true
     },
     "REQ-003": {
@@ -379,7 +532,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-003 analyzes multi-word backspace batch replacement trade-offs and rejects manual VI/EN switching for mid-sentence code-switching.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.BilingualAutoSwitchTest.xml confirms all 6 bilingual code-switching test cases passed.",
+      "evidence_rationale": "Run 5 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.BilingualAutoSwitchTest.xml confirms all 7 bilingual code-switching test cases passed.",
       "passed": true
     },
     "REQ-004": {
@@ -391,7 +544,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-004 justifies in-memory dictionary heap trade-offs (~1.5 MB) and rejects Binder IPC queries to Android UserDictionary ContentProvider.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.AutoWordingEngineTest.xml confirms all 6 candidate ranking, frequency learning, phonotactic repair, and shorthand tests passed.",
+      "evidence_rationale": "Run 4 and Run 5 in verification.md confirm AutoWordingEngineTest passed all 6 candidate ranking, frequency learning, phonotactic repair, and shorthand tests.",
       "passed": true
     },
     "REQ-005": {
@@ -403,7 +556,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-005 evaluates cursor selection tracking via onUpdateSelection and rejects setComposingText due to WebView autocomplete duplication and underline artifacts.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 and Run 4 verbatim JUnit XML reports for ImePipelineAndContextTest (9/9 passed) and OpenKeyAndroidAppTest (testInputConnectionCommitterBatchOperations) confirm atomic batch replacement and EditorInfo context guard.",
+      "evidence_rationale": "Run 3..Run 5 in verification.md confirm ImePipelineAndContextTest (9/9 passed) and OpenKeyAndroidAppTest (testInputConnectionCommitterBatchOperations) confirm atomic batch replacement and EditorInfo context guard.",
       "passed": true
     },
     "REQ-006": {
@@ -415,7 +568,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-006 justifies EditorInfo.packageName inspection in onStartInputView and rejects AccessibilityService foreground app detection.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 and Run 4 JUnit XML reports verify ImePipelineAndContextTest (test SmartSwitchStore per-package language persistence and toggle) and OpenKeyAndroidAppTest.testSettingsStoreDefaultsAndSmartSwitchWiring passed.",
+      "evidence_rationale": "Run 3..Run 5 in verification.md verify ImePipelineAndContextTest (test SmartSwitchStore per-package language persistence and toggle) and OpenKeyAndroidAppTest.testSettingsStoreDefaultsAndSmartSwitchWiring passed.",
       "passed": true
     },
     "REQ-007": {
@@ -427,7 +580,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-007 and ADR-015 justify Samsung One UI stock keyboard layout parity and phone-dedicated naming over generic Material pill buttons or tablet LargeScreen naming.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 and Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest.xml confirms all 14 Samsung Galaxy A37 One UI layout, symbol layer, theme, and ergonomic tests passed.",
+      "evidence_rationale": "Run 3..Run 5 in verification.md confirm PhoneErgonomicsAndGestureTest passed all 14 Samsung Galaxy A37 One UI layout, symbol layer, theme, and ergonomic tests.",
       "passed": true
     },
     "REQ-008": {
@@ -439,7 +592,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-008 analyzes screen-edge gesture non-interference and rejects full-keyboard glide typing due to Vietnamese Telex end-of-syllable tone ambiguity.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 and Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest.xml and OpenKeyAndroidAppTest.testInputConnectionCommitterCursorAndWordDelete confirm all gesture tests passed.",
+      "evidence_rationale": "Run 3..Run 5 in verification.md confirm PhoneErgonomicsAndGestureTest and OpenKeyAndroidAppTest.testInputConnectionCommitterCursorAndWordDelete confirm all gesture tests passed.",
       "passed": true
     },
     "REQ-009": {
@@ -451,7 +604,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-015 explicitly supersedes ADR-009, documenting the trade-offs of dedicating the phone codebase strictly to on-screen touch typing.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 and Run 4 JUnit XML reports confirm ImePipelineAndContextTest.testTouchOnlyPhoneScopeNoHardwareKeyMapper() and OpenKeyAndroidAppTest.testPhoneTouchOnlyScopeNoHardwareKeyInterception passed.",
+      "evidence_rationale": "Run 3..Run 5 in verification.md confirm ImePipelineAndContextTest.testTouchOnlyPhoneScopeNoHardwareKeyMapper() and OpenKeyAndroidAppTest.testPhoneTouchOnlyScopeNoHardwareKeyInterception passed.",
       "passed": true
     },
     "REQ-010": {
@@ -463,7 +616,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-010 evaluates device-protected storage security trade-offs for Direct Boot lock-screen readiness and rejects deprecated XML KeyboardView.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 and Run 4 JUnit XML reports verify PhoneErgonomicsAndGestureTest (OpenKeySettingsStore clamping, shorthand CRUD, cascade, OpenKeyL10n VI/EN) and OpenKeyAndroidAppTest (testImeComposeLifecycleOwnerTransitions) passed.",
+      "evidence_rationale": "Run 3..Run 5 in verification.md verify PhoneErgonomicsAndGestureTest (OpenKeySettingsStore clamping, shorthand CRUD, cascade, OpenKeyL10n VI/EN) and OpenKeyAndroidAppTest (testImeComposeLifecycleOwnerTransitions) passed.",
       "passed": true
     },
     "REQ-011": {
@@ -475,7 +628,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-011 and ADR-015 justify centralizing session orchestration in :openkey-core via TextCommitterTarget and reject duplicating state across KeyboardScreen and OpenKeyImeService.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 JUnit XML reports confirm SmoothArchitectureTest (testLiveEditorUiStateAndEnterActionRouting, testTouchBypassInPasswordEmailUriAndTerminalFields) and OpenKeyAndroidAppTest (testSessionControllerEndToEndTouchAndHardwareWithEditorContext) passed.",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest (testLiveEditorUiStateAndEnterActionRouting, testTouchBypassInPasswordEmailUriAndTerminalFields) and OpenKeyAndroidAppTest (testSessionControllerEndToEndTouchAndHardwareWithEditorContext) passed.",
       "passed": true
     },
     "REQ-012": {
@@ -487,7 +640,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-012 evaluates synchronous vs asynchronous candidate emission trade-offs and rejects blocking character commits on main-thread dictionary sorting.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.SmoothArchitectureTest.xml confirms testCommitFirstExecutionOrderAndAsyncGenerationTagging() passed.",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest.testCommitFirstExecutionOrderAndAsyncGenerationTagging() passed.",
       "passed": true
     },
     "REQ-013": {
@@ -499,7 +652,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-013 analyzes DPAD/selection-offset cursor movement and rejects synchronous getExtractedText Binder IPC reads at 120Hz.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 JUnit XML reports confirm SmoothArchitectureTest.testBatchReplacementCoordinatorCursorTracking() and OpenKeyAndroidAppTest.testZeroGetExtractedTextCallsAcross50TrackpadDragSteps passed.",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest.testBatchReplacementCoordinatorCursorTracking() and OpenKeyAndroidAppTest.testZeroGetExtractedTextCallsAcross50TrackpadDragSteps passed.",
       "passed": true
     },
     "REQ-014": {
@@ -511,7 +664,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-014 evaluates custom Canvas bevel rendering vs multi-layer shadow modifiers and rejects root-level candidate state recomposition.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.SmoothArchitectureTest.xml confirms testCachedKeyboardLayerDefReferentialIdentity() passed.",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest.testCachedKeyboardLayerDefReferentialIdentity() passed.",
       "passed": true
     },
     "REQ-015": {
@@ -523,19 +676,19 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-012 establishes the < 0.2ms hot-path latency target (> 40x faster than the 8.33ms 120Hz frame budget) through commit-first execution.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 verbatim JUnit XML TEST-com.tuyenmai.openkey.core.SmoothArchitectureTest.xml confirms test120HzHotPathThroughputBenchmark() passed at 72270.75 ns/keystroke (0.072 ms, well below the 0.2 ms threshold).",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest.test120HzHotPathThroughputBenchmark() passed at 72270.75 ns/keystroke (0.072 ms, well below the 0.2 ms threshold).",
       "passed": true
     },
     "REQ-016": {
       "design_aligned": true,
       "design_rationale": "Section 1 and Section 3.6 map REQ-016, ADR-016, and ADR-018 to .github/workflows/android-ci.yml, .github/workflows/macos-ci.yml (path filtering), OpenKeyEventTapTests.openKeySettingsStoreSync() (@MainActor isolation), Sources/OpenKey/android/gradle.properties, and Sources/OpenKey/android/.gitignore.",
       "tasks_actionable": true,
-      "tasks_rationale": "Task 12.1, Task 12.2, Task 15.1, and Task 15.2 define portable Gradle setup, .gitignore, android-ci.yml, macos-ci.yml path triggers, @MainActor annotation on openKeySettingsStoreSync(), and end-to-end GitHub Actions verification.",
+      "tasks_rationale": "Task 12.1, Task 12.2, Task 15.1, Task 15.2, and Task 16.2 define portable Gradle setup, .gitignore, android-ci.yml, macos-ci.yml path triggers, @MainActor annotation on openKeySettingsStoreSync(), and end-to-end GitHub Actions verification.",
       "decisions_consistent": true,
       "architecturally_sound": true,
       "debate_rationale": "ADR-016 and ADR-018 evaluate ubuntu-latest vs macOS runner trade-offs, cross-platform path isolation, and @MainActor test synchronization vs brittle Thread.sleep.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 3 (#41439641403) and Run 4 (#41794423272 Android CI/CD and #41794423347 macOS CI/CD) in verification.md confirm both GitHub Actions pipelines succeeded and 63/63 macOS Swift tests passed.",
+      "evidence_rationale": "Run 3 (#41439641403), Run 4 (#41794423272 & #41794423347), and Run 5 (#41996550884 Android CI/CD & #41996550873 macOS CI/CD) in verification.md confirm both GitHub Actions pipelines succeeded.",
       "passed": true
     },
     "REQ-017": {
@@ -547,7 +700,7 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-017 evaluates background file I/O trade-offs mitigated by a < 2ns lazy lambda guard when disabled, daemon writer thread, 5 MB size cap, and strict secure-field redaction, while rejecting logcat-only diagnostics that require a PC and USB debugging.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 JUnit XML reports confirm SmoothArchitectureTest (testOpenKeyLoggerLazyEvaluationWhenDisabled, testOpenKeySettingsStoreDebugModeSyncAndKeystrokeRedaction, testOpenKeyLoggerVersionStampPruningAndRotationAndClearLog) and OpenKeyAndroidAppTest (testOpenKeyL10nDebugStringsAndSettingsActivityLoggerIntegration) passed.",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm SmoothArchitectureTest (testOpenKeyLoggerLazyEvaluationWhenDisabled, testOpenKeySettingsStoreDebugModeSyncAndKeystrokeRedaction, testOpenKeyLoggerVersionStampPruningAndRotationAndClearLog) and OpenKeyAndroidAppTest (testOpenKeyL10nDebugStringsAndSettingsActivityLoggerIntegration) passed.",
       "passed": true
     },
     "REQ-018": {
@@ -559,7 +712,19 @@
       "architecturally_sound": true,
       "debate_rationale": "ADR-019 evaluates standalone first-word English collision trade-offs vs preserving high-frequency Vietnamese words ('sẽ', 'mã', 'sĩ', 'vẽ') in VIETNAMESE_FIRST ('V') context while restoring English in ENGLISH_FIRST ('E') and 2-word lookback contexts, and rejects unconditional englishPriorityWords placement of 'sex'.",
       "evidence_verified": true,
-      "evidence_rationale": "Run 4 JUnit XML reports confirm BilingualAutoSwitchTest.testContextOrderedHomographDisambiguation(), AutoWordingEngineTest.testHomographDisambiguationCandidateRanking(), and 63/63 macOS OpenKeySwiftTests passed.",
+      "evidence_rationale": "Run 4..Run 5 in verification.md confirm BilingualAutoSwitchTest.testContextOrderedHomographDisambiguation(), AutoWordingEngineTest.testHomographDisambiguationCandidateRanking(), and 64/64 macOS OpenKeySwiftTests passed.",
+      "passed": true
+    },
+    "REQ-019": {
+      "design_aligned": true,
+      "design_rationale": "Section 3.7 specifies validTelexKeys precomputation in VietnameseDictionary.kt/.swift, !dict.isValidVietnameseSyllable(composedLower) guards in Step 5 and Step 7 of BilingualAutoSwitchEngine.kt/.swift, keeping isEng = false for valid unaccented Vietnamese syllables in VIETNAMESE_FIRST mode, popping consumed escape w keystrokes in VietnameseEnginePhonotactics.insertW, and preferring composed in Step 6 Sentence Capitalization.",
+      "tasks_actionable": true,
+      "tasks_rationale": "Task 16.1 and Task 16.2 define TDD unit tests in BilingualAutoSwitchTest.kt and OpenKeyEngineTests.swift for 'thể' vs. 'there' and 'Why' vs. 'Wwhy' and cross-platform implementation across Android :openkey-core and macOS OpenKeySwiftCore.",
+      "decisions_consistent": true,
+      "architecturally_sound": true,
+      "debate_rationale": "ADR-020 evaluates the ~7,200-string validTelexKeys precomputation overhead (mitigated by async background prewarming via VietnameseDictionary.prewarmAsync()) and rejects removing 'there' from englishWords.",
+      "evidence_verified": true,
+      "evidence_rationale": "Run 5 in verification.md confirms BilingualAutoSwitchTest.testVietnameseSyllableProtectionAndStandaloneWEscape() (7/7 tests passed in :openkey-core), OpenKeyEngineTests.testVietnameseSyllableProtectionAndStandaloneWEscape() (64/64 tests passed in OpenKeySwiftTests), and GitHub Actions runs #41996550884 (Android CI/CD) and #41996550873 (macOS CI/CD) succeeded.",
       "passed": true
     }
   }
