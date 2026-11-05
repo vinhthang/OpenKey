@@ -139,8 +139,8 @@ flowchart TD
 
 ### 3.3 Samsung Galaxy A37 One UI Stock Keyboard Layout & Gesture System (`REQ-007`, `REQ-008`, `ADR-007`, `ADR-008`)
 
-#### 3.3.1 `PhoneLayoutMetrics.kt` & `KeyboardLayoutDefinition.kt` (`REQ-007`, `ADR-007`)
-- Pure Kotlin phone layout calculator and Samsung One UI key matrix definition in `:openkey-core`:
+#### 3.3.1 `PhoneLayoutMetrics.kt` & `KeyboardLayoutDefinition.kt` (`REQ-007`, `REQ-020`, `ADR-007`, `ADR-021`)
+- Pure Kotlin phone layout calculator and Samsung One UI 6/7 key matrix definition in `:openkey-core`:
   ```kotlin
   enum class OneHandedMode { OFF, LEFT, RIGHT }
   enum class KeyboardLayer { QWERTY, SYMBOLS_1, SYMBOLS_2 }
@@ -168,25 +168,27 @@ flowchart TD
       val sideGutterWidthDp: Float,
       val effectiveOneHandedMode: OneHandedMode,
       val isNumberRowVisible: Boolean,
-      val keyCornerRadiusDp: Float, // 6f (Samsung One UI keycap corner radius)
+      val keyCornerRadiusDp: Float, // 7f (Samsung One UI 6/7 keycap corner radius)
       val keyHorizontalGapDp: Float,
       val keyVerticalGapDp: Float
   )
   ```
-- **Samsung Galaxy A37 Portrait One UI Rules (`!isLandscape`)**:
+- **Samsung Galaxy A37 Portrait One UI 6/7 Rules (`!isLandscape`)**:
   - `scale = heightScalePercent.coerceIn(85, 125) / 100f`
-  - `candidateStripHeightDp = 42f * scale`
+  - `candidateStripHeightDp = 44f * scale`
   - `isNumberRowVisible = showNumberRow || inputType == 1`
-  - `numberRowHeightDp = if (isNumberRowVisible) 40f * scale else 0f`
-  - `alphaRowHeightDp = 48f * scale`
-  - `bottomRowHeightDp = 48f * scale`
+  - `numberRowHeightDp = if (isNumberRowVisible) 42f * scale else 0f`
+  - `alphaRowHeightDp = 52f * scale`
+  - `bottomRowHeightDp = 50f * scale`
   - `homeRowSideInsetFraction = 0.05f` (`5%` left and `5%` right padding on Row 3 `a..l`)
   - `effectiveBottomChinDp = bottomChinPaddingDp.coerceIn(0, 48).toFloat()` (default `14dp`)
   - `effectiveOneHandedMode = if (screenWidthDp >= 360) oneHandedMode else OneHandedMode.OFF`
   - `activeGridWidthDp = if (effectiveOneHandedMode == OneHandedMode.OFF) screenWidthDp.toFloat() else screenWidthDp * 0.82f`
   - `sideGutterWidthDp = screenWidthDp - activeGridWidthDp`
+  - `keyCornerRadiusDp = 7f`, `keyHorizontalGapDp = 4f`, `keyVerticalGapDp = 5f`
 - **Samsung One UI Bottom Row & Symbol Layers (`KeyboardLayoutDefinition.kt`)**:
-  - Bottom row weights: `!#1` (`0.15f`) + `,` (`0.10f`) + `Spacebar` (`0.50f`, label `"Tiếng Việt"` or `"English (US)"`) + `.` (`0.10f`) + `Enter` (`0.15f`).
+  - `QWERTY` bottom row weights (`6` keys): `!#1` (`0.14f`) + `🌐` (`0.10f`, `KeyAction.SwitchLanguage`, `secondaryLabel = "VI"` / `"EN"`) + `,` (`0.09f`) + `Spacebar` (`0.42f`, label `"Tiếng Việt"` or `"English (US)"`) + `.` (`0.09f`) + `Enter` (`0.16f`).
+  - `SYMBOLS_1` & `SYMBOLS_2` bottom row weights (`5` keys): `ABC` (`0.15f`) + `,` (`0.10f`) + `Spacebar` (`0.50f`) + `.` (`0.10f`) + `Enter` (`0.15f`).
   - Symbol layers: `SYMBOLS_1` (toggled via `!#1`, with `1/2` button to `SYMBOLS_2` and `ABC` button back to `QWERTY`) and `SYMBOLS_2` (with `2/2` button back to `SYMBOLS_1` and `ABC` back to `QWERTY`).
 - **Landscape Auto-Compact Rules (`isLandscape`)**:
   - Uses compact base heights (`candidateStrip = 36dp`, `numberRow = 32dp`, `alphaRow = 38dp`, `bottomRow = 38dp`, `effectiveBottomChinDp = 0dp`, `effectiveOneHandedMode = OneHandedMode.OFF`), and caps `totalHeightDp <= screenHeightDp * 0.42f`.
@@ -300,3 +302,54 @@ flowchart TD
   - Step 6 (`Sentence Capitalization`): when `dict.englishWords.contains(composedLower) && !hasAnyDiacritic`, select `composed` as `wordToCap`.
   - Step 7 (`VIETNAMESE_FIRST` branch): change `else if (dict.englishWords.contains(fullRawLower) && (!dict.isValidVietnameseSyllable(composedLower) || countVowelGroups(fullKeys) >= 2))` to `else if (dict.englishWords.contains(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower))`.
   - Uncommitted/Committed State Tracking (`shouldRestore == false` branch): when `priority == LanguagePriority.VIETNAMESE_FIRST` and `dict.isValidVietnameseSyllable(composedLower)` (and `composed != "I"`), set `isEng = false` so valid unaccented Vietnamese words (`"con"`, `"hay"`, `"may"`, `"ban"`, `"can"`) do not flip `wasRestoredToEnglish` to `true`.
+
+### 3.8 Authentic Samsung Galaxy A37 One UI 6/7 Visual Polish, High-Legibility Typography, Dedicated Bottom-Row Globe Key & Custom Vector Icons (`REQ-020`, `ADR-021`)
+- **`PhoneLayoutMetrics.kt` (`:openkey-core`, `REQ-007`, `REQ-020`, `ADR-021`)**:
+  - Portrait constants on Galaxy A37 (`!isLandscape`):
+    - `PORTRAIT_CANDIDATE_STRIP_DP = 44f`
+    - `PORTRAIT_NUMBER_ROW_DP = 42f`
+    - `PORTRAIT_ALPHA_ROW_DP = 52f`
+    - `PORTRAIT_BOTTOM_ROW_DP = 50f`
+    - `KEY_CORNER_RADIUS_DP = 7f`
+    - `KEY_HORIZONTAL_GAP_DP = 4f`
+    - `KEY_VERTICAL_GAP_DP = 5f`
+    - Total portrait height at `100%` scale with `14dp` bottom chin: `44 + 42 + (3 * 52) + 50 + 14 = 306dp`.
+- **`KeyboardLayoutDefinition.kt` (`:openkey-core`, `REQ-007`, `REQ-020`, `ADR-021`)**:
+  - `ThemePalette`:
+    - Add `pressedKeycapColor: Long` (`0xFFDCE0E8` Light / `0xFF3E3E47` Dark) and `pressedFunctionalKeycapColor: Long` (`0xFFC4C9D4` Light / `0xFF34343D` Dark).
+    - Refine `secondaryTextColor` (`0xFF7A7E87` Light / `0xFF9494A0` Dark) and `accentColor` (`0xFF0072DE` One UI Blue Light / `0xFF387AFF` One UI Blue Dark).
+  - `buildBottomRow(returnToQwerty: Boolean, language: Int, imeActionLabel: String)`:
+    - When `!returnToQwerty` (`QWERTY` layer): returns `6` keys:
+      1. `!#1` (`weight = 0.14f`, `isFunctional = true`, `action = KeyAction.SwitchLayer(KeyboardLayer.SYMBOLS_1)`)
+      2. `🌐` (`weight = 0.10f`, `isFunctional = true`, `secondaryLabel = if (language == 1) "VI" else "EN"`, `action = KeyAction.SwitchLanguage`)
+      3. `,` (`weight = 0.09f`, `action = KeyAction.CommitChar(",")`)
+      4. `Spacebar` (`weight = 0.42f`, `primaryLabel = if (language == 1) "Tiếng Việt" else "English (US)"`, `action = KeyAction.Space`)
+      5. `.` (`weight = 0.09f`, `action = KeyAction.CommitChar(".")`)
+      6. `Enter` (`weight = 0.16f`, `primaryLabel = imeActionLabel`, `isFunctional = true`, `action = KeyAction.Enter`)
+    - When `returnToQwerty == true` (`SYMBOLS_1` / `SYMBOLS_2` layers): keeps `5` keys (`ABC` [`0.15f`], `,` [`0.10f`], `Spacebar` [`0.50f`], `.` [`0.10f`], `Enter` [`0.15f`]).
+- **`KeyButton.kt` (`:app`, `REQ-020`, `ADR-021`)**:
+  - **Keycap Typography**:
+    - Lowercase letter keys (`a–z`): `23.sp` (`FontWeight.Normal`), shifted downward by `1.dp` when `secondaryLabel != null`.
+    - Uppercase letter keys (`A–Z`): `21.sp` (`FontWeight.Medium`).
+    - Number row keys (`1–0`): `20.sp` (`FontWeight.Normal`).
+    - Punctuation keys (`,` / `.`): `22.sp` (`FontWeight.Medium`).
+    - Secondary top-right symbol sub-label: `10.5.sp` (`FontWeight.Medium`, `top = 2.dp, end = 3.5.dp`).
+    - Spacebar label (`"‹ Tiếng Việt ›"` / `"‹ English (US) ›"`): `13.5.sp` (`FontWeight.Medium`).
+    - Functional text keys (`!#1`, `ABC`, `1/2`, `2/2`): `14.sp` (`FontWeight.SemiBold`).
+  - **Single-Pass `drawBehind` Keycap Rendering with Pressed & Accented States**:
+    - `isEnterKey = keyDef.action is KeyAction.Enter`
+    - When `isEnterKey`: fills rounded rect with `accentColor` (or darkened `accentColor` when `isPressed`).
+    - When `keyDef.isFunctional && !isEnterKey`: fills with `pressedFunctionalKeycapColor` when `isPressed`, else `functionalKeycapColor` (or `accentColor.copy(alpha = 0.16f)` when `isShiftActive`).
+    - When regular character/space key: fills with `pressedKeycapColor` when `isPressed`, else `keycapColor`.
+  - **Custom Canvas Vector Icons (`KeyboardVectorIcons`)**:
+    - `ShiftIcon`: Canvas upward arrow path — stroked outline when unshifted, solid filled in `accentColor` when shifted, solid filled + bottom horizontal bar when Caps Locked.
+    - `BackspaceIcon`: Canvas pentagonal backspace key outline + inner `×` cross.
+    - `GlobeLanguageIcon`: Canvas meridian globe circle/arcs + compact top-right `VI`/`EN` badge.
+    - `EnterActionIcon`: White Canvas vector icon on the `accentColor` Enter keycap (`Search` magnifier, `Send` paper plane, `Go`/`Next` right arrow, `Done` checkmark, or `↵` return arrow).
+- **`CandidateStripView.kt` & `KeyboardScreen.kt` (`:app`, `REQ-020`, `ADR-021`)**:
+  - **Candidate Display (`candidates.isNotEmpty()`)**:
+    - Displays 3 equal slots ordered as `[candidates.getOrNull(1), candidates.getOrNull(0), candidates.getOrNull(2)]` so the top-ranked candidate (`candidates[0]`) sits in the ergonomic center slot (`17.sp` `FontWeight.SemiBold`, highlighted with a subtle rounded `accentColor.copy(alpha = 0.12f)` pill).
+  - **Idle Toolbar (`candidates.isEmpty()`)**:
+    - Removes all 4 boxy text pill buttons (`[VI]`, `[Telex]`, `[Full / Left 82%]`, `[⚙]`).
+    - Left side: Clean mode status label (`"Tiếng Việt • Telex"` / `"Tiếng Việt • VNI"` / `"English (US)"`, tappable to toggle `Telex`/`VNI` when in Vietnamese mode).
+    - Right side: Two borderless `36dp × 36dp` Canvas vector icon buttons (`OneHandedIcon` and `SettingsGearIcon`).

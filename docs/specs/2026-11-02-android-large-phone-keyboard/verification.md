@@ -451,3 +451,76 @@ Workflow Runs
 | `OpenKeySwiftTests` | `OpenKeyEngineTests` + `OpenKeyEventTapTests` | `REQ-016`, `REQ-018`, `REQ-019` | 64 | 0 | PASSED |
 | GitHub Actions | `Android CI/CD` (`41996550884`) & `macOS CI/CD` (`41996550873`) | `REQ-016`, `REQ-017`, `REQ-018`, `REQ-019` | 125 tests + APK & `.app` artifacts | 0 | PASSED |
 | **Total** | **Android (61) + macOS (64) + GitHub CI (2 Workflows)** | **`REQ-001`..`REQ-019`** | **125** | **0** | **100% PASSED** |
+
+---
+
+## Run 6: Authentic Samsung Galaxy A37 One UI 6/7 Keyboard Visual Polish, High-Legibility Typography, Dedicated Bottom-Row Globe Key & Custom Vector Icons (`2026-11-05T22:22:00+07:00`)
+
+### 1. Android Unit Test Suites & Debug APK Build (`REQ-001`..`REQ-020`, `ADR-007`, `ADR-021`)
+**Command:**
+```bash
+cd /Users/thanghoang/github/OpenKey/Sources/OpenKey/android && rtk ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug
+```
+
+**Verbatim JUnit XML Report (`TEST-com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest.xml` — `REQ-007`, `REQ-008`, `REQ-010`, `REQ-020`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:17:23" hostname="mba.local" time="0.014">
+  <properties/>
+  <testcase name="test OpenKeySettingsStore value clamping and defaults()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.001"/>
+  <testcase name="test Custom Shorthand CRUD operations()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.001"/>
+  <testcase name="test master autoWordingEnabled cascade activates sub-toggles when all three are false()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.0"/>
+  <testcase name="test One UI Theme palettes for Light and Dark modes()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.0"/>
+  <testcase name="test VNI inputType forces number row visible even if showNumberRow is false()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.0"/>
+  <testcase name="test Spacebar horizontal trackpad drag and release()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.001"/>
+  <testcase name="test Galaxy A37 scaling and clamping of heightScalePercent and bottomChinPadding()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.0"/>
+  <testcase name="test landscape auto compact mode caps totalHeight at 42 percent screen height()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.001"/>
+  <testcase name="test KeyboardLayoutDefinition One UI 5-row QWERTY weights and symbol layers()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.003"/>
+  <testcase name="test OpenKeyL10n contains non-empty VI and EN strings across all sections()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.002"/>
+  <testcase name="test Galaxy A37 portrait base metrics at 100 percent scale()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.0"/>
+  <testcase name="test Backspace left-swipe whole-word delete and tap single delete()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.001"/>
+  <testcase name="test Long-press popups for Vietnamese vowels and secondary symbols()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.0"/>
+  <testcase name="test OneHandedMode on portrait large screen sets 82 percent grid and 18 percent gutter()" classname="com.tuyenmai.openkey.core.PhoneErgonomicsAndGestureTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+**Verbatim JUnit XML Report (`TEST-com.tuyenmai.openkey.android.OpenKeyAndroidAppTest.xml` — `REQ-001`, `REQ-005`..`REQ-014`, `REQ-017`, `REQ-020`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:17:26" hostname="mba.local" time="0.11">
+  <properties/>
+  <testcase name="testInputConnectionCommitterBatchOperations" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.008"/>
+  <testcase name="testInputConnectionCommitterCursorAndWordDelete" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.003"/>
+  <testcase name="testImeComposeLifecycleOwnerTransitions" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.005"/>
+  <testcase name="testManifestDeclaresDirectBootAndZeroInternetPermission" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.012"/>
+  <testcase name="testSamsungOneUi6VisualPolishAndVectorIcons" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.005"/>
+  <testcase name="testPhoneTouchOnlyScopeNoHardwareKeyInterception" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.008"/>
+  <testcase name="testZeroGetExtractedTextCallsAcross50TrackpadDragSteps" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.006"/>
+  <testcase name="testSettingsStoreDefaultsAndSmartSwitchWiring" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.003"/>
+  <testcase name="testOpenKeyL10nDebugStringsAndSettingsActivityLoggerIntegration" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.01"/>
+  <testcase name="testSessionControllerEndToEndTouchAndHardwareWithEditorContext" classname="com.tuyenmai.openkey.android.OpenKeyAndroidAppTest" time="0.049"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+### 2. Verbatim GitHub Actions `Android CI/CD` & GitHub Release Asset Verification (`REQ-016`, `REQ-020`)
+- **Commit Pushed to `origin/master`**: `c24f244`
+- **`Android CI/CD` (`#42053998785`)**: Completed in `1m14s` (`https://github.com/vinhthang/OpenKey/actions/runs/42053998785`) with status **`success` (`✓`)** (`62/62` Android unit tests + `app-debug.apk` assembly).
+- **GitHub Release (`latest`) Asset Updated**: `https://github.com/vinhthang/OpenKey/releases/download/latest/OpenKey-Android-A37.apk` (`updatedAt: 2026-11-05T15:21:34Z`).
+
+### 3. Final Requirement Traceability Matrix (`REQ-001`..`REQ-020`)
+| Module / Pipeline | Test Suite / Workflow | Verified Requirements | Tests / Steps | Failures | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `:openkey-core` | `VietnameseEngineTest` | `REQ-001`, `REQ-002` | 7 | 0 | PASSED |
+| `:openkey-core` | `BilingualAutoSwitchTest` | `REQ-003`, `REQ-018`, `REQ-019` | 7 | 0 | PASSED |
+| `:openkey-core` | `AutoWordingEngineTest` | `REQ-004`, `REQ-018` | 6 | 0 | PASSED |
+| `:openkey-core` | `ImePipelineAndContextTest` | `REQ-005`, `REQ-006`, `REQ-009` | 9 | 0 | PASSED |
+| `:openkey-core` | `PhoneErgonomicsAndGestureTest` | `REQ-007`, `REQ-008`, `REQ-010`, `REQ-020` | 14 | 0 | PASSED |
+| `:openkey-core` | `SmoothArchitectureTest` | `REQ-011`..`REQ-015`, `REQ-017` | 9 | 0 | PASSED |
+| `:app` | `OpenKeyAndroidAppTest` | `REQ-001`, `REQ-005`, `REQ-007`, `REQ-009`..`REQ-014`, `REQ-017`, `REQ-020` | 10 | 0 | PASSED |
+| `OpenKeySwiftTests` | `OpenKeyEngineTests` + `OpenKeyEventTapTests` | `REQ-016`, `REQ-018`, `REQ-019` | 64 | 0 | PASSED |
+| GitHub Actions | `Android CI/CD` (`42053998785`) & `macOS CI/CD` (`41996550873`) | `REQ-016`..`REQ-020` | 126 tests + APK & `.app` artifacts | 0 | PASSED |
+| **Total** | **Android (62) + macOS (64) + GitHub CI (2 Workflows)** | **`REQ-001`..`REQ-020`** | **126** | **0** | **100% PASSED** |

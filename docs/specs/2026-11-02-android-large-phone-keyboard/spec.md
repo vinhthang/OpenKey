@@ -68,34 +68,31 @@ The goal of **OpenKey Android** (`Sources/OpenKey/android/`) is to keep the **vi
   2. When `useSmartSwitchKey == false`, switching apps preserves the global `language` setting while still resetting the uncommitted syllable session.
 
 ### `REQ-007` — Samsung Galaxy A37 One UI Stock Phone Keyboard Layout Parity (`PhoneLayoutMetrics`, `6.7"` FHD+ `1080 × 2340`)
-- **Description**: The keyboard UI (`KeyboardScreen.kt`, `PhoneLayoutMetrics.kt`, `KeyboardLayoutDefinition.kt`) MUST replicate the exact stock **Samsung One UI Keyboard** phone geometry, key weights, symbol layers, and visual theme on the **Samsung Galaxy A37 (`6.7"`, `1080 × 2340` FHD+, `19.5:9`)** using explicit phone-dedicated layout types (`PhoneLayoutConfig`, `PhoneLayoutMetrics`) rather than tablet/foldable `"LargeScreen"` naming:
-  1. **Samsung One UI Top Toolbar / Suggestion Bar (`42dp` base portrait height)**:
-     - When `activeCandidates` is non-empty: renders 3 centered One UI suggestion slots separated by thin vertical dividers (`1dp`).
-     - When `activeCandidates` is empty: renders the clean Samsung One UI toolbar with quick-access icons (`VI / EN` language indicator pill, `Telex / VNI` chip, One-Handed mode icon, Settings gear icon).
-  2. **Samsung One UI 5-Row Key Grid**:
-     - **Row 1 — Dedicated Number Row (`40dp` base height)**: `1 2 3 4 5 6 7 8 9 0` (`10` equal keys, `10%` width each), enabled by default like Samsung Keyboard and automatically kept visible in VNI mode.
-     - **Row 2 — Top Letter Row (`48dp` base height)**: `q w e r t y u i o p` (`10` equal keys, `10%` width each) with top-right secondary symbol sub-labels (`+ × ÷ = / _ < > [ ]` or `! @ # $ % ^ & * ( )`).
-     - **Row 3 — Home Letter Row (`48dp` base height)**: `a s d f g h j k l` (`9` keys, `10%` width each) with exact **`5%` left and `5%` right horizontal row inset** matching Samsung Keyboard's staggered home row (`! @ # $ % ^ & * (` secondary sub-labels).
-     - **Row 4 — Bottom Letter Row (`48dp` base height)**: `⇧` (`15%` width, One UI Shift/Caps-Lock icon) + `z x c v b n m` (`7` keys × `10%` width each, with `- ' " : ; , ?` sub-labels) + `⌫` (`15%` width, One UI Backspace icon).
-     - **Row 5 — Bottom Function Row (`48dp` base height)**:
-       - `!#1` (`15%` width — Samsung's exact symbol-layer switch label, returning via `ABC` when on symbol layers).
-       - `,` (`10%` width — dedicated left comma key).
-       - `Spacebar` (`50%` width — displaying `"Tiếng Việt"` in Vietnamese mode or `"English (US)"` in English mode).
-       - `.` (`10%` width — dedicated right period key).
-       - `Enter / Action` (`15%` width — context-aware icon/label from `EditorInfo.imeOptions`: `Search`, `Go`, `Send`, `Done`, `Next`, or `↵`).
+- **Description**: The keyboard UI (`KeyboardScreen.kt`, `PhoneLayoutMetrics.kt`, `KeyboardLayoutDefinition.kt`) MUST replicate the exact stock **Samsung One UI 6/7 Keyboard** phone geometry, key weights, symbol layers, and visual theme on the **Samsung Galaxy A37 (`6.7"`, `1080 × 2340` FHD+, `19.5:9`)** using explicit phone-dedicated layout types (`PhoneLayoutConfig`, `PhoneLayoutMetrics`) rather than tablet/foldable `"LargeScreen"` naming:
+  1. **Samsung One UI Top Toolbar / Suggestion Bar (`44dp` base portrait height)**:
+     - When `activeCandidates` is non-empty: renders 3 full-height One UI suggestion slots separated by thin vertical dividers (`1dp`), with `candidates[0]` highlighted in the center primary slot (`17.sp` `FontWeight.SemiBold`).
+     - When `activeCandidates` is empty: renders a clean, minimalist One UI toolbar with a subtle left mode indicator (`"Tiếng Việt • Telex"` / `"Tiếng Việt • VNI"` / `"English (US)"`) and borderless right-side Canvas vector icons (`One-Handed` mode icon and `Settings` gear icon) — with zero bulky text pill buttons.
+  2. **Samsung One UI 5-Row Key Grid (`44dp` strip, `42dp` number row, `52dp` letter rows, `50dp` bottom row, `4dp` horizontal gap, `5dp` vertical gap, `7dp` corner radius)**:
+     - **Row 1 — Dedicated Number Row (`42dp` base height)**: `1 2 3 4 5 6 7 8 9 0` (`10` equal keys, `10%` width each), enabled by default like Samsung Keyboard and automatically kept visible in VNI mode.
+     - **Row 2 — Top Letter Row (`52dp` base height)**: `q w e r t y u i o p` (`10` equal keys, `10%` width each) with top-right secondary symbol sub-labels (`+ × ÷ = / _ < > [ ]` or `! @ # $ % ^ & * ( )`).
+     - **Row 3 — Home Letter Row (`52dp` base height)**: `a s d f g h j k l` (`9` keys, `10%` width each) with exact **`5%` left and `5%` right horizontal row inset** matching Samsung Keyboard's staggered home row (`! @ # $ % ^ & * (` secondary sub-labels).
+     - **Row 4 — Bottom Letter Row (`52dp` base height)**: `⇧` (`15%` width, One UI Shift/Caps-Lock vector icon) + `z x c v b n m` (`7` keys × `10%` width each, with `- ' " : ; , ?` sub-labels) + `⌫` (`15%` width, One UI Backspace vector icon).
+     - **Row 5 — Bottom Function Row (`50dp` base height)**:
+       - On `QWERTY` (`6` keys): `!#1` (`14%` width — symbol-layer switch) + `🌐` (`10%` width — dedicated Language Switch key with Globe vector icon and `VI`/`EN` badge) + `,` (`9%` width — left comma key) + `Spacebar` (`42%` width — displaying `"Tiếng Việt"` in Vietnamese mode or `"English (US)"` in English mode) + `.` (`9%` width — right period key) + `Enter / Action` (`16%` width — accented One UI Blue keycap with context-aware vector icon for `Search`, `Go`, `Send`, `Done`, `Next`, or `↵`).
+       - On `SYMBOLS_1` & `SYMBOLS_2` (`5` keys): `ABC` (`15%` width) + `,` (`10%` width) + `Spacebar` (`50%` width) + `.` (`10%` width) + `Enter / Action` (`15%` width).
   3. **Samsung One UI Symbol Layers (`!#1` Page `1/2` & `2/2`)**:
      - Tapping `!#1` opens Page `1/2` (`1–0` top row, `+ × ÷ = / _ < > [ ]`, `! @ # $ % ^ & * ( )`, `1/2` page button + `- ' " : ; , ?` + `⌫`, and `ABC` + `,` + `Space` + `.` + `Enter`).
      - Tapping `1/2` switches to Page `2/2` (`~ ` | • √ π ÷ × § Δ`, `£ ¢ € ¥ ^ ° = { } \`, `2/2` + `% © ® ™ ✓ [ ]` + `⌫`).
   4. **Samsung One UI Visual Theme & Galaxy A37 Phone Ergonomics**:
-     - **One UI Light Theme**: `#E8EAED` keyboard background, `#FFFFFF` letter/number keycaps (`6dp` corner radius, `1dp` `#C4C7CC` bottom elevation border), `#D6D9E0` functional keycaps (`⇧`, `⌫`, `!#1`, `Enter`), `#252528` primary label, `#8E9299` top-right sub-label.
-     - **One UI Dark Theme**: `#1B1B1F` keyboard background, `#2C2C32` letter/number keycaps (`6dp` corner radius), `#222227` functional keycaps, `#F2F2F7` primary label, `#8E8E98` top-right sub-label.
+     - **One UI Light Theme**: `#E8EAED` keyboard background, `#FFFFFF` letter/number keycaps (`7dp` corner radius, `#DCE0E8` pressed fill, `1dp` `#C4C7CC` bottom elevation border), `#D6D9E0` functional keycaps (`#C4C9D4` pressed fill), `#0072DE` accented `Enter` keycap, `#252528` primary label, `#7A7E87` top-right sub-label.
+     - **One UI Dark Theme**: `#1B1B1F` keyboard background, `#2C2C32` letter/number keycaps (`7dp` corner radius, `#3E3E47` pressed fill), `#222227` functional keycaps (`#34343D` pressed fill), `#387AFF` accented `Enter` keycap, `#F2F2F7` primary label, `#9494A0` top-right sub-label.
      - **Configurable Size & Ergonomics**:
        - `heightScalePercent` (`85..125`, default `100`).
        - `bottomChinPaddingDp` (`0..48`, default `14dp` in portrait matching One UI's bottom keyboard margin above the gesture handle).
-       - `OneHandedMode` (`OFF | LEFT | RIGHT`, `82%` active keyboard width + `18%` One UI side dock gutter with `⇄` swap and `⤢` expand buttons).
+       - `OneHandedMode` (`OFF | LEFT | RIGHT`, `82%` active keyboard width + `18%` One UI side dock gutter with vector swap and expand buttons).
        - Landscape auto-compact (`38dp` alpha rows, `32dp` number row, `<= 42%` screen height).
 - **Acceptance Criteria**:
-  1. `PhoneLayoutMetrics.compute(PhoneLayoutConfig(...))` and `KeyboardLayoutDefinition` produce the exact 5-row Samsung One UI phone layout (`!#1`, `1/2`, `2/2`, `ABC`, `5%` Row 3 side inset, `15% / 10% / 50% / 10% / 15%` Row 5 weights) across Galaxy A37 portrait (`360dp × 780dp` and `411dp × 891dp`) and landscape configurations, with zero `"LargeScreen"` tablet class names remaining in `:openkey-core` or `:app`.
+  1. `PhoneLayoutMetrics.compute(PhoneLayoutConfig(...))` and `KeyboardLayoutDefinition` produce the exact 5-row Samsung One UI 6/7 phone layout (`44dp` strip, `42dp` number row, `52dp` alpha rows, `50dp` bottom row, `!#1`, `🌐`, `1/2`, `2/2`, `ABC`, `5%` Row 3 side inset, `14% / 10% / 9% / 42% / 9% / 16%` QWERTY Row 5 weights) across Galaxy A37 portrait (`360dp × 780dp` and `411dp × 891dp`) and landscape configurations, with zero `"LargeScreen"` tablet class names remaining in `:openkey-core` or `:app`.
 
 ### `REQ-008` — Samsung One UI Touch Gestures, Long-Press Popups & Haptics (`KeyboardGestureController`)
 - **Description**: The keyboard UI MUST implement deterministic gesture recognition (`KeyboardGestureController.kt`) matching Samsung One UI Keyboard behavior:
@@ -205,3 +202,25 @@ The goal of **OpenKey Android** (`Sources/OpenKey/android/`) is to keep the **vi
 - **Acceptance Criteria**:
   1. Typing `"thể "` (both standard Telex `theer ` and free-order `there `), `"có thể "`, `"con thể "`, `"hay thể "`, `"như thế "`, and `"thế "` in `V` mode produces exact Vietnamese output (`"thể "`, `"có thể "`, `"con thể "`, `"hay thể "`, `"như thế "`, `"thế "`), while English contexts (`"there is "`, `"in there "`, `"these are "`) produce `"there is "`, `"in there "`, `"these are "`.
   2. Typing `"Why "` (`W-w-h-y ` or `W-h-y `), `"why "` (`w-w-h-y ` or `w-h-y `), and sentence-initial `". wwhy "` or `". Why "` in `V` mode produces `"Why "`, `"why "`, and `". Why "` with zero `"Wwhy"` duplication on both Android (`:openkey-core`) and macOS (`OpenKeySwiftCore`).
+
+### `REQ-020` — Authentic Samsung Galaxy A37 One UI 6/7 Visual Polish, High-Legibility Typography, Dedicated Bottom-Row Globe Key & Custom Vector Icons (`PhoneLayoutMetrics.kt`, `KeyboardLayoutDefinition.kt`, `KeyButton.kt`, `CandidateStripView.kt`, `KeyboardScreen.kt`)
+- **Description**: `:openkey-core` and `:app` MUST eliminate prototype-style small characters, arbitrary top-bar text pills, and raw Unicode glyph buttons by implementing authentic **Samsung One UI 6/7 Keyboard / Gboard** typography, row geometry, bottom-row language switching, and Canvas vector icons:
+  1. **Taller Samsung Galaxy A37 Portrait Row Proportions & Tighter Keycap Spacing (`PhoneLayoutMetrics.kt`)**:
+     - Portrait base heights (`heightScalePercent = 100`): `candidateStripHeightDp = 44dp`, `numberRowHeightDp = 42dp`, `alphaRowHeightDp = 52dp` (yielding a `47dp` vertical keycap face), `bottomRowHeightDp = 50dp`, `keyCornerRadiusDp = 7dp`, `keyHorizontalGapDp = 4dp`, and `keyVerticalGapDp = 5dp` (`totalHeightDp = 306dp` with default `14dp` bottom chin).
+  2. **High-Legibility Keycap Typography (`KeyButton.kt`)**:
+     - Lowercase letter keys (`a–z`): **`23.sp`** (`FontWeight.Normal`) with a `1.dp` downward vertical offset when a top-right secondary symbol (`10.5.sp` `FontWeight.Medium`) is present, ensuring the primary character is large, centered in the lower-middle keycap zone, and never crowded by the secondary sub-label.
+     - Uppercase letter keys (`A–Z`): **`21.sp`** (`FontWeight.Medium`).
+     - Number row keys (`1–0`): **`20.sp`** (`FontWeight.Normal`).
+     - Punctuation keys (`,` and `.`): **`22.sp`** (`FontWeight.Medium`).
+     - Spacebar label (`"‹ Tiếng Việt ›"` / `"‹ English (US) ›"`): **`13.5.sp`** (`FontWeight.Medium`).
+     - Functional text keys (`!#1`, `ABC`, `1/2`, `2/2`): **`14.sp`** (`FontWeight.SemiBold`).
+  3. **Dedicated Bottom-Row Language Switch Key (`🌐`) & Clutter-Free Top Suggestion/Toolbar Strip (`KeyboardLayoutDefinition.kt` & `CandidateStripView.kt`)**:
+     - **Row 5 (`QWERTY` layer)**: MUST include a dedicated **Language Switch key (`🌐`, `KeyAction.SwitchLanguage`)** between `!#1` and `,` with exact weights: `!#1` (`0.14f`), `🌐` (`0.10f`, `primaryLabel = "🌐"`, `secondaryLabel = "VI"` when `language == 1` else `"EN"`), `,` (`0.09f`), `Spacebar` (`0.42f`), `.` (`0.09f`), and `Enter` (`0.16f`).
+     - **`CandidateStripView.kt`**: MUST remove the 4 boxy text pill buttons (`[VI]`, `[Telex]`, `[Full / Left 82%]`, `[⚙]`). When `candidates` is non-empty, it renders 3 full-height suggestion slots ordered as `[candidates.getOrNull(1), candidates[0] (center primary bold 17.sp with subtle accent pill), candidates.getOrNull(2)]`. When `candidates` is empty, it renders a clean left mode label (`"Tiếng Việt • Telex"` / `"Tiếng Việt • VNI"` / `"English (US)"`, tappable to toggle `Telex`/`VNI`) and borderless right-side Canvas vector icon buttons (`One-Handed` icon and `Settings` gear icon).
+  4. **Custom Canvas Vector Icons, Pressed Keycap Fill & Accented Enter Key (`KeyButton.kt` & `ThemePalette`)**:
+     - `ThemePalette` MUST define `pressedKeycapColor` (`0xFFDCE0E8` Light / `0xFF3E3E47` Dark) and `pressedFunctionalKeycapColor` (`0xFFC4C9D4` Light / `0xFF34343D` Dark).
+     - `KeyButton.kt` MUST render custom Canvas vector icons (`KeyboardVectorIcons`) instead of raw Unicode text glyphs for `KeyAction.Shift` (outline arrow when unshifted, solid filled `accentColor` arrow when shifted, solid filled arrow + underline bar when Caps Locked), `KeyAction.Backspace` (pentagonal backspace outline with `×` cross), `KeyAction.SwitchLanguage` (meridian globe vector icon + compact `VI`/`EN` badge), and `KeyAction.Enter` (white vector icon for `Search` magnifier, `Send` paper plane, `Go`/`Next` right arrow, `Done` checkmark, or `↵` return arrow on an accented `theme.accentColor` keycap).
+- **Acceptance Criteria**:
+  1. `PhoneLayoutMetrics.compute(PhoneLayoutConfig(screenWidthDp = 360, screenHeightDp = 780, isLandscape = false))` returns `candidateStripHeightDp = 44f`, `numberRowHeightDp = 42f`, `alphaRowHeightDp = 52f`, `bottomRowHeightDp = 50f`, `keyCornerRadiusDp = 7f`, `keyHorizontalGapDp = 4f`, `keyVerticalGapDp = 5f`, and `totalHeightDp = 306f`.
+  2. `KeyboardLayoutDefinition.getLayer(KeyboardLayer.QWERTY, ...)` Row 5 contains 6 keys (`!#1` [`0.14f`], `🌐` [`0.10f`, `KeyAction.SwitchLanguage`], `,` [`0.09f`], `Spacebar` [`0.42f`], `.` [`0.09f`], `Enter` [`0.16f`]) whose weights sum to `1.00f`, and `ThemePalette` exposes `pressedKeycapColor` and `pressedFunctionalKeycapColor` for both Light and Dark themes.
+  3. `KeyButton.kt` and `CandidateStripView.kt` render `23.sp` lowercase / `21.sp` uppercase / `20.sp` number typography, Canvas vector icons (`Shift`, `Backspace`, `Globe`, `Enter`, `Settings`, `One-Handed`), center-highlighted primary candidate slot, and accented `Enter` keycap, and `./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug` passes 100%.

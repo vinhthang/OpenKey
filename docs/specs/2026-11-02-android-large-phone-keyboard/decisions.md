@@ -64,15 +64,15 @@
 
 ---
 
-## `ADR-007` — Samsung Galaxy A37 One UI Stock Keyboard Layout Parity & Ergonomics (`REQ-007`)
-- **Context**: The user's daily driver is a **Samsung Galaxy A37** (`6.7"` Super AMOLED, `1080 × 2340` FHD+, `19.5:9` aspect ratio, `360dp × 780dp` or `411dp × 891dp` logical viewport) running Samsung One UI, and the user explicitly requires **minimum change from the current stock Samsung Keyboard** so existing thumb muscle memory transfers with zero friction (`REQ-007`).
-- **Decision**: Implement `LargeScreenLayoutMetrics.kt` and `KeyboardLayoutDefinition.kt` in `:openkey-core` to mirror the exact stock Samsung One UI Keyboard geometry and visual theme:
-  1. **Samsung One UI 5-Row Proportions**: `42dp` Top Suggestion/Toolbar Strip, `40dp` Number Row (`1–0`), `48dp` Letter Rows (`×3`, with an exact `5%` left and `5%` right horizontal inset on the `A–L` home row), and `48dp` Bottom Row (`!#1` [`15%`], `,` [`10%`], `Spacebar` [`50%`, labeled `"Tiếng Việt"` / `"English (US)"`], `.` [`10%`], `Enter` [`15%`]).
+## `ADR-007` — Samsung Galaxy A37 One UI Stock Keyboard Layout Parity & Ergonomics (`REQ-007`, `REQ-020`)
+- **Context**: The user's daily driver is a **Samsung Galaxy A37** (`6.7"` Super AMOLED, `1080 × 2340` FHD+, `19.5:9` aspect ratio, `360dp × 780dp` or `411dp × 891dp` logical viewport) running Samsung One UI, and the user explicitly requires **minimum change from the current stock Samsung Keyboard** so existing thumb muscle memory transfers with zero friction (`REQ-007`, `REQ-020`).
+- **Decision**: Implement `PhoneLayoutMetrics.kt` and `KeyboardLayoutDefinition.kt` in `:openkey-core` to mirror the exact stock Samsung One UI 6/7 Keyboard geometry and visual theme:
+  1. **Samsung One UI 5-Row Proportions**: `44dp` Top Suggestion/Toolbar Strip, `42dp` Number Row (`1–0`), `52dp` Letter Rows (`×3`, with an exact `5%` left and `5%` right horizontal inset on the `A–L` home row), and `50dp` Bottom Row (`!#1` [`14%`], `🌐` [`10%`], `,` [`9%`], `Spacebar` [`42%`, labeled `"Tiếng Việt"` / `"English (US)"`], `.` [`9%`], `Enter` [`16%`]) with `4dp` horizontal gap, `5dp` vertical gap, and `7dp` keycap corner radius.
   2. **Samsung One UI Symbol Pages (`!#1`, `1/2`, `2/2`, `ABC`) & Top-Right Sub-Labels**: Replicate Samsung Keyboard's exact secondary symbol sub-labels on letter keys and its 2-page `!#1` symbol layout (`1/2` and `2/2`).
-  3. **Samsung One UI Light & Dark Color Palette**: Match Samsung Keyboard's `#E8EAED` light background / `#FFFFFF` `6dp`-radius keycaps / `#D6D9E0` modifier keys and `#1B1B1F` dark background / `#2C2C32` keycaps / `#222227` modifier keys.
+  3. **Samsung One UI Light & Dark Color Palette**: Match Samsung Keyboard's `#E8EAED` light background / `#FFFFFF` `7dp`-radius keycaps (`#DCE0E8` pressed) / `#D6D9E0` modifier keys (`#C4C9D4` pressed) / `#0072DE` accented `Enter` key and `#1B1B1F` dark background / `#2C2C32` keycaps (`#3E3E47` pressed) / `#222227` modifier keys (`#34343D` pressed) / `#387AFF` accented `Enter` key.
   4. **Galaxy A37 Bottom Chin & One-Handed Mode**: Default `14dp` portrait bottom chin margin above the One UI gesture bar (`0..48dp` configurable), `heightScalePercent` (`85..125%`), One-Handed `82%` docked mode (`LEFT | RIGHT | OFF` with `18%` Swap/Expand gutter), and `38dp` landscape auto-compact mode.
-- **Trade-offs & Risks**: Matching Samsung One UI's exact key weights (`5%` home-row inset, `15%` modifier width, `!#1` / `1/2` symbol pages) rather than generic Material 3 pill buttons requires custom key geometry definitions in `KeyboardLayoutDefinition.kt`, which is straightforward in Jetpack Compose `Row`/`Box` layouts.
-- **Rejected Alternatives**: Designing a custom Material Expressive pill keyboard or Gboard clone (rejected because the user explicitly requested minimum visual and muscle-memory change from the current Samsung Galaxy A37 keyboard).
+- **Trade-offs & Risks**: Matching Samsung One UI's exact key weights (`5%` home-row inset, `15%` modifier width, `🌐` bottom-row language key, `!#1` / `1/2` symbol pages) rather than generic Material 3 pill buttons requires custom key geometry definitions in `KeyboardLayoutDefinition.kt`, which is straightforward in Jetpack Compose `Row`/`Box` layouts.
+- **Rejected Alternatives**: Designing a custom Material Expressive pill keyboard or prototype toolbar with scattered pill buttons (rejected because the user explicitly requested authentic Samsung Galaxy A37 One UI keyboard ergonomics and legibility).
 - **Consequences**: Switching from Samsung Keyboard to OpenKey on the Galaxy A37 feels 100% native and familiar to the user's thumbs while delivering OpenKey's Vietnamese and bilingual engine under the hood.
 
 ---
@@ -252,3 +252,29 @@
   - *Mitigation*: `VietnameseDictionary.shared` is a lazy singleton prewarmed asynchronously on a background daemon thread via `VietnameseDictionary.prewarmAsync()` (`REQ-012`), adding `< 2ms` one-time startup work and `O(1)` lookup on the hot path.
 - **Rejected Alternatives**:
   - *Removing `"there"` from `englishWords`*: Rejected because `"there"` is a core English word needed for English phrases (`"there is "`, `"in there "`, `"over there "`) and candidate completion.
+
+---
+
+## `ADR-021`: Authentic Samsung Galaxy A37 One UI 6/7 Visual Polish, High-Legibility Typography, Dedicated Bottom-Row Globe Key & Custom Canvas Vector Icons (`REQ-020`, `REQ-007`)
+- **Date**: `2026-11-05`
+- **Status**: `Accepted`
+- **Context**: Real-device testing of `OpenKey-Android-A37.apk` on a `6.7"` FHD+ (`1080 × 2340`) phone revealed three critical UI/UX deficiencies compared to the stock **Samsung Galaxy A37 One UI 6/7 Keyboard** and **Gboard**:
+  1. **Key Characters & Row Proportions Too Small**: `KeyButton.kt` rendered letter labels at `19.sp` (`FontWeight.Normal`) inside `48dp` portrait rows with `6dp` vertical gap (`42dp` actual keycap height), making letters appear cramped and hard to read at normal holding distance.
+  2. **Cluttered Top-Bar Pill Buttons & Missing Bottom-Row Language Key**: `CandidateStripView.kt` placed 4 boxy text pill buttons (`[VI]`, `[Telex]`, `[Full / Left 82%]`, `[⚙]`) across the top strip when idle—which vanished whenever word candidates appeared—and `Row 5` (`KeyboardLayoutDefinition.kt`) lacked a dedicated **Language Switch (`🌐`)** key.
+  3. **Prototype-Like Raw Text Glyphs & Flat Unresponsive Keycaps**: `KeyButton.kt` rendered raw Unicode characters (`"⇧"`, `"⇪"`, `"⌫"`, `"↵"`) instead of crisp vector icons, provided no pressed-state keycap fill (`pressedKeycapColor`), and styled `Enter` with the same flat gray (`functionalKeycapColor`) as modifier keys instead of an accented action keycap.
+- **Decision**:
+  1. **Upgrade Portrait Row Geometry & Keycap Typography (`PhoneLayoutMetrics.kt` & `KeyButton.kt`)**:
+     - Increase portrait base heights to `candidateStripHeightDp = 44dp`, `numberRowHeightDp = 42dp`, `alphaRowHeightDp = 52dp`, `bottomRowHeightDp = 50dp`, `keyCornerRadiusDp = 7dp`, `keyHorizontalGapDp = 4dp`, and `keyVerticalGapDp = 5dp` (`totalHeightDp = 306dp`).
+     - Increase primary letter typography to **`23.sp`** (`FontWeight.Normal`, with `1.dp` downward offset when a `10.5.sp` top-right secondary symbol is present), uppercase letters to **`21.sp`** (`FontWeight.Medium`), number row keys (`1–0`) to **`20.sp`**, punctuation (`,` / `.`) to **`22.sp`**, and candidate strip primary suggestions to **`17.sp`** (`FontWeight.SemiBold`).
+  2. **Dedicated Bottom-Row Language Switch Key (`🌐`) & Clutter-Free Top Strip (`KeyboardLayoutDefinition.kt` & `CandidateStripView.kt`)**:
+     - Add a dedicated **Language Switch key (`🌐`, `KeyAction.SwitchLanguage`, `0.10f` weight, `secondaryLabel = "VI"` / `"EN"`)** in `Row 5` (`QWERTY`) between `!#1` (`0.14f`) and `,` (`0.09f`), alongside `Spacebar` (`0.42f`), `.` (`0.09f`), and `Enter` (`0.16f`).
+     - Remove the 4 boxy text pill buttons from `CandidateStripView.kt`. Render a clean 3-slot suggestion bar (`[secondary1, primary0 (center highlighted), secondary2]`) when typing, and a minimalist One UI idle toolbar (subtle left mode label + borderless right-side Canvas vector icons for `One-Handed` and `Settings`) when idle.
+  3. **Custom Canvas Vector Icons, Pressed Keycap Fill & Accented Enter Key (`KeyButton.kt` & `ThemePalette`)**:
+     - Add `pressedKeycapColor` (`0xFFDCE0E8` Light / `0xFF3E3E47` Dark) and `pressedFunctionalKeycapColor` (`0xFFC4C9D4` Light / `0xFF34343D` Dark) to `ThemePalette`.
+     - Render custom Canvas vector paths (`KeyboardVectorIcons`) for `Shift` (outline / filled accent / Caps-Lock underlined), `Backspace` (pentagonal key with `×`), `Globe` (`🌐`), `Enter` (`Search` magnifier, `Send` plane, `Go`/`Next` arrow, `Done` check, or `↵` return arrow on an accented `theme.accentColor` keycap), `Settings` gear, and `One-Handed` dock icons.
+- **Trade-offs & Risks**:
+  - *Trade-off*: Increasing portrait `alphaRowHeightDp` from `48dp` to `52dp` increases total default portrait height from `288dp` to `306dp` (`+18dp`, ~`34.3%` of the Galaxy A37's `891dp` viewport height).
+  - *Mitigation*: `306dp` matches the exact vertical footprint of the stock Samsung One UI 6/7 Keyboard with number row enabled on a `6.7"` `19.5:9` display, and users can still scale height between `85%` and `125%` in `SettingsActivity`.
+- **Rejected Alternatives**:
+  - *Keeping `VI/EN` toggle only in the top toolbar*: Rejected because the top toolbar is replaced by word candidates during typing, hiding the language switch button right when users need it.
+  - *Bundling external PNG/VectorDrawable XML resources for keyboard icons*: Rejected in favor of pure Compose `Canvas` / `Path` vector drawing (`KeyboardVectorIcons`) which scales losslessly at any DPI/scale factor, requires zero XML asset lookups on the 120Hz render path, and dynamically adapts stroke/fill to `ThemePalette`.
