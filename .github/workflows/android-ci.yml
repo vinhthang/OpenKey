@@ -49,10 +49,12 @@ jobs:
           name: OpenKey-Android-A37
           path: Sources/OpenKey/android/app/build/outputs/apk/debug/OpenKey-Android-A37.apk
 
-      - name: Publish APK to GitHub Release on Tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish APK to GitHub Releases
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
-          files: |
-            Sources/OpenKey/android/app/build/outputs/apk/debug/OpenKey-Android-A37.apk
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'latest' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && format('OpenKey {0}', github.ref_name) || 'OpenKey Android (Samsung Galaxy A37) — Latest APK' }}
+          prerelease: false
+          make_latest: true
+          files: Sources/OpenKey/android/app/build/outputs/apk/debug/OpenKey-Android-A37.apk
