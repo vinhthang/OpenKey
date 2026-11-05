@@ -33,8 +33,13 @@ data class ThemePalette(
     val functionalKeycapColor: Long,
     val primaryTextColor: Long,
     val secondaryTextColor: Long,
-    val borderColor: Long
-)
+    val borderColor: Long,
+    val pressedKeycapColor: Long = 0xFFDCE0E8,
+    val pressedFunctionalKeycapColor: Long = 0xFFC4C9D4,
+    val accentColor: Long = 0xFF0072DE
+) {
+    val keyBorderColor: Long get() = borderColor
+}
 
 object KeyboardLayoutDefinition {
 
@@ -43,8 +48,11 @@ object KeyboardLayoutDefinition {
         keycapColor = 0xFFFFFFFF,
         functionalKeycapColor = 0xFFD6D9E0,
         primaryTextColor = 0xFF252528,
-        secondaryTextColor = 0xFF8E9299,
-        borderColor = 0xFFC4C7CC
+        secondaryTextColor = 0xFF7A7E87,
+        borderColor = 0xFFC4C7CC,
+        pressedKeycapColor = 0xFFDCE0E8,
+        pressedFunctionalKeycapColor = 0xFFC4C9D4,
+        accentColor = 0xFF0072DE
     )
 
     val OneUiDarkTheme = ThemePalette(
@@ -52,8 +60,11 @@ object KeyboardLayoutDefinition {
         keycapColor = 0xFF2C2C32,
         functionalKeycapColor = 0xFF222227,
         primaryTextColor = 0xFFF2F2F7,
-        secondaryTextColor = 0xFF8E8E98,
-        borderColor = 0xFF222227
+        secondaryTextColor = 0xFF9494A0,
+        borderColor = 0xFF222227,
+        pressedKeycapColor = 0xFF3E3E47,
+        pressedFunctionalKeycapColor = 0xFF34343D,
+        accentColor = 0xFF387AFF
     )
 
     private data class LayerCacheKey(
@@ -142,15 +153,7 @@ object KeyboardLayoutDefinition {
                     )
                 )
 
-                val row5 = KeyRow(
-                    keys = listOf(
-                        KeyModel(primaryLabel = "!#1", weight = 0.15f, isFunctional = true, action = KeyAction.SwitchLayer),
-                        KeyModel(primaryLabel = ",", weight = 0.10f, action = KeyAction.CommitChar(",")),
-                        KeyModel(primaryLabel = spaceLabel, weight = 0.50f, action = KeyAction.Space),
-                        KeyModel(primaryLabel = ".", weight = 0.10f, action = KeyAction.CommitChar(".")),
-                        KeyModel(primaryLabel = imeActionLabel, weight = 0.15f, isFunctional = true, action = KeyAction.Enter)
-                    )
-                )
+                val row5 = buildBottomRow(returnToQwerty = false, language = language, imeActionLabel = imeActionLabel)
 
                 KeyboardLayerDef(listOf(row1, row2, row3, row4, row5))
             }
@@ -188,15 +191,7 @@ object KeyboardLayoutDefinition {
                     )
                 )
 
-                val row5 = KeyRow(
-                    listOf(
-                        KeyModel(primaryLabel = "ABC", weight = 0.15f, isFunctional = true, action = KeyAction.SwitchLayer),
-                        KeyModel(primaryLabel = ",", weight = 0.10f, action = KeyAction.CommitChar(",")),
-                        KeyModel(primaryLabel = spaceLabel, weight = 0.50f, action = KeyAction.Space),
-                        KeyModel(primaryLabel = ".", weight = 0.10f, action = KeyAction.CommitChar(".")),
-                        KeyModel(primaryLabel = imeActionLabel, weight = 0.15f, isFunctional = true, action = KeyAction.Enter)
-                    )
-                )
+                val row5 = buildBottomRow(returnToQwerty = true, language = language, imeActionLabel = imeActionLabel)
 
                 KeyboardLayerDef(listOf(row1, row2, row3, row4, row5))
             }
@@ -234,18 +229,42 @@ object KeyboardLayoutDefinition {
                     )
                 )
 
-                val row5 = KeyRow(
-                    listOf(
-                        KeyModel(primaryLabel = "ABC", weight = 0.15f, isFunctional = true, action = KeyAction.SwitchLayer),
-                        KeyModel(primaryLabel = ",", weight = 0.10f, action = KeyAction.CommitChar(",")),
-                        KeyModel(primaryLabel = spaceLabel, weight = 0.50f, action = KeyAction.Space),
-                        KeyModel(primaryLabel = ".", weight = 0.10f, action = KeyAction.CommitChar(".")),
-                        KeyModel(primaryLabel = imeActionLabel, weight = 0.15f, isFunctional = true, action = KeyAction.Enter)
-                    )
-                )
+                val row5 = buildBottomRow(returnToQwerty = true, language = language, imeActionLabel = imeActionLabel)
 
                 KeyboardLayerDef(listOf(row1, row2, row3, row4, row5))
             }
+        }
+    }
+
+    fun buildBottomRow(returnToQwerty: Boolean, language: Int, imeActionLabel: String): KeyRow {
+        val spaceLabel = if (language == 1) "Tiếng Việt" else "English (US)"
+        return if (!returnToQwerty) {
+            KeyRow(
+                keys = listOf(
+                    KeyModel(primaryLabel = "!#1", weight = 0.14f, isFunctional = true, action = KeyAction.SwitchLayer),
+                    KeyModel(
+                        primaryLabel = "🌐",
+                        secondaryLabel = if (language == 1) "VI" else "EN",
+                        weight = 0.10f,
+                        isFunctional = true,
+                        action = KeyAction.SwitchLanguage
+                    ),
+                    KeyModel(primaryLabel = ",", weight = 0.09f, action = KeyAction.CommitChar(",")),
+                    KeyModel(primaryLabel = spaceLabel, weight = 0.42f, action = KeyAction.Space),
+                    KeyModel(primaryLabel = ".", weight = 0.09f, action = KeyAction.CommitChar(".")),
+                    KeyModel(primaryLabel = imeActionLabel, weight = 0.16f, isFunctional = true, action = KeyAction.Enter)
+                )
+            )
+        } else {
+            KeyRow(
+                keys = listOf(
+                    KeyModel(primaryLabel = "ABC", weight = 0.15f, isFunctional = true, action = KeyAction.SwitchLayer),
+                    KeyModel(primaryLabel = ",", weight = 0.10f, action = KeyAction.CommitChar(",")),
+                    KeyModel(primaryLabel = spaceLabel, weight = 0.50f, action = KeyAction.Space),
+                    KeyModel(primaryLabel = ".", weight = 0.10f, action = KeyAction.CommitChar(".")),
+                    KeyModel(primaryLabel = imeActionLabel, weight = 0.15f, isFunctional = true, action = KeyAction.Enter)
+                )
+            )
         }
     }
 }

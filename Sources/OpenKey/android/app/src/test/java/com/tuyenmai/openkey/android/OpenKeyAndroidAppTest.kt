@@ -466,4 +466,41 @@ class OpenKeyAndroidAppTest {
         // Teardown
         OpenKeyLogger.shared.isDebugEnabled = false
     }
+
+    // 11. Samsung Galaxy A37 One UI 6/7 Visual Polish and Vector Icons (REQ-020, ADR-021)
+    @Test
+    fun testSamsungOneUi6VisualPolishAndVectorIcons() {
+        val possibleKeyButtonPaths = listOf(
+            File("src/main/java/com/tuyenmai/openkey/android/ui/KeyButton.kt"),
+            File("app/src/main/java/com/tuyenmai/openkey/android/ui/KeyButton.kt"),
+            File("../app/src/main/java/com/tuyenmai/openkey/android/ui/KeyButton.kt"),
+            File("Sources/OpenKey/android/app/src/main/java/com/tuyenmai/openkey/android/ui/KeyButton.kt")
+        )
+        val keyButtonFile = possibleKeyButtonPaths.firstOrNull { it.exists() }
+        assertNotNull("KeyButton.kt must exist", keyButtonFile)
+        val keyButtonContent = keyButtonFile!!.readText()
+
+        assertTrue("KeyButton must contain 23.sp", keyButtonContent.contains("23.sp"))
+        assertTrue("KeyButton must contain 21.sp", keyButtonContent.contains("21.sp"))
+        assertTrue("KeyButton must contain 20.sp", keyButtonContent.contains("20.sp"))
+        assertTrue("KeyButton must contain KeyboardVectorIcons", keyButtonContent.contains("KeyboardVectorIcons"))
+        assertTrue("KeyButton must contain pressedKeycapColor", keyButtonContent.contains("pressedKeycapColor"))
+        assertTrue("KeyButton must contain pressedFunctionalKeycapColor", keyButtonContent.contains("pressedFunctionalKeycapColor"))
+
+        val possibleCandidatePaths = listOf(
+            File("src/main/java/com/tuyenmai/openkey/android/ui/CandidateStripView.kt"),
+            File("app/src/main/java/com/tuyenmai/openkey/android/ui/CandidateStripView.kt"),
+            File("../app/src/main/java/com/tuyenmai/openkey/android/ui/CandidateStripView.kt"),
+            File("Sources/OpenKey/android/app/src/main/java/com/tuyenmai/openkey/android/ui/CandidateStripView.kt")
+        )
+        val candidateFile = possibleCandidatePaths.firstOrNull { it.exists() }
+        assertNotNull("CandidateStripView.kt must exist", candidateFile)
+        val candidateContent = candidateFile!!.readText()
+
+        assertTrue("CandidateStripView must contain 17.sp", candidateContent.contains("17.sp"))
+        assertTrue("CandidateStripView must contain SettingsGearIcon", candidateContent.contains("SettingsGearIcon"))
+        assertTrue("CandidateStripView must contain OneHandedModeIcon", candidateContent.contains("OneHandedModeIcon"))
+        assertFalse("CandidateStripView must not contain 'Left 82%'", candidateContent.contains("\"Left 82%\""))
+        assertFalse("CandidateStripView must not contain 'Right 82%'", candidateContent.contains("\"Right 82%\""))
+    }
 }

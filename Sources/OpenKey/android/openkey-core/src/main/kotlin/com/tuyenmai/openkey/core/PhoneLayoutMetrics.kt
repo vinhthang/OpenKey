@@ -42,6 +42,14 @@ data class ComputedKeyboardMetrics(
 
 object PhoneLayoutMetrics {
 
+    const val PORTRAIT_CANDIDATE_STRIP_DP = 44f
+    const val PORTRAIT_NUMBER_ROW_DP = 42f
+    const val PORTRAIT_ALPHA_ROW_DP = 52f
+    const val PORTRAIT_BOTTOM_ROW_DP = 50f
+    const val KEY_CORNER_RADIUS_DP = 7f
+    const val KEY_HORIZONTAL_GAP_DP = 4f
+    const val KEY_VERTICAL_GAP_DP = 5f
+
     fun compute(config: PhoneLayoutConfig): ComputedKeyboardMetrics {
         val isNumberRowVisible = config.showNumberRow || config.inputType == 1
 
@@ -88,10 +96,10 @@ object PhoneLayoutMetrics {
             )
         } else {
             val scale = config.heightScalePercent.coerceIn(85, 125) / 100f
-            val candidateStripHeightDp = 42f * scale
-            val numberRowHeightDp = if (isNumberRowVisible) 40f * scale else 0f
-            val alphaRowHeightDp = 48f * scale
-            val bottomRowHeightDp = 48f * scale
+            val candidateStripHeightDp = PORTRAIT_CANDIDATE_STRIP_DP * scale
+            val numberRowHeightDp = if (isNumberRowVisible) PORTRAIT_NUMBER_ROW_DP * scale else 0f
+            val alphaRowHeightDp = PORTRAIT_ALPHA_ROW_DP * scale
+            val bottomRowHeightDp = PORTRAIT_BOTTOM_ROW_DP * scale
             val homeRowSideInsetFraction = 0.05f
             val effectiveBottomChinDp = config.bottomChinPaddingDp.coerceIn(0, 48).toFloat()
             val effectiveOneHandedMode = if (config.screenWidthDp >= 360) config.oneHandedMode else OneHandedMode.OFF
@@ -101,9 +109,9 @@ object PhoneLayoutMetrics {
                 config.screenWidthDp * 0.82f
             }
             val sideGutterWidthDp = config.screenWidthDp - activeGridWidthDp
-            val keyCornerRadiusDp = 6f
-            val keyHorizontalGapDp = 5f
-            val keyVerticalGapDp = 6f
+            val keyCornerRadiusDp = KEY_CORNER_RADIUS_DP
+            val keyHorizontalGapDp = KEY_HORIZONTAL_GAP_DP
+            val keyVerticalGapDp = KEY_VERTICAL_GAP_DP
 
             val totalHeightDp = candidateStripHeightDp + numberRowHeightDp + (3f * alphaRowHeightDp) + bottomRowHeightDp + effectiveBottomChinDp
 

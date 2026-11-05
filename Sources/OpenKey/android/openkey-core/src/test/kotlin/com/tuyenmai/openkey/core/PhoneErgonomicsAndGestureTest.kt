@@ -26,21 +26,24 @@ class PhoneErgonomicsAndGestureTest {
 
         val metrics = PhoneLayoutMetrics.compute(config)
 
-        assertEquals(42f, metrics.candidateStripHeightDp)
-        assertEquals(40f, metrics.numberRowHeightDp)
-        assertEquals(48f, metrics.alphaRowHeightDp)
-        assertEquals(48f, metrics.bottomRowHeightDp)
+        assertEquals(44f, metrics.candidateStripHeightDp)
+        assertEquals(42f, metrics.numberRowHeightDp)
+        assertEquals(52f, metrics.alphaRowHeightDp)
+        assertEquals(50f, metrics.bottomRowHeightDp)
         assertEquals(0.05f, metrics.homeRowSideInsetFraction, 0.001f)
         assertEquals(14f, metrics.effectiveBottomChinDp)
-        assertEquals(6f, metrics.keyCornerRadiusDp)
+        assertEquals(7f, metrics.keyCornerRadiusDp)
+        assertEquals(4f, metrics.keyHorizontalGapDp)
+        assertEquals(5f, metrics.keyVerticalGapDp)
         assertEquals(360f, metrics.activeGridWidthDp)
         assertEquals(0f, metrics.sideGutterWidthDp)
         assertEquals(OneHandedMode.OFF, metrics.effectiveOneHandedMode)
         assertTrue(metrics.isNumberRowVisible)
 
-        // Total height: 42 (strip) + 40 (number) + 3 * 48 (alpha rows) + 48 (bottom) + 14 (chin) = 288dp
-        val expectedTotal = 42f + 40f + (3 * 48f) + 48f + 14f
+        // Total height: 44 (strip) + 42 (number) + 3 * 52 (alpha rows) + 50 (bottom) + 14 (chin) = 306dp
+        val expectedTotal = 44f + 42f + (3 * 52f) + 50f + 14f
         assertEquals(expectedTotal, metrics.totalHeightDp, 0.1f)
+        assertEquals(306f, metrics.totalHeightDp, 0.1f)
     }
 
     @Test
@@ -57,10 +60,10 @@ class PhoneErgonomicsAndGestureTest {
             oneHandedMode = OneHandedMode.OFF
         )
         val metricsScaled = PhoneLayoutMetrics.compute(configScaled)
-        assertEquals(42f * 1.2f, metricsScaled.candidateStripHeightDp, 0.01f)
-        assertEquals(40f * 1.2f, metricsScaled.numberRowHeightDp, 0.01f)
-        assertEquals(48f * 1.2f, metricsScaled.alphaRowHeightDp, 0.01f)
-        assertEquals(48f * 1.2f, metricsScaled.bottomRowHeightDp, 0.01f)
+        assertEquals(44f * 1.2f, metricsScaled.candidateStripHeightDp, 0.01f)
+        assertEquals(42f * 1.2f, metricsScaled.numberRowHeightDp, 0.01f)
+        assertEquals(52f * 1.2f, metricsScaled.alphaRowHeightDp, 0.01f)
+        assertEquals(50f * 1.2f, metricsScaled.bottomRowHeightDp, 0.01f)
         assertEquals(20f, metricsScaled.effectiveBottomChinDp)
 
         // Test clamping below min (70% -> 85%, -5 chin -> 0)
@@ -74,7 +77,7 @@ class PhoneErgonomicsAndGestureTest {
             bottomChinPaddingDp = -5
         )
         val metricsUnder = PhoneLayoutMetrics.compute(configUnder)
-        assertEquals(42f * 0.85f, metricsUnder.candidateStripHeightDp, 0.01f)
+        assertEquals(44f * 0.85f, metricsUnder.candidateStripHeightDp, 0.01f)
         assertEquals(0f, metricsUnder.effectiveBottomChinDp)
 
         // Test clamping above max (150% -> 125%, 60 chin -> 48)
@@ -88,7 +91,7 @@ class PhoneErgonomicsAndGestureTest {
             bottomChinPaddingDp = 60
         )
         val metricsOver = PhoneLayoutMetrics.compute(configOver)
-        assertEquals(42f * 1.25f, metricsOver.candidateStripHeightDp, 0.01f)
+        assertEquals(44f * 1.25f, metricsOver.candidateStripHeightDp, 0.01f)
         assertEquals(48f, metricsOver.effectiveBottomChinDp)
     }
 
@@ -103,7 +106,7 @@ class PhoneErgonomicsAndGestureTest {
         )
         val metricsVni = PhoneLayoutMetrics.compute(configVniHidden)
         assertTrue(metricsVni.isNumberRowVisible, "VNI inputType must force number row visible")
-        assertEquals(40f, metricsVni.numberRowHeightDp)
+        assertEquals(42f, metricsVni.numberRowHeightDp)
 
         val configTelexHidden = PhoneLayoutConfig(
             screenWidthDp = 360,
@@ -198,29 +201,44 @@ class PhoneErgonomicsAndGestureTest {
         assertEquals(0.15f, row4.keys.last().weight)
         assertEquals("⌫", row4.keys.last().primaryLabel)
 
-        // Row 5: !#1 (0.15f), comma (0.10f), space (0.50f), dot (0.10f), enter (0.15f)
+        // Row 5: !#1 (0.14f), 🌐 (0.10f), comma (0.09f), space (0.42f), dot (0.09f), enter (0.16f)
         val row5 = qwerty.rows[4]
-        assertEquals(5, row5.keys.size)
+        assertEquals(6, row5.keys.size)
         assertEquals("!#1", row5.keys[0].primaryLabel)
-        assertEquals(0.15f, row5.keys[0].weight)
-        assertEquals(",", row5.keys[1].primaryLabel)
+        assertEquals(0.14f, row5.keys[0].weight)
+        assertTrue(row5.keys[0].isFunctional)
+
+        assertEquals("🌐", row5.keys[1].primaryLabel)
         assertEquals(0.10f, row5.keys[1].weight)
-        assertEquals("Tiếng Việt", row5.keys[2].primaryLabel)
-        assertEquals(0.50f, row5.keys[2].weight)
-        assertEquals(".", row5.keys[3].primaryLabel)
-        assertEquals(0.10f, row5.keys[3].weight)
-        assertEquals("Done", row5.keys[4].primaryLabel)
-        assertEquals(0.15f, row5.keys[4].weight)
+        assertTrue(row5.keys[1].isFunctional)
+        assertEquals("VI", row5.keys[1].secondaryLabel)
+        assertEquals(KeyAction.SwitchLanguage, row5.keys[1].action)
 
-        // English spacebar label
+        assertEquals(",", row5.keys[2].primaryLabel)
+        assertEquals(0.09f, row5.keys[2].weight)
+
+        assertEquals("Tiếng Việt", row5.keys[3].primaryLabel)
+        assertEquals(0.42f, row5.keys[3].weight)
+
+        assertEquals(".", row5.keys[4].primaryLabel)
+        assertEquals(0.09f, row5.keys[4].weight)
+
+        assertEquals("Done", row5.keys[5].primaryLabel)
+        assertEquals(0.16f, row5.keys[5].weight)
+        assertEquals(KeyAction.Enter, row5.keys[5].action)
+
+        // English spacebar label & language badge
         val qwertyEn = KeyboardLayoutDefinition.getLayer(KeyboardLayer.QWERTY, isShifted = false, language = 0, imeActionLabel = "↵")
-        assertEquals("English (US)", qwertyEn.rows[4].keys[2].primaryLabel)
+        assertEquals("English (US)", qwertyEn.rows[4].keys[3].primaryLabel)
+        assertEquals("EN", qwertyEn.rows[4].keys[1].secondaryLabel)
 
-        // SYMBOLS_1 & SYMBOLS_2 layers
+        // SYMBOLS_1 & SYMBOLS_2 layers: still 5 keys with ABC at keys[0]
         val sym1 = KeyboardLayoutDefinition.getLayer(KeyboardLayer.SYMBOLS_1)
         val sym2 = KeyboardLayoutDefinition.getLayer(KeyboardLayer.SYMBOLS_2)
         assertEquals(5, sym1.rows.size)
         assertEquals(5, sym2.rows.size)
+        assertEquals(5, sym1.rows[4].keys.size)
+        assertEquals(5, sym2.rows[4].keys.size)
         assertEquals("ABC", sym1.rows[4].keys[0].primaryLabel, "Symbols layer must provide ABC return key")
         assertEquals("ABC", sym2.rows[4].keys[0].primaryLabel)
     }
@@ -231,11 +249,15 @@ class PhoneErgonomicsAndGestureTest {
         assertEquals(0xFFE8EAED, light.backgroundColor)
         assertEquals(0xFFFFFFFF, light.keycapColor)
         assertEquals(0xFFD6D9E0, light.functionalKeycapColor)
+        assertEquals(0xFFDCE0E8, light.pressedKeycapColor)
+        assertEquals(0xFFC4C9D4, light.pressedFunctionalKeycapColor)
 
         val dark = KeyboardLayoutDefinition.OneUiDarkTheme
         assertEquals(0xFF1B1B1F, dark.backgroundColor)
         assertEquals(0xFF2C2C32, dark.keycapColor)
         assertEquals(0xFF222227, dark.functionalKeycapColor)
+        assertEquals(0xFF3E3E47, dark.pressedKeycapColor)
+        assertEquals(0xFF34343D, dark.pressedFunctionalKeycapColor)
     }
 
     // -------------------------------------------------------------------------
