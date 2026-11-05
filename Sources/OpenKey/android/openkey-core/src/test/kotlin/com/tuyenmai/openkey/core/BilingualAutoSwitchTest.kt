@@ -250,4 +250,79 @@ class BilingualAutoSwitchTest {
             assertEquals(expected, screen.text, "Lookback restoration for '$input' must produce '$expected'")
         }
     }
+
+    // 7. Vietnamese syllable protection ('thể' vs 'there') and Standalone-W escape ('Why' vs 'Wwhy') (REQ-019, ADR-020)
+    @Test
+    fun testVietnameseSyllableProtectionAndStandaloneWEscape() {
+        // (a) 'theer ' -> 'thể ', 'there ' -> 'thể ', 'cos theer ' -> 'có thể ', 'cos there ' -> 'có thể ', 'con theer ' -> 'con thể ', 'con there ' -> 'con thể ', 'hay theer ' -> 'hay thể ', 'nhuw thees ' -> 'như thế ', 'nhuw these ' -> 'như thế ', 'thees ' -> 'thế ', 'these ' -> 'thế '
+        val vietnameseSyllables = listOf(
+            "theer " to "thể ",
+            "there " to "thể ",
+            "cos theer " to "có thể ",
+            "cos there " to "có thể ",
+            "con theer " to "con thể ",
+            "con there " to "con thể ",
+            "hay theer " to "hay thể ",
+            "nhuw thees " to "như thế ",
+            "nhuw these " to "như thế ",
+            "thees " to "thế ",
+            "these " to "thế "
+        )
+        for ((input, expected) in vietnameseSyllables) {
+            val screen = VirtualScreen()
+            screen.typeASCII(input)
+            assertEquals(expected, screen.text, "Typing '$input' must produce '$expected'")
+        }
+
+        // (b) English phrases 'there is ' -> 'there is ', 'there are ' -> 'there are ', 'over there ' -> 'over there ', 'these are ' -> 'these are '
+        val englishPhrases = listOf(
+            "there is " to "there is ",
+            "there are " to "there are ",
+            "over there " to "over there ",
+            "these are " to "these are "
+        )
+        for ((input, expected) in englishPhrases) {
+            val screen = VirtualScreen()
+            screen.typeASCII(input)
+            assertEquals(expected, screen.text, "Typing '$input' must produce '$expected'")
+        }
+
+        // (c) Standalone-W escape and capitalization: 'Why ' -> 'Why ', 'Wwhy ' -> 'Why ', 'why ' -> 'why ', 'wwhy ' -> 'why ', and with AutoWordingEngine.shared.syncConfig(isEnabled = true, grammarRepair = true, shorthandExpansion = true, candidateSuggestions = true, doubleSpacePeriod = true), typing 'cos there. wwhy also wrong ' -> 'có thể. Why also wrong ' and 'cos theer. Wwhy also wrong ' -> 'có thể. Why also wrong '.
+        val wEscapeCases = listOf(
+            "Why " to "Why ",
+            "Wwhy " to "Why ",
+            "why " to "why ",
+            "wwhy " to "why "
+        )
+        for ((input, expected) in wEscapeCases) {
+            val screen = VirtualScreen()
+            screen.typeASCII(input)
+            assertEquals(expected, screen.text, "Typing '$input' must produce '$expected'")
+        }
+
+        AutoWordingEngine.shared.syncConfig(
+            isEnabled = true,
+            grammarRepair = true,
+            shorthandExpansion = true,
+            candidateSuggestions = true,
+            doubleSpacePeriod = true
+        )
+        try {
+            val screen1 = VirtualScreen()
+            screen1.typeASCII("cos there. wwhy also wrong ")
+            assertEquals("có thể. Why also wrong ", screen1.text)
+
+            val screen2 = VirtualScreen()
+            screen2.typeASCII("cos theer. Wwhy also wrong ")
+            assertEquals("có thể. Why also wrong ", screen2.text)
+        } finally {
+            AutoWordingEngine.shared.syncConfig(
+                isEnabled = false,
+                grammarRepair = false,
+                shorthandExpansion = false,
+                candidateSuggestions = false,
+                doubleSpacePeriod = false
+            )
+        }
+    }
 }

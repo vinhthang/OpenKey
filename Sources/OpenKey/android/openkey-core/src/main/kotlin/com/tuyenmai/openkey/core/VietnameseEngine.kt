@@ -520,6 +520,7 @@ class VietnameseEngineState {
     }
 
     fun handleWordBreakOrControlKey(keyCode: UShort, capsStatus: Int) {
+        sentenceEndedWithPunctuation = false
         hookOutput.code = HookCodeState.DO_NOTHING
         hookOutput.backspaceCount = 0
         hookOutput.newCharCount = 0
@@ -599,6 +600,12 @@ class VietnameseEngineState {
 
         if (spaceCount == 1) {
             if (specialChar.isNotEmpty()) {
+                val lastSpecial = specialChar.last()
+                val baseKey = (lastSpecial and CHAR_MASK).toUShort()
+                val isCapsKey = (lastSpecial and CAPS_MASK) != 0u
+                if (baseKey == KEY_DOT || (baseKey == KEY_1 && isCapsKey) || (baseKey == KEY_SLASH && isCapsKey)) {
+                    sentenceEndedWithPunctuation = true
+                }
                 saveSpecialChar()
             } else {
                 saveWord()

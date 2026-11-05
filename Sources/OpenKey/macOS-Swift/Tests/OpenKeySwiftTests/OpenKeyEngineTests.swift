@@ -1228,5 +1228,65 @@ struct OpenKeyEngineTests {
         }
     }
 
+    // MARK: - REQ-019, ADR-020: Vietnamese Syllable Protection and Standalone-W Escape
+    @Test("REQ-019, ADR-020: Vietnamese syllable protection ('thể' vs 'there') and standalone-W escape normalization ('Why' vs 'Wwhy')")
+    func testVietnameseSyllableProtectionAndStandaloneWEscape() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
+
+        // (a) Vietnamese syllable protection: 'theer ' -> 'thể ', 'there ' -> 'thể ', etc.
+        let vietnamesePhrases = [
+            ("theer ", "thể "),
+            ("there ", "thể "),
+            ("cos theer ", "có thể "),
+            ("cos there ", "có thể "),
+            ("con theer ", "con thể "),
+            ("con there ", "con thể "),
+            ("hay theer ", "hay thể "),
+            ("nhuw thees ", "như thế "),
+            ("nhuw these ", "như thế "),
+            ("thees ", "thế "),
+            ("these ", "thế ")
+        ]
+        for (input, expected) in vietnamesePhrases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Typing '\(input)' must produce '\(expected)', got '\(s.text)'")
+        }
+
+        // (b) English phrases: 'there is ', 'there are ', 'over there ', 'these are '
+        let englishPhrases = [
+            ("there is ", "there is "),
+            ("there are ", "there are "),
+            ("over there ", "over there "),
+            ("these are ", "these are ")
+        ]
+        for (input, expected) in englishPhrases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Typing '\(input)' must produce '\(expected)', got '\(s.text)'")
+        }
+
+        // (c) Standalone-W escape and sentence capitalization
+        let standaloneWPhrases = [
+            ("Why ", "Why "),
+            ("Wwhy ", "Why "),
+            ("why ", "why "),
+            ("wwhy ", "why "),
+            ("cos there. wwhy also wrong ", "có thể. Why also wrong "),
+            ("cos theer. Wwhy also wrong ", "có thể. Why also wrong ")
+        ]
+        for (input, expected) in standaloneWPhrases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Typing '\(input)' must produce '\(expected)', got '\(s.text)'")
+        }
+    }
+
 }
 }

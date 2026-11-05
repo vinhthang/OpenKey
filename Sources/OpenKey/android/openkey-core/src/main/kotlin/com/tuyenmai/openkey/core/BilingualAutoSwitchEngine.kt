@@ -279,15 +279,16 @@ object BilingualAutoSwitchEngine {
         // 5. Typo & Transposition Corrections
         if (replacementWord == null) {
             if (priority == LanguagePriority.ENGLISH_FIRST) {
-                dict.englishTypoCorrections[fullRawLower]?.let { engTypo ->
+                val engMatch = if (!dict.isValidVietnameseSyllable(composedLower)) {
+                    dict.englishTypoCorrections[fullRawLower] ?: dict.findEnglishTranspositionMatch(fullRawLower)
+                } else null
+
+                replacementWord = engMatch?.let { m ->
                     val isCap = fullRawStr.firstOrNull()?.isUpperCase() == true
-                    replacementWord = if (isCap) engTypo.replaceFirstChar { it.uppercase() } else engTypo
-                } ?: dict.findEnglishTranspositionMatch(fullRawLower)?.let { engTrans ->
-                    val isCap = fullRawStr.firstOrNull()?.isUpperCase() == true
-                    replacementWord = if (isCap) engTrans.replaceFirstChar { it.uppercase() } else engTrans
+                    if (isCap) m.replaceFirstChar { it.uppercase() } else m
                 } ?: (dict.vietnameseTypoCorrections[composedLower] ?: dict.vietnameseTypoCorrections[fullRawLower])?.let { vnTypo ->
                     val isCap = composed.firstOrNull()?.isUpperCase() == true || fullRawStr.firstOrNull()?.isUpperCase() == true
-                    replacementWord = if (isCap) vnTypo.replaceFirstChar { it.uppercase() } else vnTypo
+                    if (isCap) vnTypo.replaceFirstChar { it.uppercase() } else vnTypo
                 }
             } else {
                 (dict.vietnameseTypoCorrections[composedLower] ?: dict.vietnameseTypoCorrections[fullRawLower])?.let { vnTypo ->
@@ -312,7 +313,7 @@ object BilingualAutoSwitchEngine {
             replacementWord?.let { rw ->
                 replacementWord = rw.replaceFirstChar { it.uppercase() }
             } ?: run {
-                val wordToCap = if (priority == LanguagePriority.ENGLISH_FIRST || !dict.isValidVietnameseSyllable(composedLower)) fullRawStr else composed
+                val wordToCap = if ((dict.englishWords.contains(composedLower) && !hasAnyDiacritic) || (priority != LanguagePriority.ENGLISH_FIRST && dict.isValidVietnameseSyllable(composedLower))) composed else fullRawStr
                 if (wordToCap.firstOrNull()?.isLowerCase() == true) {
                     replacementWord = wordToCap.replaceFirstChar { it.uppercase() }
                 }
@@ -346,7 +347,7 @@ object BilingualAutoSwitchEngine {
             } else if (priority == LanguagePriority.ENGLISH_FIRST && dict.englishWords.contains(fullRawLower)) {
                 shouldRestore = true
                 targetKeys = fullKeys
-            } else if (dict.englishWords.contains(fullRawLower) && (!dict.isValidVietnameseSyllable(composedLower) || countVowelGroups(fullKeys) >= 2)) {
+            } else if (dict.englishWords.contains(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower)) {
                 shouldRestore = true
                 targetKeys = fullKeys
             } else if (rawCapitalCount >= 2) {
@@ -367,7 +368,7 @@ object BilingualAutoSwitchEngine {
             }
         }
 
-        val currentIsEnglish = shouldRestore || dict.englishWords.contains(fullRawLower) || dict.englishPriorityWords.contains(fullRawLower)
+        val currentIsEnglish = shouldRestore || dict.englishPriorityWords.contains(fullRawLower) || (dict.englishWords.contains(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower)) || fullRawLower in setOf("is", "as", "us", "if", "of", "or", "for", "his", "has", "was")
 
         // 1-2 word context look-back
         if (breakKeyCode == KEY_SPACE && currentIsEnglish && state.wordStartOk && state.previousWords.isNotEmpty()) {
@@ -530,8 +531,8 @@ object BilingualAutoSwitchEngine {
             return true
         } else {
             if (breakKeyCode == KEY_SPACE) {
-                val isComposedEng = (dict.englishWords.contains(composedLower) && !hasAnyDiacritic) || composed == "I"
-                val isEng = isComposedEng || (dict.englishWords.contains(fullRawLower) && !hasAnyDiacritic)
+                val isComposedEng = (dict.englishWords.contains(composedLower) && !hasAnyDiacritic && (!dict.isValidVietnameseSyllable(composedLower) || dict.englishPriorityWords.contains(composedLower))) || composed == "I"
+                val isEng = isComposedEng || (dict.englishWords.contains(fullRawLower) && !hasAnyDiacritic && (!dict.isValidVietnameseSyllable(composedLower) || dict.englishPriorityWords.contains(fullRawLower)))
                 state.previousWords.add(
                     PreviousWordEntry(
                         rawString = if (isComposedEng) composed else fullRawStr,

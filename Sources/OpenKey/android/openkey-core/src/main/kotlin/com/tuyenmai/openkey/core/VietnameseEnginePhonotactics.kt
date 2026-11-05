@@ -649,6 +649,16 @@ fun VietnameseEngineState.insertW(data: UShort, caps: Boolean) {
                     typingWord[ii] = typingWord[ii] and AUTO_TONE_MASK.inv()
                     hookOutput.code = HookCodeState.WILL_PROCESS
                 } else if (typingWord[ii].isStandaloneW) {
+                    if (ch == KEY_U) {
+                        if (stateIndex > 0) {
+                            stateIndex--
+                            keyStates[stateIndex] = KEY_EMPTY.toUInt()
+                        }
+                        if (rawStateIndex > 0) {
+                            rawStateIndex--
+                            rawKeyStates[rawStateIndex] = KEY_EMPTY.toUInt()
+                        }
+                    }
                     hookOutput.code = if (ch == KEY_U) HookCodeState.WILL_PROCESS else HookCodeState.RESTORE
                     typingWord[ii] = (if (ch == KEY_U) KEY_W else KEY_O).toUInt() or (if (typingWord[ii].isCaps) CAPS_MASK else 0u)
                     if (ch == KEY_O) isRestoredW = true

@@ -574,6 +574,16 @@ extension VietnameseEngineState {
                     } else if typingWord[ii].isStandaloneW {
                         hookOutput.code = (ch == KEY_U) ? HookCodeState.willProcess : HookCodeState.restore
                         typingWord[ii] = UInt32(ch == KEY_U ? KEY_W : KEY_O) | (typingWord[ii].isCaps ? CAPS_MASK : 0)
+                        if ch == KEY_U {
+                            if stateIndex > 0 {
+                                stateIndex -= 1
+                                keyStates[Int(stateIndex)] = UInt32(KEY_EMPTY)
+                            }
+                            if rawStateIndex > 0 {
+                                rawStateIndex -= 1
+                                rawKeyStates[Int(rawStateIndex)] = UInt32(KEY_EMPTY)
+                            }
+                        }
                         if ch == KEY_O { isRestoredW = true }
                     } else {
                         hookOutput.code = HookCodeState.restore
