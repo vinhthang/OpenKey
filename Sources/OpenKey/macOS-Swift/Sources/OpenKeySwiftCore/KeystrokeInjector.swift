@@ -17,21 +17,51 @@ public final class KeystrokeInjector: @unchecked Sendable {
     public static let narrowNoBreakSpace: UInt16 = 0x202F // Standard browsers / recommendation (U+202F)
     public static let zeroWidthNonJoiner: UInt16 = 0x200C // Sublime Text breaker (U+200C)
     
+    public static let browserBundlePrefixes: [String] = [
+        "com.google.Chrome",
+        "org.chromium",
+        "com.apple.Safari",
+        "org.mozilla",
+        "app.zen-browser",
+        "com.microsoft.edgemac",
+        "com.brave",
+        "company.thebrowser",
+        "com.operasoftware",
+        "com.vivaldi",
+        "com.kagi",
+        "com.microsoft.Excel"
+    ]
+    
     public init() {}
     
     public static func determineStrategy(
         backspaceCount: Int,
         fixRecommendBrowser: Bool,
         bundleId: String? = nil,
-        extCode: Int32 = 0
+        extCode: Int = 0
     ) -> ReplacementStrategy {
         guard backspaceCount > 0, fixRecommendBrowser, extCode != 4 else {
             return .standardBackspace
         }
-        if let bundleId = bundleId, bundleId.hasPrefix("com.sublimetext") {
-            return .emptyCharBreaker(emptyChar: zeroWidthNonJoiner)
+        if let bundleId = bundleId {
+            if bundleId.hasPrefix("com.sublimetext") {
+                return .emptyCharBreaker(emptyChar: zeroWidthNonJoiner)
+            }
+            if browserBundlePrefixes.contains(where: { bundleId.hasPrefix($0) }) {
+                return .emptyCharBreaker(emptyChar: narrowNoBreakSpace)
+            }
+            return .standardBackspace
         }
         return .emptyCharBreaker(emptyChar: narrowNoBreakSpace)
+    }
+
+    public static func determineStrategy(
+        backspaceCount: Int,
+        fixRecommendBrowser: Bool,
+        bundleId: String? = nil,
+        extCode: Int32
+    ) -> ReplacementStrategy {
+        return determineStrategy(backspaceCount: backspaceCount, fixRecommendBrowser: fixRecommendBrowser, bundleId: bundleId, extCode: Int(extCode))
     }
     
     public var sourceStateID: CGEventSourceStateID {

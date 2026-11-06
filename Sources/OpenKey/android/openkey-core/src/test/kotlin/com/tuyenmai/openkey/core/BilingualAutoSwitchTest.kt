@@ -325,4 +325,68 @@ class BilingualAutoSwitchTest {
             )
         }
     }
+
+    // REQ-021, ADR-022: Fake combinatorial *oe* syllables filtered & "so goes with "
+    @Test
+    fun testReq021Adr022FakeOeFilteringAndGoes() {
+        assertFalse(VietnameseDictionary.isValidVietnameseSyllable("goé"), "goé must be filtered out as fake combinatorial oe")
+        assertFalse(VietnameseDictionary.isValidVietnameseSyllable("doé"), "doé must be filtered out as fake combinatorial oe")
+        assertTrue(VietnameseDictionary.isValidVietnameseSyllable("khoẻ"), "khoẻ must remain a valid Vietnamese syllable")
+
+        val screen = VirtualScreen()
+        screen.typeASCII("so goes with ")
+        assertEquals("so goes with ", screen.text, "Typing 'so goes with ' must produce 'so goes with '")
+    }
+
+    // REQ-021, ADR-022: Sentences with mid-word restoration & comma English context
+    @Test
+    fun testReq021Adr022EnglishSentencesAndPunctuation() {
+        val s1 = VirtualScreen()
+        s1.typeASCII("here is still more errors ")
+        assertEquals("here is still more errors ", s1.text)
+
+        val s2 = VirtualScreen()
+        s2.typeASCII("so the python code is not needed? ")
+        assertEquals("so the python code is not needed? ", s2.text)
+
+        val s3 = VirtualScreen()
+        s3.typeASCII("I think Tony is correct, ")
+        assertEquals("I think Tony is correct, ", s3.text)
+
+        val s4 = VirtualScreen()
+        s4.typeASCII("@Shi @To, these ")
+        assertEquals("@Shi @To, these ", s4.text)
+    }
+
+    // REQ-021, ADR-022: Morphological isEnglishWord Inflection Recognition
+    @Test
+    fun testReq021Adr022MorphologicalIsEnglishWord() {
+        val inflections = listOf(
+            "errors", "goes", "does", "files", "lines", "codes", "checks",
+            "working", "updated", "deleted", "passes", "processes", "messages"
+        )
+        for (w in inflections) {
+            assertTrue(VietnameseDictionary.isEnglishWord(w), "Morphological inflection '$w' must be recognized as English word")
+        }
+    }
+
+    // REQ-021, ADR-022: Vietnamese Preservation Invariant
+    @Test
+    fun testReq021Adr022VietnamesePreservation() {
+        val sThere = VirtualScreen()
+        sThere.typeASCII("there ")
+        assertEquals("thể ", sThere.text, "Under VIETNAMESE_FIRST, 'there ' must remain 'thể '")
+
+        val sThese = VirtualScreen()
+        sThese.typeASCII("these ")
+        assertEquals("thế ", sThese.text, "Under VIETNAMESE_FIRST, 'these ' must remain 'thế '")
+
+        val sOf = VirtualScreen()
+        sOf.typeASCII("of ")
+        assertEquals("ò ", sOf.text, "Under VIETNAMESE_FIRST, 'of ' must remain 'ò '")
+
+        val sVnSentence = VirtualScreen()
+        sVnSentence.typeASCII("lúc nhận chạy kiểm tra lỗi chính tả sai ")
+        assertEquals("lúc nhận chạy kiểm tra lỗi chính tả sai ", sVnSentence.text, "Vietnamese sentence must remain completely unchanged")
+    }
 }

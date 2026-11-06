@@ -73,6 +73,9 @@ extension VietnameseEngineState {
         if let last = previousWords.last {
             return last.wasRestoredToEnglish ? .englishFirst : .vietnameseFirst
         }
+        if consecutiveEnglishWordCount > 0 {
+            return .englishFirst
+        }
         return (vLanguage == 1) ? .vietnameseFirst : .englishFirst
     }
     
@@ -271,7 +274,7 @@ extension VietnameseEngineState {
             guard fullKeys.count >= 3 else { return false }
             let lastKey = UInt16(fullKeys[fullKeys.count - 1] & CHAR_MASK)
             let prevKey = UInt16(fullKeys[fullKeys.count - 2] & CHAR_MASK)
-            return lastKey == prevKey && isMarkKey(lastKey) && !dict.englishWords.contains(fullRawLower) && dict.englishWords.contains(singleToneLower)
+            return lastKey == prevKey && isMarkKey(lastKey) && !dict.isEnglishWord(fullRawLower) && dict.isEnglishWord(singleToneLower)
         }()
         
         if isTrailingDoubledToneEscape && composedLower == singleToneLower {
@@ -417,7 +420,7 @@ extension VietnameseEngineState {
             if let rw = replacementWord {
                 replacementWord = rw.prefix(1).uppercased() + rw.dropFirst()
             } else {
-                let wordToCap = ((dict.englishWords.contains(composedLower) && !hasAnyDiacritic) || (priority != .englishFirst && dict.isValidVietnameseSyllable(composedLower))) ? composed : fullRawStr
+                let wordToCap = ((dict.isEnglishWord(composedLower) && !hasAnyDiacritic) || (priority != .englishFirst && dict.isValidVietnameseSyllable(composedLower))) ? composed : fullRawStr
                 if wordToCap.first?.isLowercase == true {
                     replacementWord = wordToCap.prefix(1).uppercased() + wordToCap.dropFirst()
                 }
@@ -432,7 +435,7 @@ extension VietnameseEngineState {
         if let rw = replacementWord {
             shouldRestore = true
             targetKeys = stringToTargetKeys(rw)
-        } else if dict.englishWords.contains(composedLower) && !hasAnyDiacritic {
+        } else if dict.isEnglishWord(composedLower) && !hasAnyDiacritic {
             // REQ-027, ADR-027: Composed Word Protection:
             // If the composed word currently on screen is already a valid English word without diacritics,
             // preserve the composed word as-is and MUST NOT restore raw keystrokes containing cancellation keys ("chaoss", "serrvice", "off").
@@ -445,7 +448,7 @@ extension VietnameseEngineState {
                 // Compound token boundary after '.', '_', '/', '@' ("foo.bars", "my_vars") (REQ-023)
                 shouldRestore = true
                 targetKeys = fullKeys
-            } else if !droppedKeys.isEmpty && dict.englishWords.contains(fullRawLower) && !dict.englishWords.contains(composedLower) {
+            } else if !droppedKeys.isEmpty && dict.isEnglishWord(fullRawLower) && !dict.isEnglishWord(composedLower) {
                 // 1. Swallowed mid-word Telex undo key ("cheese", "seemed", "needed", "deepseek", "google", "process", "coffee", "address", "terrible") (REQ-015)
                 shouldRestore = true
                 targetKeys = fullKeys
@@ -453,11 +456,11 @@ extension VietnameseEngineState {
                 // 2. Standalone English collision priority word ("test", "list", "more", "core", "user", "tree", "free", "see", "too", "add", "boss", "pass", "mix", "fix") (REQ-017)
                 shouldRestore = true
                 targetKeys = fullKeys
-            } else if priority == .englishFirst && dict.englishWords.contains(fullRawLower) {
+            } else if priority == .englishFirst && dict.isEnglishWord(fullRawLower) {
                 // REQ-018, ADR-019: English priority restores any valid English word on word break
                 shouldRestore = true
                 targetKeys = fullKeys
-            } else if dict.englishWords.contains(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower) {
+            } else if dict.isEnglishWord(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower) {
                 // 3. Known English word whose composed output is not a valid Vietnamese syllable ("care" -> "cáe", "pure" -> "pủe", "sure" -> "sủe", "true" -> "trúe", "caesar") (REQ-017)
                 shouldRestore = true
                 targetKeys = fullKeys
@@ -480,12 +483,12 @@ extension VietnameseEngineState {
             } else if tempDisableKey && (hasAnyDiacritic || !droppedKeys.isEmpty) {
                 // 8. Standard OpenKey wrong-spelling fallback
                 shouldRestore = true
-                targetKeys = dict.englishWords.contains(fullRawLower) ? fullKeys : stdRawKeys
+                targetKeys = dict.isEnglishWord(fullRawLower) ? fullKeys : stdRawKeys
             }
         }
         
         let LookbackTriggerSet: Set<String> = ["is", "as", "us", "if", "of", "or", "for", "his", "has", "was"]
-        let currentIsEnglish = shouldRestore || dict.englishPriorityWords.contains(fullRawLower) || (dict.englishWords.contains(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower)) || LookbackTriggerSet.contains(fullRawLower)
+        let currentIsEnglish = shouldRestore || dict.englishPriorityWords.contains(fullRawLower) || (dict.isEnglishWord(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower)) || LookbackTriggerSet.contains(fullRawLower)
         
         // Check 1-2 word context look-back (REQ-018)
         if breakKeyCode == KEY_SPACE && currentIsEnglish && wordStartOk && !previousWords.isEmpty {
@@ -495,7 +498,7 @@ extension VietnameseEngineState {
                 if !prev.wasRestoredToEnglish && dict.englishLookbackStems.contains(prev.rawString.lowercased()) {
                     let allSubsequentEnglish = ((idx + 1)..<previousWords.count).allSatisfy {
                         let r = previousWords[$0].rawString.lowercased()
-                        return previousWords[$0].wasRestoredToEnglish || dict.englishWords.contains(r) || dict.englishLookbackStems.contains(r) || r == "a" || r == "i"
+                        return previousWords[$0].wasRestoredToEnglish || dict.isEnglishWord(r) || dict.englishLookbackStems.contains(r) || r == "a" || r == "i"
                     }
                     if allSubsequentEnglish {
                         firstRewriteIdx = idx
@@ -597,8 +600,8 @@ extension VietnameseEngineState {
                 rawLowerWord: fullRawLower
             )
             
+            let isEng = dict.isEnglishWord(targetStr.lowercased()) || dict.englishContractionGrammar.values.contains(targetStr) || targetStr == "I"
             if breakKeyCode == KEY_SPACE {
-                let isEng = dict.englishWords.contains(targetStr.lowercased()) || dict.englishContractionGrammar.values.contains(targetStr) || targetStr == "I"
                 previousWords.append(PreviousWordEntry(
                     rawString: targetStr,
                     composedString: targetStr,
@@ -617,12 +620,19 @@ extension VietnameseEngineState {
                 }
             } else {
                 previousWords.removeAll()
+                if breakKeyCode == KEY_COMMA && (isEng || !wordStartOk) {
+                    consecutiveEnglishWordCount += 1
+                } else if breakKeyCode != KEY_COMMA || !isEng {
+                    consecutiveEnglishWordCount = 0
+                }
             }
             return true
         } else {
+            let vietnameseShorthandSet: Set<String> = ["ko", "dc", "vs", "vk", "ck", "mk", "nt", "nc", "bt", "bh", "uk", "uh", "ak", "ah"]
+            let isUnaccentedNonVn = !hasAnyDiacritic && composedLower.count >= 2 && !dict.isValidVietnameseSyllable(composedLower) && !vietnameseShorthandSet.contains(composedLower)
+            let isComposedEng = (dict.isEnglishWord(composedLower) && !hasAnyDiacritic && (!dict.isValidVietnameseSyllable(composedLower) || dict.englishPriorityWords.contains(composedLower))) || composed == "I" || isUnaccentedNonVn
+            let isEng = isComposedEng || (dict.isEnglishWord(fullRawLower) && !hasAnyDiacritic && (!dict.isValidVietnameseSyllable(composedLower) || dict.englishPriorityWords.contains(fullRawLower)))
             if breakKeyCode == KEY_SPACE {
-                let isComposedEng = (dict.englishWords.contains(composedLower) && !hasAnyDiacritic && (!dict.isValidVietnameseSyllable(composedLower) || dict.englishPriorityWords.contains(composedLower))) || composed == "I"
-                let isEng = isComposedEng || (dict.englishWords.contains(fullRawLower) && !hasAnyDiacritic && (!dict.isValidVietnameseSyllable(composedLower) || dict.englishPriorityWords.contains(fullRawLower)))
                 previousWords.append(PreviousWordEntry(
                     rawString: isComposedEng ? composed : fullRawStr,
                     composedString: composed,
@@ -641,7 +651,11 @@ extension VietnameseEngineState {
                 }
             } else {
                 previousWords.removeAll()
-                consecutiveEnglishWordCount = 0
+                if breakKeyCode == KEY_COMMA && (isEng || !wordStartOk) {
+                    consecutiveEnglishWordCount += 1
+                } else {
+                    consecutiveEnglishWordCount = 0
+                }
             }
             return false
         }

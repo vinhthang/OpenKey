@@ -353,3 +353,38 @@ flowchart TD
     - Removes all 4 boxy text pill buttons (`[VI]`, `[Telex]`, `[Full / Left 82%]`, `[⚙]`).
     - Left side: Clean mode status label (`"Tiếng Việt • Telex"` / `"Tiếng Việt • VNI"` / `"English (US)"`, tappable to toggle `Telex`/`VNI` when in Vietnamese mode).
     - Right side: Two borderless `36dp × 36dp` Canvas vector icon buttons (`OneHandedIcon` and `SettingsGearIcon`).
+
+---
+
+## 9. Live Mid-Word Phonotactic Auto-Escape & Morphological English Inflection Architecture (`REQ-021`, `ADR-022`)
+
+### 9.1 Live Mid-Word Auto-Restore (`VietnameseEngine` & `VietnameseEnginePhonotactics`)
+- **Post-Tone `KEY_E` Auto-Restore**:
+  - In `handleNormalKey` (before `insertAOE(KEY_E)` / `checkForVowel`), if `vInputType == 0` (Telex), `data == KEY_E`, `vsi >= 0`, no character in `typingWord[vsi..vei]` has base `KEY_E`, and at least one vowel in `typingWord[vsi..vei]` has `(typingWord[i] & MARK_MASK) != 0`:
+    - Call `restoreModifiedWordToRawKeys()` which replaces `typingWord` with the literal `rawKeyStates` sequence (including the newly pressed `e`), sets `tempDisableKey = true`, and emits `HookCodeState.RESTORE` (`code = 3`).
+    - Result: `m-o-r` (`"mỏ"`) + `e` immediately emits `bs = 1, chars = "ore"` → `"more"` on screen.
+- **Invalid Post-Vowel Coda Consonant Auto-Restore**:
+  - In `handleNormalKey`, when a consonant is appended after a vowel cluster (`index > vei >= 0`) and the syllable currently carries any Vietnamese modification (`hasMarkOrTone` on `typingWord[vsi..vei]`, or `CHR(0) == KEY_D && (typingWord[0] & TONE_MASK) != 0` combined with a vowel modification):
+    - **Case A (Impossible Vietnamese Coda Consonants)**: `data` is in `{KEY_B, KEY_D (when CHR(0) != KEY_D), KEY_K, KEY_L, KEY_Q, KEY_V, KEY_Z, KEY_F, KEY_J, KEY_W}` (after verifying `data` is not being consumed as a Telex modifier).
+    - **Case B (Tone-Incompatible Stop Codas)**: `data` is in `{KEY_C, KEY_P, KEY_T}` and the vowel carries `MARK2_MASK` (`f`), `MARK3_MASK` (`r`), or `MARK4_MASK` (`x`).
+    - Action: Immediately invoke `restoreModifiedWordToRawKeys()` and set `tempDisableKey = true`.
+    - Result: `n-e-e` (`"nê"`) + `d` immediately emits `bs = 2, chars = "eed"` → `"need"` on screen, and subsequent `e-d` appends `"ed"` → `"needed"`.
+
+### 9.2 Compound Tone + Circumflex Telex Escape (`insertMark` & `insertAOE`)
+- When `insertMark` (`hasSameMark == true`) or `insertAOE` (`hasCircumflexOrStroke == true`) detects a Telex escape on a syllable where **both** `TONE_MASK != 0` and `MARK_MASK != 0` exist on the vowel cluster from an interleaved raw key sequence (such as `t-h-e-s-e` → `"thế"`):
+  - Instead of stripping only one mask and leaving `'ê'` or `'é'` stranded, clear both `TONE_MASK` and `MARK_MASK` across `typingWord` and reconstruct `typingWord` from `stdRawKeys` (popping the consumed escape keystroke from `rawKeyStates` if the raw key sequence already contained both the tone key and the second vowel key, e.g., `t-h-e-s-e` + `s` or `e` → `"these"`), and set `tempDisableKey = true`.
+
+### 9.3 `*oe*` Corpus Hygiene & Morphological `isEnglishWord` (`VietnameseDictionary` & `BilingualAutoSwitchEngine`)
+- **Valid `oe` Onset Filter**:
+  - In `VietnameseDictionary`, filter out any `rawSyllables` entry containing the vowel cluster `"oe"` / `"oè"` / `"oé"` / `"oẻ"` / `"oẽ"` / `"oẹ"` (without trailing coda or with coda) whose initial consonant onset is not in `{"", "ch", "h", "kh", "l", "ng", "nh", "t", "x"}`. This removes combinatorially generated non-words (`"goé"`, `"doé"`, `"moẻ"`, `"boé"`, `"coé"`, `"soé"`, `"voé"`).
+- **Morphological English Stemmer (`dict.isEnglishWord`)**:
+  - Returns `true` if `englishWords.contains(lower)` or if `!isValidVietnameseSyllable(lower) && !validTelexKeys.contains(lower)` and stripping regular English inflection suffixes (`-s`, `-es`, `-ies`→`-y`, `-d`, `-ed`, `-ied`→`-y`, `-ing` [including `-pping`/`-tting`/`-dding`/`-nning`/`-mming`/`-gging`/`-bbing`/`-rring` and silent-`e` `-ing`], `-er`, `-ers`, `-or`, `-ors`, `-ly`) yields a stem in `englishWords`.
+  - Used in `BilingualAutoSwitchEngine` for `fullKeys` vs `stdRawKeys` selection, `shouldRestore` evaluation, context continuity (`consecutiveEnglishWordCount`), and 1–2 word look-back restoration.
+
+### 9.4 Microsoft Teams (`com.microsoft.teams2`) `.standardBackspace` & Non-Vietnamese Proper-Name Context Continuity (`KeystrokeInjector` & `BilingualAutoSwitchEngine`)
+- **Zero `U+202F` Injection in Microsoft Teams & Desktop Rich-Text Editors (`KeystrokeInjector.swift`)**:
+  - `KeystrokeInjector.standardBackspaceBundlePrefixes` includes `"com.microsoft.teams"`, `"com.tinyspeck.slackmacgap"`, `"com.hnc.Discord"`, `"com.microsoft.Word"`, `"com.microsoft.Outlook"`, `"com.microsoft.Powerpoint"`, `"com.apple.Notes"`, `"com.apple.mail"`, `"com.apple.TextEdit"`.
+  - When `bundleId` starts with any prefix in `standardBackspaceBundlePrefixes`, `KeystrokeInjector.determineStrategy` returns `.standardBackspace` so `U+202F` (`narrowNoBreakSpace`) is never injected into Microsoft Teams' WebView2 CKEditor/ProseMirror composer.
+- **Unaccented Non-Vietnamese Proper-Name & `@mention` Context Continuity (`BilingualAutoSwitchEngine.swift` & `BilingualAutoSwitchEngine.kt`)**:
+  - In `evaluateWordBreakRestore`, an unaccented word (`!hasAnyDiacritic`) with `composedLower.count >= 2` that is not a valid Vietnamese syllable (`!dict.isValidVietnameseSyllable(composedLower)`) and not in `vietnameseShorthandSet` (`{"ko", "dc", "vs", "vk", "ck", "mk", "nt", "nc", "bt", "bh", "uk", "uh", "ak", "ah"}`) is classified as `isComposedEng = true` (`isEng = true`).
+  - When `breakKeyCode == KEY_COMMA`, if `isEng` is `true` or `!wordStartOk` (e.g. `@To,`), `consecutiveEnglishWordCount` is incremented/preserved rather than reset to `0`, so `"I think Tony is correct,"` and `"@Shi @To, these "` stay in `ENGLISH_FIRST` context throughout the clause.

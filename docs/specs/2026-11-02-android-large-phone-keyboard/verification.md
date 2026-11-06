@@ -524,3 +524,13 @@ cd /Users/thanghoang/github/OpenKey/Sources/OpenKey/android && rtk ./gradlew :op
 | `OpenKeySwiftTests` | `OpenKeyEngineTests` + `OpenKeyEventTapTests` | `REQ-016`, `REQ-018`, `REQ-019` | 64 | 0 | PASSED |
 | GitHub Actions | `Android CI/CD` (`42053998785`) & `macOS CI/CD` (`41996550873`) | `REQ-016`..`REQ-020` | 126 tests + APK & `.app` artifacts | 0 | PASSED |
 | **Total** | **Android (62) + macOS (64) + GitHub CI (2 Workflows)** | **`REQ-001`..`REQ-020`** | **126** | **0** | **100% PASSED** |
+
+---
+
+## Run 7 (Planned — Phase 1 Gate): Live Mid-Word Phonotactic Auto-Escape (`more`, `needed`), Compound Tone+Circumflex Escape (`these`), Morphological Inflection Recognition (`goes`, `errors`), and `*oe*` Corpus Hygiene (`REQ-021`, `ADR-022`)
+- **Planned Verification Commands**:
+  1. `cd /Users/thanghoang/github/OpenKey/Sources/OpenKey/android && rtk ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug`
+  2. `rtk swift test --package-path /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift`
+  3. `rtk bash /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift/build-app.sh`
+  4. `rtk gh run list --limit 2 --repo vinhthang/OpenKey`
+- **Target Traceability**: `REQ-001`..`REQ-021`, `ADR-001`..`ADR-022`, `Task 18.1` & `Task 18.2`.

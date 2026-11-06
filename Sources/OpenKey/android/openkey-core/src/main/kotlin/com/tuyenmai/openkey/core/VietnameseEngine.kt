@@ -6,6 +6,15 @@ import kotlin.concurrent.withLock
 class VietnameseEngineState {
     companion object {
         val shared = VietnameseEngineState()
+
+        val doubleConsonantEnglishStems: Set<String> = setOf(
+            "err", "corr", "curr", "sorr", "morr", "tomorr", "borr", "carr", "marr", "hurr", "worr",
+            "arr", "narr", "mirr", "terr", "horr", "occurr", "recurr", "off", "eff", "diff", "buff",
+            "suff", "coff", "traff", "aff", "stiff", "cliff", "staff", "stuff", "mess", "iss", "tiss",
+            "sess", "less", "poss", "pass", "ass", "press", "express", "impress", "compress", "address",
+            "process", "success", "access", "assess", "discuss", "miss", "loss", "cross", "boss", "class",
+            "glass", "grass", "mass", "dress", "stress", "guess"
+        )
     }
 
     val lock = ReentrantLock()
@@ -382,6 +391,140 @@ class VietnameseEngineState {
         }
     }
 
+    fun restoreWordFromRawKeys(oldScreenLength: Int) {
+        val targetLen = minOf(rawStateIndex, maxBuff)
+        var diffIdx = 0
+        while (diffIdx < oldScreenLength && diffIdx < targetLen) {
+            if (GET(typingWord[diffIdx]) != GET(rawKeyStates[diffIdx])) {
+                break
+            }
+            diffIdx++
+        }
+        for (i in 0 until targetLen) {
+            typingWord[i] = rawKeyStates[i]
+            keyStates[i] = rawKeyStates[i]
+        }
+        for (i in targetLen until maxBuff) {
+            typingWord[i] = KEY_EMPTY.toUInt()
+            keyStates[i] = KEY_EMPTY.toUInt()
+        }
+        index = targetLen
+        stateIndex = targetLen
+        droppedKeys.clear()
+        tempDisableKey = true
+        if (vCheckSpelling != 0) {
+            checkSpelling(forceCheckVowel = true)
+        }
+        val bsCount = maxOf(0, oldScreenLength - diffIdx)
+        val newCount = maxOf(0, targetLen - diffIdx)
+        hookOutput.code = HookCodeState.WILL_PROCESS
+        hookOutput.backspaceCount = bsCount
+        hookOutput.newCharCount = newCount
+        hookOutput.extCode = 3
+        for (i in diffIdx until targetLen) {
+            hookOutput.charData[targetLen - 1 - i] = GET(typingWord[i])
+        }
+    }
+
+    fun checkLiveMidWordAutoEscape(keyCode: UShort): Boolean {
+        if (vInputType != 0) return false
+
+        // 1. Double-Consonant rr/ff/ss + Vowel Live Mid-Word Restoration
+        // ("correct", "error", "errors", "sorry", "current", "office", "coffee", "message", "issue")
+        if (tempDisableKey && droppedKeys.isNotEmpty() && rawStateIndex >= 4) {
+            val vowelSet = setOf(KEY_A, KEY_E, KEY_I, KEY_O, KEY_U, KEY_Y)
+            if (vowelSet.contains(keyCode)) {
+                val rawBeforeLen = rawStateIndex - 1
+                if (rawBeforeLen >= 2) {
+                    val c1 = (rawKeyStates[rawBeforeLen - 1] and CHAR_MASK).toUShort()
+                    val c2 = (rawKeyStates[rawBeforeLen - 2] and CHAR_MASK).toUShort()
+                    if (c1 == c2 && setOf(KEY_R, KEY_F, KEY_S, KEY_J, KEY_X).contains(c1)) {
+                        val sb = StringBuilder()
+                        for (i in 0 until rawBeforeLen) {
+                            val c = VietnameseData.keyCodeToCharacter(rawKeyStates[i])
+                            if (c != 0.toUShort()) sb.append(c.toInt().toChar())
+                        }
+                        val stemLower = sb.toString().lowercase()
+                        if (doubleConsonantEnglishStems.contains(stemLower)) {
+                            restoreWordFromRawKeys(oldScreenLength = index)
+                            return true
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Compound Interleaved Tone + Circumflex Telex Escape (t-h-e-s-e + s/e -> "these")
+        if (!tempDisableKey && index >= 2 && rawStateIndex - 1 > index) {
+            findAndCalculateVowel()
+            if (vowelCount > 0) {
+                var matchingVi: Int? = null
+                for (vi in vowelStartIndex..vowelEndIndex) {
+                    if ((typingWord[vi] and TONE_MASK) != 0u && (typingWord[vi] and MARK_MASK) != 0u) {
+                        val matches = keyCode == CHR(vi) ||
+                                ((typingWord[vi] and MARK1_MASK) != 0u && keyCode == KEY_S) ||
+                                ((typingWord[vi] and MARK2_MASK) != 0u && keyCode == KEY_F) ||
+                                ((typingWord[vi] and MARK3_MASK) != 0u && keyCode == KEY_R) ||
+                                ((typingWord[vi] and MARK4_MASK) != 0u && keyCode == KEY_X) ||
+                                ((typingWord[vi] and MARK5_MASK) != 0u && keyCode == KEY_J)
+                        if (matches) {
+                            matchingVi = vi
+                            break
+                        }
+                    }
+                }
+                if (matchingVi != null) {
+                    if (rawStateIndex - 1 >= 3) {
+                        val prevKey = (rawKeyStates[rawStateIndex - 2] and CHAR_MASK).toUShort()
+                        val prevPrevKey = (rawKeyStates[rawStateIndex - 3] and CHAR_MASK).toUShort()
+                        if (prevKey == CHR(matchingVi) && isMarkKey(prevPrevKey)) {
+                            if (rawStateIndex > 0) rawStateIndex--
+                            if (stateIndex > 0) stateIndex--
+                            restoreWordFromRawKeys(oldScreenLength = index)
+                            return true
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Post-Tone KEY_E Mid-Word Auto-Restore ("more", "core", "store", "care", "share", "fire", "sure", "case", "nose", "use", "house", "life")
+        if (!tempDisableKey && keyCode == KEY_E && index >= 1) {
+            findAndCalculateVowel()
+            if (vowelCount > 0 && vowelEndIndex == index - 1) {
+                val vRange = vowelStartIndex..vowelEndIndex
+                val noEorY = vRange.none { CHR(it) == KEY_E || CHR(it) == KEY_Y }
+                val noTone = vRange.none { (typingWord[it] and (TONE_MASK or TONEW_MASK)) != 0u }
+                val hasMark = vRange.any { (typingWord[it] and MARK_MASK) != 0u }
+                val prevIsMark = rawStateIndex >= 2 && isMarkKey((rawKeyStates[rawStateIndex - 2] and CHAR_MASK).toUShort())
+                if (noEorY && noTone && hasMark && prevIsMark) {
+                    restoreWordFromRawKeys(oldScreenLength = index)
+                    return true
+                }
+            }
+        }
+
+        // 4. Invalid Post-Vowel Coda Consonant Mid-Word Auto-Restore ("needed", "good", "book", "feel", "work", "word", "part", "start", "sort", "soft", "left", "text", "next")
+        if (!tempDisableKey && index >= 2) {
+            findAndCalculateVowel()
+            if (vowelCount > 0 && vowelEndIndex == index - 1) {
+                val vRange = vowelStartIndex..vowelEndIndex
+                val hasVowelMod = vRange.any { (typingWord[it] and (TONE_MASK or TONEW_MASK or MARK_MASK)) != 0u }
+                if (hasVowelMod) {
+                    val isImpossibleCoda = setOf(VietnameseData.KEY_B, KEY_K, KEY_L, KEY_Q, VietnameseData.KEY_V).contains(keyCode) || (keyCode == KEY_D && CHR(0) != KEY_D)
+                    val hasNonEnteringMark = vRange.any { (typingWord[it] and (MARK2_MASK or MARK3_MASK or MARK4_MASK)) != 0u }
+                    val isIncompatibleStopCoda = setOf(KEY_C, KEY_P, KEY_T).contains(keyCode) && hasNonEnteringMark
+                    if (isImpossibleCoda || isIncompatibleStopCoda) {
+                        restoreWordFromRawKeys(oldScreenLength = index)
+                        return true
+                    }
+                }
+            }
+        }
+
+        return false
+    }
+
     fun syncConfig(
         language: Int? = null,
         inputType: Int? = null,
@@ -729,6 +872,20 @@ class VietnameseEngineState {
             hookOutput.charData[1] = GET(typingWord[0])
             hookOutput.charData[0] = GET(typingWord[1])
             return
+        }
+
+        if (checkLiveMidWordAutoEscape(keyCode)) return
+
+        // REQ-027, ADR-027: Escape Keystroke Consumption
+        if (vInputType == 0 && index > 0 && keyCode == KEY_I && CHR(index - 1) == KEY_I) {
+            val curComposed = getComposedWordInternal().lowercase()
+            if (VietnameseDictionary.isValidVietnameseSyllable(curComposed)) {
+                hookOutput.code = HookCodeState.WILL_PROCESS
+                hookOutput.backspaceCount = 0
+                hookOutput.newCharCount = 0
+                hookOutput.extCode = 3
+                return
+            }
         }
 
         if (!isSpecialKey(keyCode) || tempDisableKey) {

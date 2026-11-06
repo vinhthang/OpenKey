@@ -1288,5 +1288,143 @@ struct OpenKeyEngineTests {
         }
     }
 
+    // MARK: - REQ-021, ADR-022: Live Mid-Word Phonotactic Auto-Escape & Teams Continuity
+    @Test("REQ-021, ADR-022: Live mid-word phonotactic auto-escape, morphological inflections, *oe* filter, and Teams context continuity")
+    func testReq021Adr022LiveMidWordPhonotacticAutoEscape() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
+
+        let dict = VietnameseDictionary.shared
+
+        // 1. Filter fake combinatorial *oe* syllables and sentence verification
+        #expect(!dict.isValidVietnameseSyllable("goé"), "goé must be invalid")
+        #expect(!dict.isValidVietnameseSyllable("doé"), "doé must be invalid")
+        #expect(!dict.isValidVietnameseSyllable("moẻ"), "moẻ must be invalid")
+        #expect(dict.isValidVietnameseSyllable("khoẻ"), "khoẻ must be valid")
+        #expect(dict.isValidVietnameseSyllable("xoè"), "xoè must be valid")
+
+        var sGoes = VirtualScreen()
+        sGoes.typeASCII("so goes with ")
+        #expect(sGoes.text == "so goes with ", "Typing 'so goes with ' must produce 'so goes with ', got '\(sGoes.text)'")
+
+        // 2. Post-tone KEY_E live mid-word auto-restore BEFORE Space is pressed
+        let postToneWords = [
+            ("more", "more"),
+            ("core", "core"),
+            ("store", "store"),
+            ("care", "care"),
+            ("share", "share"),
+            ("fire", "fire"),
+            ("sure", "sure"),
+            ("case", "case"),
+            ("nose", "nose"),
+            ("use", "use"),
+            ("house", "house"),
+            ("life", "life")
+        ]
+        for (typed, expected) in postToneWords {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(typed) // BEFORE Space!
+            #expect(s.text == expected, "Live typing '\(typed)' before Space must restore to '\(expected)', got '\(s.text)'")
+        }
+
+        OKEngineResetSession()
+        var sMoreErrors = VirtualScreen()
+        sMoreErrors.typeASCII("here is still more errors ")
+        #expect(sMoreErrors.text == "here is still more errors ", "Typing 'here is still more errors ' must produce 'here is still more errors ', got '\(sMoreErrors.text)'")
+
+        // 3. Invalid post-vowel coda consonant mid-word auto-restore BEFORE Space is pressed
+        let codaWords = [
+            ("need", "need"),
+            ("good", "good"),
+            ("book", "book"),
+            ("feel", "feel"),
+            ("work", "work"),
+            ("word", "word"),
+            ("part", "part"),
+            ("start", "start"),
+            ("sort", "sort"),
+            ("soft", "soft"),
+            ("left", "left"),
+            ("text", "text"),
+            ("next", "next")
+        ]
+        for (typed, expected) in codaWords {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(typed) // BEFORE Space!
+            #expect(s.text == expected, "Live typing '\(typed)' before Space must restore to '\(expected)', got '\(s.text)'")
+        }
+
+        OKEngineResetSession()
+        var sNeeded = VirtualScreen()
+        sNeeded.typeASCII("so the python code is not needed? ")
+        #expect(sNeeded.text == "so the python code is not needed? ", "Typing 'so the python code is not needed? ' must produce 'so the python code is not needed? ', got '\(sNeeded.text)'")
+
+        // 4. Live mid-word double-consonant restoration
+        OKEngineResetSession()
+        var sCorrect = VirtualScreen()
+        sCorrect.typeASCII("correct")
+        #expect(sCorrect.text == "correct", "Live typing 'correct' before Space must be 'correct', got '\(sCorrect.text)'")
+
+        OKEngineResetSession()
+        var sErrors = VirtualScreen()
+        sErrors.typeASCII("errors")
+        #expect(sErrors.text == "errors", "Live typing 'errors' before Space must be 'errors', got '\(sErrors.text)'")
+
+        OKEngineResetSession()
+        var sService = VirtualScreen()
+        sService.typeASCII("serrvice,")
+        #expect(sService.text == "service,", "Typing 'serrvice,' must produce 'service,', got '\(sService.text)'")
+
+        // 5. Compound Telex escape: t-h-e-s-e + s -> "these", t-h-e-s-e + e -> "these"
+        OKEngineResetSession()
+        var sTheseS = VirtualScreen()
+        sTheseS.typeASCII("theses")
+        #expect(sTheseS.text == "these", "Typing t-h-e-s-e + s must escape to 'these', got '\(sTheseS.text)'")
+
+        OKEngineResetSession()
+        var sTheseE = VirtualScreen()
+        sTheseE.typeASCII("thesee")
+        #expect(sTheseE.text == "these", "Typing t-h-e-s-e + e must escape to 'these', got '\(sTheseE.text)'")
+
+        // 6. Sentence context continuity with commas and @mentions
+        OKEngineResetSession()
+        var sTony = VirtualScreen()
+        sTony.typeASCII("I think Tony is correct, ")
+        #expect(sTony.text == "I think Tony is correct, ", "Typing 'I think Tony is correct, ' must produce 'I think Tony is correct, ', got '\(sTony.text)'")
+
+        OKEngineResetSession()
+        var sMention = VirtualScreen()
+        sMention.typeASCII("@Shi @To, these ")
+        #expect(sMention.text == "@Shi @To, these ", "Typing '@Shi @To, these ' must produce '@Shi @To, these ', got '\(sMention.text)'")
+
+        // 7. Morphological inflection checks
+        let inflections = [
+            "errors", "goes", "does", "files", "lines", "codes", "checks",
+            "working", "updated", "deleted", "passes", "processes", "messages"
+        ]
+        for inf in inflections {
+            #expect(dict.isEnglishWord(inf), "isEnglishWord must recognize '\(inf)'")
+        }
+
+        // 8. Vietnamese preservation
+        let vnPreservations = [
+            ("there ", "thể "),
+            ("these ", "thế "),
+            ("of ", "ò "),
+            ("lucs nhaanj chayj kieerm tra looxi chinhs tar sai ", "lúc nhận chạy kiểm tra lỗi chính tả sai ")
+        ]
+        for (input, expected) in vnPreservations {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Typing '\(input)' must preserve Vietnamese '\(expected)', got '\(s.text)'")
+        }
+    }
+
 }
 }

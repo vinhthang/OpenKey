@@ -136,7 +136,7 @@ fun VietnameseEngineState.repairPhonotacticClusterIfNeeded(isInsertingMark: Bool
         if (index < 3) return false
         findAndCalculateVowel(forGrammar = true)
         if (vowelCount < 2) return false
-        return hook(
+        val hooked = hook(
             typingWord,
             index,
             vowelStartIndex,
@@ -144,6 +144,7 @@ fun VietnameseEngineState.repairPhonotacticClusterIfNeeded(isInsertingMark: Bool
             vowelCount,
             isInsertingMark
         )
+        if (hooked) return true
     }
 
     if (index < 3) return false

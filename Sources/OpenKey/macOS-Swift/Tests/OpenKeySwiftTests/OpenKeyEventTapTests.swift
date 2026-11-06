@@ -79,6 +79,25 @@ struct OpenKeyEventTapTests {
         // Standard browser fix with U+202F
         let breaker = KeystrokeInjector.determineStrategy(backspaceCount: 2, fixRecommendBrowser: true, bundleId: "com.google.Chrome", extCode: 0)
         #expect(breaker == .emptyCharBreaker(emptyChar: 0x202F))
+        let safariBreaker = KeystrokeInjector.determineStrategy(backspaceCount: 2, fixRecommendBrowser: true, bundleId: "com.apple.Safari", extCode: 0)
+        #expect(safariBreaker == .emptyCharBreaker(emptyChar: 0x202F))
+        let excelBreaker = KeystrokeInjector.determineStrategy(backspaceCount: 2, fixRecommendBrowser: true, bundleId: "com.microsoft.Excel", extCode: 0)
+        #expect(excelBreaker == .emptyCharBreaker(emptyChar: 0x202F))
+        
+        // Non-browser apps (Teams, Antigravity, Slack, Endo) use standardBackspace (REQ-021, ADR-022)
+        let nonBrowserApps = [
+            "com.microsoft.teams2",
+            "com.microsoft.teams",
+            "com.google.antigravity",
+            "com.meta.endo",
+            "com.tinyspeck.slackmacgap",
+            "com.apple.Notes",
+            "com.hnc.Discord"
+        ]
+        for app in nonBrowserApps {
+            let strategy = KeystrokeInjector.determineStrategy(backspaceCount: 2, fixRecommendBrowser: true, bundleId: app, extCode: 0)
+            #expect(strategy == .standardBackspace, "Expected standardBackspace for \(app)")
+        }
         
         // Sublime Text fix with U+200C
         let sublimeBreaker = KeystrokeInjector.determineStrategy(backspaceCount: 2, fixRecommendBrowser: true, bundleId: "com.sublimetext.4", extCode: 0)

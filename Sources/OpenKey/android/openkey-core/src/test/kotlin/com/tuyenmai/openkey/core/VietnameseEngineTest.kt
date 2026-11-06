@@ -276,4 +276,70 @@ class VietnameseEngineTest {
             assertEquals(word, screen.text, "Invalid word '$word' must restore raw ASCII keystrokes on word break")
         }
     }
+
+    // REQ-021, ADR-022: Live Mid-Word Restoration for Post-Tone E and Invalid Coda Consonants
+    @Test
+    fun testLiveMidWordRestorationBeforeSpace() {
+        VietnameseEngine.syncConfig(checkSpelling = 1, restoreIfWrongSpelling = 1)
+
+        // Post-Tone E words restored BEFORE Space is pressed
+        val postToneEWords = listOf(
+            "more", "core", "store", "care", "share", "fire", "sure", "case", "nose", "use", "house", "life"
+        )
+        for (w in postToneEWords) {
+            val screen = VirtualScreen()
+            screen.typeASCII(w)
+            assertEquals(w, screen.text, "Typing '$w' must restore live to '$w' before Space is pressed")
+        }
+
+        // Invalid Post-Vowel Coda Consonant words restored BEFORE Space is pressed
+        val invalidCodaWords = listOf(
+            "need", "needed", "good", "book", "feel", "work", "word", "part", "start", "sort", "soft", "left", "text", "next"
+        )
+        for (w in invalidCodaWords) {
+            val screen = VirtualScreen()
+            screen.typeASCII(w)
+            assertEquals(w, screen.text, "Typing '$w' must restore live to '$w' before Space is pressed")
+        }
+    }
+
+    // REQ-021, ADR-022: Live Double-Consonant Restoration & Compound Telex Escape
+    @Test
+    fun testLiveDoubleConsonantAndCompoundTelexEscape() {
+        VietnameseEngine.syncConfig(checkSpelling = 1, restoreIfWrongSpelling = 1)
+
+        // Live mid-word double-consonant restoration of "correct" and "errors"
+        val screenCorrect = VirtualScreen()
+        screenCorrect.typeASCII("correct")
+        assertEquals("correct", screenCorrect.text, "Typing 'correct' must restore live before Space")
+
+        val screenErrors = VirtualScreen()
+        screenErrors.typeASCII("errors")
+        assertEquals("errors", screenErrors.text, "Typing 'errors' must restore live before Space")
+
+        // Preserving "serrvice," -> "service,"
+        val screenService = VirtualScreen()
+        screenService.typeASCII("serrvice,")
+        assertEquals("service,", screenService.text, "Typing 'serrvice,' must produce 'service,'")
+
+        // Compound Telex escape: t-h-e-s-e + s -> "these", and t-h-e-s-e + e -> "these"
+        val screenTheseS = VirtualScreen()
+        screenTheseS.typeASCII("theses")
+        assertEquals("these", screenTheseS.text, "Typing 'theses' (these + s escape) must produce 'these'")
+
+        val screenTheseE = VirtualScreen()
+        screenTheseE.typeASCII("thesee")
+        assertEquals("these", screenTheseE.text, "Typing 'thesee' (these + e escape) must produce 'these'")
+    }
+
+    // REQ-027, ADR-027: Escape Keystroke Consumption (redundant trailing 'i')
+    @Test
+    fun testEscapeKeystrokeConsumption() {
+        VietnameseEngine.syncConfig(checkSpelling = 1, restoreIfWrongSpelling = 1)
+        val screen = VirtualScreen()
+        screen.typeASCII("loai") // "loại" / "loai"
+        val currentText = screen.text
+        screen.typeASCII("i")
+        assertEquals(currentText, screen.text, "Redundant trailing 'i' on valid syllable must be consumed without altering text")
+    }
 }

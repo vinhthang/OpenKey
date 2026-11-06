@@ -692,6 +692,155 @@ extension VietnameseEngineState {
         }
     }
     
+    public static let doubleConsonantEnglishStems: Set<String> = [
+        "err", "corr", "curr", "sorr", "morr", "tomorr", "borr", "carr", "marr",
+        "hurr", "worr", "arr", "narr", "mirr", "terr", "horr", "occurr", "recurr",
+        "off", "eff", "diff", "buff", "suff", "coff", "traff", "aff", "stiff",
+        "cliff", "staff", "stuff", "mess", "iss", "tiss", "sess", "less", "poss",
+        "pass", "ass", "press", "express", "impress", "compress", "address",
+        "process", "success", "access", "assess", "discuss", "miss", "loss",
+        "cross", "boss", "class", "glass", "grass", "mass", "dress", "stress", "guess"
+    ]
+    
+    func restoreWordFromRawKeys(oldScreenLength: Int) {
+        let targetLen = min(Int(rawStateIndex), maxBuff)
+        var diffIdx = 0
+        while diffIdx < oldScreenLength && diffIdx < targetLen {
+            if GET(typingWord[diffIdx]) != GET(rawKeyStates[diffIdx]) {
+                break
+            }
+            diffIdx += 1
+        }
+        for i in 0..<targetLen {
+            typingWord[i] = rawKeyStates[i]
+            keyStates[i] = rawKeyStates[i]
+        }
+        for i in targetLen..<maxBuff {
+            typingWord[i] = UInt32(KEY_EMPTY)
+            keyStates[i] = UInt32(KEY_EMPTY)
+        }
+        index = UInt8(targetLen)
+        stateIndex = UInt8(targetLen)
+        droppedKeys.removeAll()
+        tempDisableKey = true
+        if vCheckSpelling != 0 {
+            checkSpelling(forceCheckVowel: true)
+        }
+        let bsCount = max(0, oldScreenLength - diffIdx)
+        let newCount = max(0, targetLen - diffIdx)
+        hookOutput.code = HookCodeState.willProcess
+        hookOutput.backspaceCount = UInt8(bsCount)
+        hookOutput.newCharCount = UInt8(newCount)
+        hookOutput.extCode = 3
+        for i in diffIdx..<targetLen {
+            hookOutput.charData[targetLen - 1 - i] = GET(typingWord[i])
+        }
+    }
+    
+    func checkLiveMidWordAutoEscape(keyCode: UInt16) -> Bool {
+        guard vInputType == 0 else { return false }
+        
+        // 1. Double-Consonant rr/ff/ss + Vowel Live Mid-Word Restoration ("correct", "error", "errors", "sorry", "current", "office", "coffee", "message", "issue")
+        if tempDisableKey && !droppedKeys.isEmpty && Int(rawStateIndex) >= 4 {
+            if [KEY_A, KEY_E, KEY_I, KEY_O, KEY_U, KEY_Y].contains(keyCode) {
+                let rawBeforeLen = Int(rawStateIndex) - 1
+                if rawBeforeLen >= 2 {
+                    let c1 = UInt16(rawKeyStates[rawBeforeLen - 1] & CHAR_MASK)
+                    let c2 = UInt16(rawKeyStates[rawBeforeLen - 2] & CHAR_MASK)
+                    if c1 == c2 && [KEY_R, KEY_F, KEY_S, KEY_J, KEY_X].contains(c1) {
+                        var stemChars: [Character] = []
+                        for i in 0..<rawBeforeLen {
+                            let keyVal = rawKeyStates[i]
+                            let charCode = keyCodeToCharacter(keyVal)
+                            if charCode != 0, let scalar = UnicodeScalar(charCode) {
+                                stemChars.append(Character(scalar))
+                            }
+                        }
+                        let stemLower = String(stemChars).lowercased()
+                        if Self.doubleConsonantEnglishStems.contains(stemLower) {
+                            restoreWordFromRawKeys(oldScreenLength: Int(index))
+                            return true
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 2. Compound Interleaved Tone + Circumflex Telex Escape (these + s/e -> "these")
+        if !tempDisableKey && index >= 2 && Int(rawStateIndex) - 1 > Int(index) {
+            findAndCalculateVowel()
+            if vowelCount > 0 {
+                let vsi = Int(vowelStartIndex)
+                let vei = Int(vowelEndIndex)
+                for vi in vsi...vei {
+                    let tw = typingWord[vi]
+                    if (tw & TONE_MASK) != 0 && (tw & MARK_MASK) != 0 {
+                        var markKey: UInt16? = nil
+                        if (tw & MARK1_MASK) != 0 { markKey = KEY_S }
+                        else if (tw & MARK2_MASK) != 0 { markKey = KEY_F }
+                        else if (tw & MARK3_MASK) != 0 { markKey = KEY_R }
+                        else if (tw & MARK4_MASK) != 0 { markKey = KEY_X }
+                        else if (tw & MARK5_MASK) != 0 { markKey = KEY_J }
+                        
+                        if let mk = markKey {
+                            let vKey = CHR(vi)
+                            let isRepeatingKey = (keyCode == vKey || keyCode == mk)
+                            let rsi = Int(rawStateIndex)
+                            if isRepeatingKey && rsi >= 3 {
+                                let prevKey1 = UInt16(rawKeyStates[rsi - 3] & CHAR_MASK)
+                                let prevKey2 = UInt16(rawKeyStates[rsi - 2] & CHAR_MASK)
+                                if prevKey1 == mk && prevKey2 == vKey {
+                                    if rawStateIndex > 0 { rawStateIndex -= 1 }
+                                    if stateIndex > 0 { stateIndex -= 1 }
+                                    restoreWordFromRawKeys(oldScreenLength: Int(index))
+                                    return true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 3. Post-Tone KEY_E Mid-Word Auto-Restore ("more", "core", "store", "care", "share", "fire", "sure", "case", "nose", "use", "house", "life")
+        if !tempDisableKey && keyCode == KEY_E && index >= 1 && Int(rawStateIndex) >= 3 {
+            findAndCalculateVowel()
+            if vowelCount > 0 && Int(vowelEndIndex) == Int(index) - 1 {
+                let vRange = Int(vowelStartIndex)...Int(vowelEndIndex)
+                let noEY = !vRange.contains { CHR($0) == KEY_E || CHR($0) == KEY_Y }
+                let noCircumflexOrHorn = !vRange.contains { (typingWord[$0] & (TONE_MASK | TONEW_MASK)) != 0 }
+                let hasMark = vRange.contains { (typingWord[$0] & MARK_MASK) != 0 }
+                if noEY && noCircumflexOrHorn && hasMark && Int(rawStateIndex) >= 2 {
+                    let lastRawBeforeE = UInt16(rawKeyStates[Int(rawStateIndex) - 2] & CHAR_MASK)
+                    if [KEY_F, KEY_S, KEY_R, KEY_X, KEY_J].contains(lastRawBeforeE) {
+                        restoreWordFromRawKeys(oldScreenLength: Int(index))
+                        return true
+                    }
+                }
+            }
+        }
+        
+        // 4. Invalid Post-Vowel Coda Consonant Mid-Word Auto-Restore ("needed", "good", "book", "feel", "work", "word", "part", "start", "sort", "soft", "left", "text", "next")
+        if !tempDisableKey && index >= 2 {
+            findAndCalculateVowel()
+            if vowelCount > 0 && Int(vowelEndIndex) == Int(index) - 1 {
+                let vRange = Int(vowelStartIndex)...Int(vowelEndIndex)
+                let hasVowelMod = vRange.contains { (typingWord[$0] & (TONE_MASK | TONEW_MASK | MARK_MASK)) != 0 }
+                if hasVowelMod {
+                    let isImpossibleCoda = [KEY_B, KEY_K, KEY_L, KEY_Q, KEY_V].contains(keyCode) || (keyCode == KEY_D && CHR(0) != KEY_D)
+                    let hasNonEnteringMark = vRange.contains { (typingWord[$0] & (MARK2_MASK | MARK3_MASK | MARK4_MASK)) != 0 }
+                    let isIncompatibleStopCoda = [KEY_C, KEY_P, KEY_T].contains(keyCode) && hasNonEnteringMark
+                    if isImpossibleCoda || isIncompatibleStopCoda {
+                        restoreWordFromRawKeys(oldScreenLength: Int(index))
+                        return true
+                    }
+                }
+            }
+        }
+        
+        return false
+    }
+    
     func handleCharacterKey(keyCode: UInt16) {
         if willTempOffEngine {
             hookOutput.code = HookCodeState.doNothing
@@ -736,6 +885,11 @@ extension VietnameseEngineState {
             hookOutput.extCode = 3
             hookOutput.charData[1] = GET(typingWord[0])
             hookOutput.charData[0] = GET(typingWord[1])
+            return
+        }
+        
+        // REQ-021, ADR-022: Live mid-word phonotactic auto-escape
+        if checkLiveMidWordAutoEscape(keyCode: keyCode) {
             return
         }
         
