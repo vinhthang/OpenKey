@@ -8,6 +8,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.tuyenmai.openkey.android.SystemSpellCheckerBridge
 import com.tuyenmai.openkey.android.settings.SettingsActivity
 import com.tuyenmai.openkey.android.ui.KeyboardScreen
 import com.tuyenmai.openkey.core.AutoWordingEngine
@@ -44,6 +45,8 @@ class OpenKeyImeService : InputMethodService() {
     lateinit var sessionController: KeyboardSessionController
         internal set
 
+    private var spellCheckerBridge: SystemSpellCheckerBridge? = null
+
     var currentEvaluation: InputEvaluation = InputEvaluation(
         bypassVietnamese = false,
         isSecureField = false,
@@ -79,6 +82,10 @@ class OpenKeyImeService : InputMethodService() {
             batchCoordinator = batchCoordinator,
             autoWordingEngine = autoWordingEngine
         )
+
+        val bridge = SystemSpellCheckerBridge(this)
+        spellCheckerBridge = bridge
+        autoWordingEngine.spellCheckerBridge = bridge
 
         syncSettingsToEngine()
 
@@ -176,6 +183,9 @@ class OpenKeyImeService : InputMethodService() {
     }
 
     override fun onDestroy() {
+        spellCheckerBridge?.close()
+        spellCheckerBridge = null
+        autoWordingEngine.spellCheckerBridge = null
         lifecycleOwner.onDestroy()
         super.onDestroy()
     }

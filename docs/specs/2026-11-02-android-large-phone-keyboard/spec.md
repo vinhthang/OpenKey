@@ -1,8 +1,13 @@
 # Specification: Native Android Vietnamese Keyboard for Samsung Galaxy A37 (`2026-11-02-android-large-phone-keyboard`)
 
 - **Feature ID**: `2026-11-02-android-large-phone-keyboard`
-- **Status**: `In Progress`
-- **Date**: `2026-11-06`
+- **Type**: `enhancement`
+- **Version**: `1.6.0`
+- **Status**: `In-Testing`
+- **Date**: `2026-11-07`
+- **Lineage**:
+  - **Extends / Modifies**: `None`
+  - **Supersedes**: `None`
 - **Platform**: `Android 10+ (minSdk 29, targetSdk 35, Pure Kotlin 2.x & Jetpack Compose)`
 - **Primary Hardware Target**: `Samsung Galaxy A37 (6.7" Super AMOLED, 1080 × 2340 FHD+ 19.5:9, 120Hz One UI Stock Keyboard Layout Parity)`
 
@@ -248,3 +253,74 @@ The goal of **OpenKey Android** (`Sources/OpenKey/android/`) is to keep the **vi
   3. Typing `"so the python code is not needed? "` in `V` mode produces `"so the python code is not needed? "`, with `"n-e-e-d"` immediately rendering `"need"` on the `'d'` keystroke (never `"nêd"`).
   4. Typing `"these"` (`t-h-e-s-e` → `"thế"`) followed by `s` or `e` to escape produces `"these"` without a leftover circumflex `'ê'`, while standalone `"there "` → `"thể "`, `"these "` → `"thế "`, and `"of "` → `"ò "` in `V` mode continue to pass 100%.
   5. In Microsoft Teams (`com.microsoft.teams2`), `KeystrokeInjector.determineStrategy` returns `.standardBackspace` (zero `U+202F` Narrow No-Break Space injection on `"kiểm tra lỗi chính tả sai"`), and typing `"I think Tony is correct,"` or `"@Shi @To, these "` in `V` mode produces `"I think Tony is correct,"` and `"@Shi @To, these "` without `"is"` becoming `"í"` or `"these"` staying `"thế"`.
+
+### `REQ-022` — Persistent APK Signing Keystore & Monotonic Build Versioning for Seamless In-Place Android Updates (`Sources/OpenKey/android/app/build.gradle.kts`, `Sources/OpenKey/android/app/openkey-debug.keystore`, `.github/workflows/android-ci.yml`)
+- **Source Intent**: Verbatim user prompt (`2026-11-07`): *"I can't update the apk, need to uninstall and re install, analyst and add as bug fix requirement"*.
+- **Description**:
+  1. **Root-Cause Defect**:
+     - **Ephemeral Per-Runner Debug Keystore (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`)**: `Sources/OpenKey/android/app/build.gradle.kts` did not declare an explicit `signingConfigs` keystore. On every GitHub Actions `Android CI/CD` run (`ubuntu-latest`), the Android Gradle Plugin (`:app:assembleDebug`) auto-generated a brand-new random RSA keypair and X.509 certificate in the ephemeral runner's `~/.android/debug.keystore`. Because Android's `PackageManager` rejects in-place package updates whenever the new APK's signing certificate `SHA-256` fingerprint differs from the installed package's certificate (`"App not installed as package conflicts with an existing package"` / `INSTALL_FAILED_UPDATE_INCOMPATIBLE`), users were forced to uninstall OpenKey Android (losing IME activation, default keyboard selection, and saved preferences) before installing each new APK build.
+     - **Static `versionCode = 1` (`INSTALL_FAILED_VERSION_DOWNGRADE` & Indistinguishable Build Metadata)**: `defaultConfig` hardcoded `versionCode = 1` and `versionName = "1.0.0"`, preventing Android Package Installer from recognizing consecutive CI builds as newer versions and preventing users from verifying the installed build number in Android Settings.
+  2. **Normative EARS Requirements**:
+     - `WHEN` `:app:assembleDebug` or `:app:assembleRelease` is executed on a local workstation or an ephemeral GitHub Actions runner (`ubuntu-latest`), `THE` Android build (`Sources/OpenKey/android/app/build.gradle.kts`) `SHALL` sign the APK using the persistent repository-tracked keystore `Sources/OpenKey/android/app/openkey-debug.keystore` (`storePassword = "android"`, `keyAlias = "androiddebugkey"`, `keyPassword = "android"`, with optional environment override via `OPENKEY_KEYSTORE_PATH` / `OPENKEY_STORE_PASSWORD` / `OPENKEY_KEY_ALIAS` / `OPENKEY_KEY_PASSWORD`) so that all local and CI builds share an identical X.509 signing certificate fingerprint and update in-place on Android without uninstalling.
+     - `WHEN` evaluating `defaultConfig` in `Sources/OpenKey/android/app/build.gradle.kts`, `THE` build script `SHALL` compute a monotonically increasing `versionCode` from `-PversionCode` or `git rev-list --count HEAD` (with fallback `>= 1` when git metadata is unavailable) and set `versionName = "1.0.$resolvedVersionCode"`, while `.github/workflows/android-ci.yml` `SHALL` configure `actions/checkout@v4` with `fetch-depth: 0` so full commit history is available during CI APK assembly.
+- **Acceptance Criteria**:
+  1. **(`AC-022.1`)**: `Sources/OpenKey/android/app/openkey-debug.keystore` exists in the repository as a valid keystore containing alias `"androiddebugkey"` with a deterministic X.509 certificate (`CN=Android Debug,O=Android,C=US`), and `Sources/OpenKey/android/app/build.gradle.kts` wires `signingConfigs.getByName("debug")` and `buildTypes.release.signingConfig` to `openkey-debug.keystore` (unless overridden by `OPENKEY_KEYSTORE_PATH`).
+  2. **(`AC-022.2`)**: `Sources/OpenKey/android/app/build.gradle.kts` dynamically computes `versionCode` from `-PversionCode` or `git rev-list --count HEAD` (`> 1`) and `versionName = "1.0.<versionCode>"`, and `.github/workflows/android-ci.yml` sets `fetch-depth: 0` on `actions/checkout@v4`.
+  3. **(`AC-022.3`)**: Unit test `testPersistentApkSigningAndMonotonicVersioningConfig` in `Sources/OpenKey/android/app/src/test/java/com/tuyenmai/openkey/android/OpenKeyAndroidAppTest.kt` loads `Sources/OpenKey/android/app/openkey-debug.keystore` via `java.security.KeyStore`, verifies alias `"androiddebugkey"` and its X.509 certificate `SHA-256` fingerprint are present and non-empty, verifies `app/build.gradle.kts` configures `openkey-debug.keystore` and `git rev-list --count HEAD`, and verifies `.github/workflows/android-ci.yml` configures `fetch-depth: 0`.
+
+### `REQ-023` — Removal of Top Keyboard Setting Panel (`CandidateStripView.kt`, `KeyboardScreen.kt`)
+- **Source Intent**: Verbatim user prompt with screenshot (`2026-11-07`): *"there is still setting panel, remove it"*.
+- **Description**:
+  1. `WHEN` the keyboard is displayed on screen (`KeyboardScreen.kt` & `CandidateStripView.kt`), `THE` UI `SHALL` completely remove the top idle setting panel (the left `"English (US)"` / `"Tiếng Việt • Telex"` mode button, `OneHandedModeIcon` `📱`, and `SettingsGearIcon` `⚙`) from `CandidateStripView.kt` and `KeyboardScreen.kt` so that the top `44dp` strip is strictly dedicated to **Auto Wording / Candidate Suggestions** with zero setting icons or mode labels.
+- **Acceptance Criteria**:
+  1. **(`AC-023.1`)**: `CandidateStripView.kt` contains zero `SettingsGearIcon`, zero `OneHandedModeIcon`, zero `onOpenSettings`, zero `onOneHandedCycle`, and zero `"English (US)"` / `"Tiếng Việt • Telex"` idle setting toolbar controls.
+  2. **(`AC-023.2`)**: `OpenKeyAndroidAppTest.kt` verifies that `CandidateStripView.kt` does not contain `SettingsGearIcon`, `OneHandedModeIcon`, or `"English (US)"`.
+
+### `REQ-024` — Full English Auto-Wording Engine & Bilingual Touch-Typing Auto-Correct (`"thử tiếng vietek,"` → `"thử tiếng việt,"`, `"featuere,"` → `"feature,"`, `EN` Mode Session Routing, 1-Char Prefix Completion, English Next-Word Bigrams & Android `SpellCheckerSession` Bridge)
+- **Source Intent**: Verbatim user prompts (`2026-11-07`):
+  1. *"why in english, I do not see the auto wording, can you re use it from anything else, like from samsung library or other"*
+  2. *"thử tiếng vietek, maybe we should have an auto correct featuere, like auto correct 2 wrongly words in this sentence"*
+- **Description**:
+  1. **Root-Cause Defects**:
+     - `KeyboardSessionController.kt` (`lines 154, 193, 221`) executed `if (editorUiState.bypassVietnamese || editorUiState.language != 1) { _composingWord = ""; batchCoordinator.commitBatch(...); return true }`, which **completely bypassed `AutoWordingEngine`** whenever the keyboard was in **English (`language == 0`)** mode.
+     - `VietnameseDictionary.computeEnglishCandidates` only searched `englishPriorityWords` (~350 words) instead of the full `englishWords` corpus (`2,500+` words), required `>= 2` characters in `AutoWordingEngine.didProcessKeyEvent`, and `computeNextWordCandidates` only queried Vietnamese `compoundBigrams` (returning `emptyList()` after English words).
+     - Touch-typing fat-finger typos on `Space` and punctuation (`,`, `.`, `?`, `!`) were not auto-corrected:
+       - In `"thử tiếng vietek,"`, the user typed `v-i-e-t-e` (`"viêt"`) and fat-fingered **`k`** (immediately right of **`j`** on QWERTY Row 3 `h-j-k`) when aiming for `j` (*dấu nặng*), which reverted `"viêt"` + `k` to `"vietek"`, and `BilingualAutoSwitchEngine` skipped bigram/typo repair when `breakKeyCode == KEY_COMMA` (`,`).
+       - In `"auto correct featuere,"`, the user accidentally tapped the QWERTY-adjacent `'e'` key before `'r'` (`f-e-a-t-u-e-r-e`), and `findEnglishTranspositionMatch` only checked same-length character swaps rather than 1-extra-character deletion distance (`"featuere"` → drop `'e'` → `"feature"`).
+  2. **Normative EARS Requirements**:
+     - `WHEN` `editorUiState.language == 0` (**English mode**) and `editorUiState.bypassVietnamese == false`, `THE` `KeyboardSessionController` `SHALL` track the active English word (`_composingWord`) across `KeyAction.CommitChar`, `KeyAction.Backspace`, and `KeyAction.Space`, invoke `AutoWordingEngine` after every Commit-First keystroke to populate 3-slot English prefix/typo/contraction candidates from the **1st character typed (`length >= 1`)**, apply English contraction/typo/auto-correct on `KeyAction.Space` and word-break punctuation (`,`, `.`, `?`, `!`), and populate 3-slot **English Next-Word Bigram** candidates after `Space` or candidate selection.
+     - `WHEN` computing English candidates in `VietnameseDictionary.computeEnglishCandidates(rawStem, limit)` (both Kotlin and Swift), `THE` dictionary `SHALL` search a frequency-ranked index over the full `englishWords` corpus (plus contractions, typo corrections, transpositions, 1-extra-char deletions, and any suggestions registered via `externalEnglishSuggester`), preserving uppercase/TitleCase casing (`"i"` → `["I", "in", "is"]`, `"t"` → `["the", "to", "that"]`, `"Th"` → `["The", "That", "This"]`), and `computeNextWordCandidates(previousWord)` `SHALL` query `englishNextWordBigrams` when no Vietnamese bigram matches.
+     - `WHEN` a word break (`KEY_SPACE`, `KEY_COMMA`, `KEY_DOT`, `KEY_QUESTION`, `KEY_EXCLAMATION`, `KEY_SEMICOLON`, `KEY_COLON`) occurs in `BilingualAutoSwitchEngine.evaluateWordBreakRestore` (both Kotlin and Swift) or in English mode (`KeyboardSessionController`), `THE` engine `SHALL` apply:
+       1. **Vietnamese Fat-Finger Tone & Bigram Auto-Correct (`findVietnameseAutoCorrectMatch`)**: Repairing trailing QWERTY-neighbor `k`-for-`j` (*dấu nặng*) typos on Vietnamese stems (`"vietek"`, `"vieetk"`, `"vietk"` → `"việt"`, `"viecek"`, `"vieeck"` → `"việc"`, `"duowck"`, `"dduowck"` → `"được"`, `"mootk"`, `"motok"` → `"một"`, `"hoack"` → `"hoặc"`, `"thuwck"` → `"thực"`, `"hieenk"` → `"hiện"`) and single-word bigram corrections (`"tiếng viet"` / `"tiếng viêt"` / `"tiếng vietek"` → `"tiếng việt"`) across both `Space` and punctuation breaks (`,`, `.`, `?`, `!`).
+       2. **English Damerau-Levenshtein Distance-1 Auto-Correct (`findEnglishAutoCorrectMatch`)**: Repairing adjacent character transpositions (`"feautre"` → `"feature"`), 1-extra-character duplicate/QWERTY-neighbor insertions (`"featuere"` → `"feature"`, `"keyboasrd"` → `"keyboard"`, `"mesasage"` → `"message"`, `"andrtoid"` → `"android"`, `"problrem"` → `"problem"`), and `englishTypoCorrections` across both `Space` and punctuation breaks (`,`, `.`, `?`, `!`).
+     - `WHEN` `OpenKeyImeService` runs on Android (`Sources/OpenKey/android/app/`), `THE` service `SHALL` attach `SystemSpellCheckerBridge` (backed by Android's local zero-permission `android.view.textservice.TextServicesManager` / `SpellCheckerSession`) to `AutoWordingEngine`.
+- **Acceptance Criteria**:
+  1. **(`AC-024.1`)**: In English mode (`language == 0`, `bypassVietnamese == false`), typing `"t"`, `"th"`, `"i"`, `"im"`, `"wo"`, or `"andro"` via `KeyboardSessionController.onKeyAction(KeyAction.CommitChar(...))` immediately populates `autoWordingEngine.candidates` with 3 ranked English suggestions (`"t"` → `["the", "to", "that"]`, `"i"` → `["I", "in", "is"]`, `"im"` → `["I'm", ...]`), and tapping a candidate replaces `_composingWord` and predicts the next English word.
+  2. **(`AC-024.2`)**: Typing `"thử tiếng vietek, maybe we should have an auto correct featuere, like auto correct 2 wrongly words in this sentence "` in Vietnamese mode (`language == 1`) produces `"thử tiếng việt, maybe we should have an auto correct feature, like auto correct 2 wrongly words in this sentence "` on both Android (`:openkey-core`) and macOS (`OpenKeySwiftCore`), and typing `"auto correct featuere,"` or `"im "` / `"dont "` in English mode (`language == 0`) produces `"auto correct feature,"` and `"I'm "` / `"don't "`.
+  3. **(`AC-024.3`)**: `SystemSpellCheckerBridge.kt` in `:app` integrates `android.view.textservice.TextServicesManager` / `SpellCheckerSession` (`Locale.US`) with `AutoWordingEngine` without adding any network permissions to `AndroidManifest.xml`.
+
+### `REQ-025` — Dedicated Samsung One UI 4×4 Numeric Keypad (`KeyboardLayer.NUMPAD`) for Number, Phone & DateTime Input Fields (`InputContextEvaluator.kt`, `KeyboardSessionController.kt`, `KeyboardLayoutDefinition.kt`, `KeyboardScreen.kt`, `KeyButton.kt`)
+- **Source Intent**: Verbatim user prompt with banking app screenshot (`2026-11-07`): *"why in this number only, I see the full keyboard"*.
+- **Description**:
+  1. **Root-Cause Defect**:
+     - `InputContextEvaluator.evaluate` detected `TYPE_CLASS_NUMBER`, `TYPE_CLASS_PHONE`, and `TYPE_CLASS_DATETIME` and set `bypassVietnamese = true`, but `InputEvaluation` and `EditorUiState` did not expose `isNumericField: Boolean`, and `KeyboardLayoutDefinition` had no `KeyboardLayer.NUMPAD`. Consequently, numeric fields (such as banking transfer amount `"Số tiền 750,000 VND"` and account number fields) still rendered the full 5-row 45-key QWERTY letter keyboard.
+  2. **Normative EARS Requirements**:
+     - `WHEN` `EditorContext.inputType` has class `TYPE_CLASS_NUMBER` (`2`), `TYPE_CLASS_PHONE` (`3`), or `TYPE_CLASS_DATETIME` (`4`), `THE` `InputContextEvaluator.evaluate` and `KeyboardSessionController.editorUiState` `SHALL` set `isNumericField = true` (in addition to `bypassVietnamese = true`).
+     - `WHEN` `editorUiState.isNumericField == true`, `THE` `KeyboardScreen` `SHALL` hide `LiveCandidateStripHost` and render `KeyboardLayer.NUMPAD` (`KeyboardLayoutDefinition.getLayer(KeyboardLayer.NUMPAD, ...)`) as a 4-row × 4-column Samsung One UI Numeric Keypad (`Row 1`: `1`, `2`, `3`, `-`; `Row 2`: `4`, `5`, `6`, `Space`; `Row 3`: `7`, `8`, `9`, `⌫`; `Row 4`: `,`, `0`, `.`, `Enter` with weights `0.26f / 0.26f / 0.26f / 0.22f`), using `26.sp` (`FontWeight.Medium`) digit typography and `58.dp` portrait row height.
+- **Acceptance Criteria**:
+  1. **(`AC-025.1`)**: `InputContextEvaluator.evaluate` sets `isNumericField = true` for `TYPE_CLASS_NUMBER`, `TYPE_CLASS_PHONE`, and `TYPE_CLASS_DATETIME`, and `isNumericField = false` for `TYPE_CLASS_TEXT`.
+  2. **(`AC-025.2`)**: `KeyboardLayoutDefinition.getLayer(KeyboardLayer.NUMPAD, ...)` returns 4 rows of 4 keys (`1 2 3 -`, `4 5 6 Space`, `7 8 9 ⌫`, `, 0 . Enter`) whose weights sum to `1.00f` per row, and `KeyboardScreen` automatically switches to `KeyboardLayer.NUMPAD` (and hides the top candidate strip) whenever `editorUiState.isNumericField == true`.
+
+---
+
+## 3. Non-Goals
+- **Cloud / Online Telemetry or Remote Crash Reporting**: OpenKey Android remains 100% offline (`REQ-001`) with zero network permissions.
+- **Physical / Bluetooth Hardware Keyboard Remapping on Phone (`ADR-015`)**: Hardware keyboard interception remains out of scope for the Samsung Galaxy A37 touch-only phone keyboard.
+- **Google Play Store Managed App Signing Key Custody in Repo**: The repository-tracked `openkey-debug.keystore` is dedicated to consistent side-loading / GitHub Release APK updates (`OpenKey-Android-A37.apk`); private production keys, if ever used, are supplied via `OPENKEY_KEYSTORE_PATH` environment variables without committing private secrets.
+
+---
+
+## 4. Sign-off
+- **Planning & Gate 1 + Gate 2 Approval (`v1.6.0` — `REQ-022`..`REQ-025`)**: Approved by user (`"proceed"`, `2026-11-07T09:54:37+07:00`).
+
+

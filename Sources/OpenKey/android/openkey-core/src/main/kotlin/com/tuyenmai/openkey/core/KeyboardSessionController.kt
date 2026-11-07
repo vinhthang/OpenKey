@@ -11,6 +11,7 @@ data class EditorUiState(
     val shouldSendNewlineOnEnter: Boolean = false,
     val bypassVietnamese: Boolean = false,
     val isSecureField: Boolean = false,
+    val isNumericField: Boolean = false,
     val language: Int = 1,
     val packageName: String = ""
 )
@@ -43,6 +44,9 @@ class KeyboardSessionController(
 
     private var _composingWord: String = ""
     val composingWord: String get() = _composingWord
+
+    private var _previousWord: String = ""
+    val previousWord: String get() = _previousWord
 
     private val uiStateListeners = CopyOnWriteArrayList<(EditorUiState) -> Unit>()
 
@@ -80,6 +84,7 @@ class KeyboardSessionController(
         VietnameseEngine.resetSession()
         autoWordingEngine.clearCandidates()
         _composingWord = ""
+        _previousWord = ""
 
         val eval = InputContextEvaluator.evaluate(context)
         val appLang = if (settingsStore.useSmartSwitchKey) {
@@ -102,6 +107,7 @@ class KeyboardSessionController(
             shouldSendNewlineOnEnter = eval.shouldSendNewlineOnEnter,
             bypassVietnamese = eval.bypassVietnamese,
             isSecureField = eval.isSecureField,
+            isNumericField = eval.isNumericField,
             language = appLang,
             packageName = context.packageName
         )
@@ -121,6 +127,7 @@ class KeyboardSessionController(
         if (resetOccurred) {
             autoWordingEngine.clearCandidates()
             _composingWord = ""
+            _previousWord = ""
         }
         return resetOccurred
     }
@@ -151,10 +158,40 @@ class KeyboardSessionController(
                 if (editorUiState.isSecureField) {
                     logger.log(LogSubsystem.SESSION) { "Secure input active — keystroke redacted, bypassing IME" }
                 }
-                if (editorUiState.bypassVietnamese || editorUiState.language != 1) {
+                if (editorUiState.bypassVietnamese) {
                     _composingWord = ""
+                    _previousWord = ""
                     batchCoordinator.commitBatch(target, 0, charStr)
                     return true
+                }
+
+                if (editorUiState.language == 0) {
+                    if (charStr.length == 1 && (charStr[0].isLetter() || charStr[0] == '\'')) {
+                        _composingWord += charStr
+                        batchCoordinator.commitBatch(target, 0, charStr)
+                        autoWordingEngine.didProcessEnglishKeyEvent(charStr[0].code, false, _composingWord, _previousWord)
+                        return true
+                    } else if (charStr.length == 1 && (charStr[0] == ',' || charStr[0] == '.' || charStr[0] == '!' || charStr[0] == '?' || charStr[0] == ';' || charStr[0] == ':')) {
+                        if (_composingWord.isNotEmpty()) {
+                            val rep = autoWordingEngine.didProcessEnglishKeyEvent(charStr[0].code, false, _composingWord, _previousWord)
+                            if (rep != null) {
+                                batchCoordinator.commitBatch(target, rep.first, rep.second)
+                                _previousWord = rep.second.dropLast(1).trim()
+                            } else {
+                                batchCoordinator.commitBatch(target, 0, charStr)
+                                _previousWord = _composingWord
+                            }
+                            _composingWord = ""
+                        } else {
+                            batchCoordinator.commitBatch(target, 0, charStr)
+                        }
+                        return true
+                    } else {
+                        _composingWord = ""
+                        batchCoordinator.commitBatch(target, 0, charStr)
+                        autoWordingEngine.clearCandidates()
+                        return true
+                    }
                 }
 
                 if (charStr.length == 1) {
@@ -190,12 +227,31 @@ class KeyboardSessionController(
             }
 
             is KeyAction.Backspace -> {
-                if (editorUiState.bypassVietnamese || editorUiState.language != 1) {
+                if (editorUiState.bypassVietnamese) {
                     _composingWord = ""
+                    _previousWord = ""
                     target.deleteSurroundingText(1, 0)
                     batchCoordinator.onCursorMovedByTrackpad(-1)
                     VietnameseEngine.resetSession()
                     autoWordingEngine.clearCandidates()
+                    return true
+                }
+
+                if (editorUiState.language == 0) {
+                    if (_composingWord.isNotEmpty()) {
+                        _composingWord = _composingWord.dropLast(1)
+                        target.deleteSurroundingText(1, 0)
+                        batchCoordinator.onCursorMovedByTrackpad(-1)
+                        if (_composingWord.isNotEmpty()) {
+                            autoWordingEngine.didProcessEnglishKeyEvent(0, true, _composingWord, _previousWord)
+                        } else {
+                            autoWordingEngine.clearCandidates()
+                        }
+                    } else {
+                        target.deleteSurroundingText(1, 0)
+                        batchCoordinator.onCursorMovedByTrackpad(-1)
+                        autoWordingEngine.clearCandidates()
+                    }
                     return true
                 }
 
@@ -217,14 +273,39 @@ class KeyboardSessionController(
             }
 
             is KeyAction.Space -> {
-                _composingWord = ""
-                if (editorUiState.bypassVietnamese || editorUiState.language != 1) {
+                if (editorUiState.bypassVietnamese) {
+                    _composingWord = ""
+                    _previousWord = ""
                     batchCoordinator.commitBatch(target, 0, " ")
                     VietnameseEngine.resetSession()
                     autoWordingEngine.clearCandidates()
                     return true
                 }
 
+                if (editorUiState.language == 0) {
+                    if (_composingWord.isNotEmpty()) {
+                        val rep = autoWordingEngine.didProcessEnglishKeyEvent(
+                            VietnameseData.KEY_SPACE.toInt(),
+                            false,
+                            _composingWord,
+                            _previousWord
+                        )
+                        if (rep != null) {
+                            batchCoordinator.commitBatch(target, rep.first, rep.second)
+                            _previousWord = rep.second.trim()
+                        } else {
+                            batchCoordinator.commitBatch(target, 0, " ")
+                            _previousWord = _composingWord
+                        }
+                        _composingWord = ""
+                    } else {
+                        batchCoordinator.commitBatch(target, 0, " ")
+                        autoWordingEngine.clearCandidates()
+                    }
+                    return true
+                }
+
+                _composingWord = ""
                 val keyCode = VietnameseData.KEY_SPACE.toInt()
                 VietnameseEngine.handleKeyEventCommitFirst(keyCode, 0, false) { snapshot ->
                     if (snapshot.code == HookCodeState.WILL_PROCESS ||
@@ -241,6 +322,7 @@ class KeyboardSessionController(
 
             is KeyAction.Enter -> {
                 _composingWord = ""
+                _previousWord = ""
                 VietnameseEngine.resetSession()
                 autoWordingEngine.clearCandidates()
                 if (editorUiState.shouldSendNewlineOnEnter) {
@@ -253,6 +335,7 @@ class KeyboardSessionController(
 
             is KeyAction.SwitchLanguage -> {
                 _composingWord = ""
+                _previousWord = ""
                 val nextLang = if (editorUiState.language == 1) 0 else 1
                 settingsStore.language = nextLang
                 if (editorUiState.packageName.isNotBlank()) {
@@ -296,6 +379,7 @@ class KeyboardSessionController(
         batchCoordinator.commitBatch(target, candidate.replaceLength, candidate.text + " ")
         autoWordingEngine.recordCandidateAcceptance(candidate.text)
         VietnameseEngine.resetSession()
+        _previousWord = candidate.text
         val nextCands = autoWordingEngine.computeNextWordCandidates(candidate.text)
         autoWordingEngine.updateCandidates(nextCands)
         return true
@@ -315,6 +399,7 @@ class KeyboardSessionController(
     fun onDeletePreviousWord(): Boolean {
         val target = committer ?: return false
         _composingWord = ""
+        _previousWord = ""
         VietnameseEngine.resetSession()
         autoWordingEngine.clearCandidates()
         return target.deletePreviousWord()

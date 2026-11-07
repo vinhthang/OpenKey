@@ -1426,5 +1426,31 @@ struct OpenKeyEngineTests {
         }
     }
 
+    // MARK: - REQ-024, ADR-025: Bilingual Touch-Typing Auto-Correct (AC-024.2)
+    @Test("REQ-024, ADR-025: Bilingual touch auto-correct for tone fat-fingers and English typos before punctuation")
+    func testReq024BilingualTouchAutoCorrect() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        AutoWordingEngine.shared.isEnabled = true
+        AutoWordingEngine.shared.grammarRepairEnabled = true
+        defer {
+            OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+        }
+
+        // 1. Full sentence verification matching AC-024.2 verbatim:
+        // "thử tiếng vietek, maybe we should have an auto correct featuere, like auto correct 2 wrongly words in this sentence "
+        var s = VirtualScreen()
+        s.typeASCII("thử tiếng vietek, maybe we should have an auto correct featuere, like auto correct 2 wrongly words in this sentence ")
+        #expect(s.text == "thử tiếng việt, maybe we should have an auto correct feature, like auto correct 2 wrongly words in this sentence ",
+                "Sentence must auto-correct 'vietek,' to 'việt,' and 'featuere,' to 'feature,', got '\(s.text)'")
+
+        // 2. English mode auto-correct on punctuation and contractions
+        OKEngineResetSession()
+        var sEng = VirtualScreen()
+        sEng.typeASCII("auto correct featuere,")
+        #expect(sEng.text == "auto correct feature,", "Typing 'auto correct featuere,' must auto-correct to 'auto correct feature,', got '\(sEng.text)'")
+    }
+
 }
 }

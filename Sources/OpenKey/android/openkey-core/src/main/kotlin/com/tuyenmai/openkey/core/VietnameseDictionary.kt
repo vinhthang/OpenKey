@@ -135,6 +135,9 @@ class VietnameseDictionary private constructor() {
     val englishLookbackStems: Set<String>
     val keepWords: Set<String>
     val validTelexKeys: Set<String>
+    val englishFrequencyRanked: List<String>
+    val englishPrefixMap: Map<Char, List<String>>
+    val englishNextWordBigrams: Map<String, List<String>>
     val englishTypoCorrections: Map<String, String>
     val vietnameseTypoCorrections: Map<String, String>
     val vietnameseBigramGrammar: Map<String, String>
@@ -200,6 +203,156 @@ class VietnameseDictionary private constructor() {
         this.englishWords = prioSet + lookbackSet + extraSet
         this.keepWords = baseKeepSet + this.englishWords
 
+        val freqRankedList = listOf(
+            "the", "to", "that", "and", "of", "in", "is", "it", "you", "for", "on", "with", "as", "are", "this", "by", "be", "at", "or", "have", "from", "not", "but", "what", "all", "were", "we", "when", "your", "can", "said", "there", "use", "an", "each", "which", "she", "do", "how", "their", "if", "will", "up", "other", "about", "out", "many", "then", "them", "these", "so", "some", "her", "would", "make", "like", "him", "into", "time", "has", "look", "two", "more", "write", "go", "see", "number", "no", "way", "could", "people", "my", "than", "first", "water", "been", "call", "who", "oil", "its", "now", "find", "long", "down", "day", "did", "get", "come", "made", "may", "part", "work", "need", "know", "think", "good", "check", "please", "thank", "thanks", "hello", "help", "here", "message", "team", "update", "android", "samsung", "keyboard"
+        )
+        val rankedSet = mutableSetOf<String>()
+        val rankedList = mutableListOf<String>()
+        for (w in freqRankedList) {
+            if (rankedSet.add(w)) rankedList.add(w)
+        }
+        for (w in prioRaw.split(" ").filter { it.isNotEmpty() }) {
+            if (rankedSet.add(w)) rankedList.add(w)
+        }
+        for (w in lookbackRaw.split(" ").filter { it.isNotEmpty() }) {
+            if (rankedSet.add(w)) rankedList.add(w)
+        }
+        for (w in extraEngRaw.split(" ").filter { it.isNotEmpty() }) {
+            if (rankedSet.add(w)) rankedList.add(w)
+        }
+        this.englishFrequencyRanked = rankedList
+
+        val prefixMap = mutableMapOf<Char, MutableList<String>>()
+        for (w in rankedList) {
+            if (w.isNotEmpty()) {
+                prefixMap.getOrPut(w[0]) { mutableListOf() }.add(w)
+            }
+        }
+        this.englishPrefixMap = prefixMap
+
+        this.englishNextWordBigrams = mapOf(
+            "i" to listOf("am", "have", "will", "can", "think", "need", "know", "want"),
+            "i'm" to listOf("sure", "sorry", "going", "not", "doing", "here"),
+            "we" to listOf("will", "can", "should", "have", "need", "are"),
+            "should" to listOf("have", "be", "not", "do", "get"),
+            "have" to listOf("a", "an", "been", "to", "the", "no"),
+            "an" to listOf("auto", "issue", "update", "error", "apple", "item", "example"),
+            "auto" to listOf("correct", "switch", "wording", "complete"),
+            "in" to listOf("this", "the", "a", "our", "case", "fact"),
+            "this" to listOf("is", "sentence", "week", "issue", "time", "feature"),
+            "the" to listOf("same", "first", "new", "best", "next", "world", "way"),
+            "to" to listOf("the", "be", "make", "have", "do", "get", "see"),
+            "for" to listOf("the", "you", "this", "a", "all", "more"),
+            "android" to listOf("app", "studio", "phone", "device", "keyboard", "os"),
+            "you" to listOf("can", "are", "have", "will", "should", "know", "need"),
+            "it" to listOf("is", "was", "will", "has", "can", "should"),
+            "that" to listOf("is", "was", "you", "we", "the", "can"),
+            "with" to listOf("the", "you", "this", "a", "all"),
+            "as" to listOf("well", "a", "the", "an", "soon", "if"),
+            "are" to listOf("you", "not", "the", "all", "there"),
+            "by" to listOf("default", "the", "this", "a"),
+            "be" to listOf("able", "a", "the", "in", "sure"),
+            "at" to listOf("least", "the", "all", "this", "first"),
+            "from" to listOf("the", "this", "a", "here"),
+            "not" to listOf("only", "have", "be", "the", "a"),
+            "but" to listOf("also", "the", "it", "we", "I"),
+            "what" to listOf("is", "are", "you", "we", "to"),
+            "all" to listOf("the", "of", "in", "day", "right"),
+            "can" to listOf("be", "have", "do", "make", "see"),
+            "will" to listOf("be", "have", "not", "make", "do"),
+            "if" to listOf("you", "we", "it", "the", "there"),
+            "do" to listOf("not", "you", "it", "this", "that"),
+            "how" to listOf("to", "are", "is", "can", "do"),
+            "their" to listOf("own", "way", "work", "first"),
+            "up" to listOf("to", "with", "date", "the"),
+            "out" to listOf("of", "the", "there", "and"),
+            "so" to listOf("that", "much", "many", "good"),
+            "some" to listOf("of", "more", "time", "people"),
+            "would" to listOf("be", "have", "like", "not"),
+            "make" to listOf("sure", "a", "it", "sense", "the"),
+            "like" to listOf("to", "this", "that", "a", "auto"),
+            "into" to listOf("the", "a", "this"),
+            "time" to listOf("to", "for", "and", "is"),
+            "has" to listOf("been", "a", "the", "no", "to"),
+            "look" to listOf("at", "for", "like", "back"),
+            "more" to listOf("than", "or", "and", "info"),
+            "see" to listOf("if", "the", "you", "what"),
+            "no" to listOf("one", "more", "matter", "problem"),
+            "way" to listOf("to", "of", "and", "in"),
+            "could" to listOf("be", "have", "not"),
+            "people" to listOf("who", "are", "in", "with"),
+            "my" to listOf("own", "friend", "life", "first"),
+            "than" to listOf("the", "that", "this", "ever"),
+            "first" to listOf("time", "step", "place", "of"),
+            "been" to listOf("able", "done", "made", "there"),
+            "now" to listOf("that", "and", "we", "I"),
+            "find" to listOf("out", "the", "a", "more"),
+            "get" to listOf("the", "a", "back", "more"),
+            "part" to listOf("of", "the", "two"),
+            "need" to listOf("to", "a", "more", "help"),
+            "know" to listOf("that", "how", "what", "if"),
+            "think" to listOf("that", "about", "it", "you"),
+            "good" to listOf("for", "to", "and", "job"),
+            "check" to listOf("out", "the", "this", "in"),
+            "please" to listOf("let", "check", "see", "help"),
+            "thank" to listOf("you", "very", "god"),
+            "thanks" to listOf("for", "to", "again", "a lot"),
+            "hello" to listOf("world", "there", "everyone"),
+            "help" to listOf("you", "me", "with", "us"),
+            "here" to listOf("is", "are", "we", "to"),
+            "message" to listOf("from", "to", "for", "and"),
+            "team" to listOf("members", "leader", "work"),
+            "update" to listOf("the", "to", "date", "status"),
+            "samsung" to listOf("galaxy", "keyboard", "phone", "one ui"),
+            "keyboard" to listOf("layout", "screen", "settings", "app"),
+            "correct" to listOf("feature", "word", "sentence", "spelling", "answer"),
+            "feature" to listOf("like", "for", "in", "to", "and"),
+            "wrongly" to listOf("words", "typed", "used"),
+            "words" to listOf("in", "and", "to", "of"),
+            "sentence" to listOf("in", "with", "is", "and"),
+            "maybe" to listOf("we", "you", "it", "I", "they"),
+            "there" to listOf("is", "are", "was", "were"),
+            "who" to listOf("is", "are", "was", "can"),
+            "which" to listOf("is", "was", "are", "can"),
+            "she" to listOf("is", "was", "has", "will"),
+            "he" to listOf("is", "was", "has", "will"),
+            "they" to listOf("are", "were", "have", "will"),
+            "come" to listOf("to", "from", "back", "with"),
+            "made" to listOf("by", "for", "of", "in"),
+            "may" to listOf("be", "have", "not"),
+            "work" to listOf("with", "on", "for", "in"),
+            "call" to listOf("me", "you", "it", "back"),
+            "oil" to listOf("and", "price", "industry"),
+            "its" to listOf("own", "first", "best"),
+            "long" to listOf("time", "term", "way"),
+            "down" to listOf("to", "the", "and"),
+            "day" to listOf("and", "to", "in"),
+            "did" to listOf("not", "you", "it"),
+            "write" to listOf("to", "a", "the"),
+            "go" to listOf("to", "with", "back"),
+            "number" to listOf("of", "one", "two"),
+            "water" to listOf("and", "bottle", "flow"),
+            "take" to listOf("a", "the", "care", "time"),
+            "year" to listOf("old", "and", "in"),
+            "them" to listOf("to", "all", "in"),
+            "then" to listOf("you", "we", "it"),
+            "her" to listOf("own", "name", "work"),
+            "him" to listOf("to", "with", "in"),
+            "two" to listOf("wrongly", "words", "years", "days"),
+            "about" to listOf("the", "this", "it", "that"),
+            "after" to listOf("the", "that", "this"),
+            "also" to listOf("have", "be", "can", "need"),
+            "back" to listOf("to", "and", "in"),
+            "over" to listOf("the", "there", "time"),
+            "such" to listOf("as", "a", "an"),
+            "even" to listOf("if", "more", "though"),
+            "most" to listOf("of", "important", "likely"),
+            "where" to listOf("you", "we", "is", "are"),
+            "much" to listOf("more", "better", "time"),
+            "well" to listOf("as", "done", "known"),
+            "any" to listOf("of", "time", "more", "other")
+        )
+
         this.englishTypoCorrections = mapOf(
             "teh" to "the", "adn" to "and", "taht" to "that", "wiht" to "with", "thsi" to "this",
             "recieve" to "receive", "beleive" to "believe", "seperate" to "separate",
@@ -209,12 +362,21 @@ class VietnameseDictionary private constructor() {
             "strign" to "string", "lenth" to "length", "widht" to "width", "heigth" to "height",
             "enviroment" to "environment", "goverment" to "government", "immediatly" to "immediately",
             "asyncronous" to "asynchronous", "publik" to "public", "calender" to "calendar",
-            "tommorow" to "tomorrow", "accomodate" to "accommodate", "neccessary" to "necessary"
+            "tommorow" to "tomorrow", "accomodate" to "accommodate", "neccessary" to "necessary",
+            "featuere" to "feature", "fetaure" to "feature", "feaure" to "feature",
+            "keyboasrd" to "keyboard", "mesasage" to "message", "andrtoid" to "android", "problrem" to "problem"
         )
         this.vietnameseTypoCorrections = mapOf(
-            "ngươi" to "người", "đươc" to "được", "dươc" to "được", "vơi" to "với", "nưa" to "nữa", "viêt" to "việt"
+            "ngươi" to "người", "đươc" to "được", "dươc" to "được", "vơi" to "với", "nưa" to "nữa", "viêt" to "việt",
+            "vietek" to "việt", "vieetk" to "việt", "vietk" to "việt",
+            "viecek" to "việc", "vieeck" to "việc", "vieck" to "việc", "viêc" to "việc",
+            "duowck" to "được", "dduowck" to "được", "mootk" to "một", "motok" to "một",
+            "hoack" to "hoặc", "hoawck" to "hoặc", "thuwck" to "thực", "thuck" to "thực",
+            "hieenk" to "hiện", "hienek" to "hiện"
         )
         this.vietnameseBigramGrammar = mapOf(
+            "tiếng viet" to "tiếng việt", "tiếng viêt" to "tiếng việt", "tiếng vietek" to "tiếng việt",
+            "tiếng vieetk" to "tiếng việt", "tiếng vietk" to "tiếng việt",
             "làm việt" to "làm việc", "công việt" to "công việc", "nghỉ ngợi" to "nghĩ ngợi",
             "suy nghỉ" to "suy nghĩ", "sữa chữa" to "sửa chữa", "chỉnh sữa" to "chỉnh sửa",
             "chia sẽ" to "chia sẻ", "vui vẽ" to "vui vẻ", "mạnh mẻ" to "mạnh mẽ",
@@ -240,10 +402,25 @@ class VietnameseDictionary private constructor() {
         this.englishDuplicateCollapseWords = setOf("the", "is", "to", "in", "for", "and", "of", "at", "on")
     }
 
+    fun isQwertyAdjacent(c1: Char, c2: Char): Boolean {
+        val neighbors = mapOf(
+            'q' to "wa", 'w' to "qase", 'e' to "wsdr", 'r' to "edft", 't' to "rfgy",
+            'y' to "tghu", 'u' to "yhji", 'i' to "ujko", 'o' to "iklp", 'p' to "ol",
+            'a' to "qwsz", 's' to "weadzx", 'd' to "erfcxs", 'f' to "rtgvcd", 'g' to "tyhbvf",
+            'h' to "yujnbg", 'j' to "uikmnh", 'k' to "iojlm", 'l' to "opk",
+            'z' to "asx", 'x' to "sdzc", 'c' to "dfxv", 'v' to "fgcb", 'b' to "ghvn",
+            'n' to "hjbm", 'm' to "jkn"
+        )
+        return neighbors[c1]?.contains(c2) == true
+    }
+
     fun findEnglishTranspositionMatch(rawLower: String): String? {
-        if (rawLower.length < 4 || englishWords.contains(rawLower) || isValidVietnameseSyllable(rawLower) || keepWords.contains(rawLower) || validTelexKeys.contains(rawLower)) {
+        if (rawLower.length < 4 || isEnglishWord(rawLower) || englishWords.contains(rawLower) || isValidVietnameseSyllable(rawLower) || keepWords.contains(rawLower) || validTelexKeys.contains(rawLower)) {
             return null
         }
+        englishTypoCorrections[rawLower]?.let { return it }
+
+        // 1. Adjacent character transposition
         val chars = rawLower.toCharArray()
         for (i in 0 until (chars.size - 1)) {
             val tmp = chars[i]
@@ -256,33 +433,79 @@ class VietnameseDictionary private constructor() {
             chars[i + 1] = chars[i]
             chars[i] = tmp
         }
+
+        // 2. 1-extra-character insertion (length >= 5)
+        if (rawLower.length >= 5) {
+            for (i in 0 until rawLower.length) {
+                val candidate = rawLower.removeRange(i, i + 1)
+                if (candidate.length >= 4 && (englishPriorityWords.contains(candidate) || englishWords.contains(candidate))) {
+                    val ch = rawLower[i]
+                    val isDuplicate = (i > 0 && ch == rawLower[i - 1]) || (i + 1 < rawLower.length && ch == rawLower[i + 1])
+                    val isQwertyNeighbor = (i > 0 && isQwertyAdjacent(ch, rawLower[i - 1])) || (i + 1 < rawLower.length && isQwertyAdjacent(ch, rawLower[i + 1]))
+                    val isStemRepeat = candidate.contains(ch)
+                    if (isDuplicate || isQwertyNeighbor || isStemRepeat) {
+                        return candidate
+                    }
+                }
+            }
+        }
         return null
     }
 
     fun computeEnglishCandidates(rawStem: String, limit: Int = 3): List<String> {
-        val lower = rawStem.lowercase()
-        if (lower.isEmpty()) return emptyList()
+        val clean = rawStem.lowercase().trim()
+        if (clean.isEmpty()) return emptyList()
         val matches = mutableListOf<String>()
 
-        englishTypoCorrections[lower]?.let { matches.add(it) }
-        findEnglishTranspositionMatch(lower)?.let {
+        // 1. Contractions and typos first
+        if (clean == "i") {
+            matches.add("I")
+        }
+        englishContractionGrammar[clean]?.let {
+            if (!matches.contains(it)) matches.add(it)
+        }
+        englishTypoCorrections[clean]?.let {
             if (!matches.contains(it)) matches.add(it)
         }
 
-        if (englishWords.contains(lower) && !matches.contains(lower)) {
-            matches.add(lower)
+        // 2. Exact word match
+        if (englishWords.contains(clean) && !matches.any { it.equals(clean, ignoreCase = true) }) {
+            matches.add(clean)
         }
 
-        val prefixMatches = englishPriorityWords
-            .filter { it.startsWith(lower) && !matches.contains(it) }
-            .sortedWith(compareBy({ it.length }, { it }))
-
-        for (p in prefixMatches) {
-            matches.add(p)
-            if (matches.size >= limit) break
+        // 3. Prefix matches from englishPrefixMap (ordered by frequency)
+        val list = englishPrefixMap[clean[0]] ?: emptyList()
+        for (w in list) {
+            if (w.startsWith(clean) && !matches.any { it.equals(w, ignoreCase = true) }) {
+                matches.add(w)
+                if (matches.size >= limit) break
+            }
         }
 
-        return matches.take(limit)
+        // 4. Fallback transposition / insertion match
+        if (matches.size < limit) {
+            findEnglishTranspositionMatch(clean)?.let {
+                if (!matches.any { m -> m.equals(it, ignoreCase = true) }) {
+                    matches.add(it)
+                }
+            }
+        }
+
+        val result = matches.take(limit)
+        return if (rawStem.length >= 2 && rawStem.all { it.isUpperCase() }) {
+            result.map { it.uppercase() }
+        } else if (rawStem.isNotEmpty() && rawStem.first().isUpperCase()) {
+            result.map { if (it == "I" || it == "I'm") it else it.replaceFirstChar { c -> c.uppercase() } }
+        } else {
+            result
+        }
+    }
+
+    fun computeEnglishNextWordCandidates(previousWord: String, maxCount: Int = 3): List<String> {
+        val clean = previousWord.trim().lowercase()
+        if (clean.isEmpty()) return emptyList()
+        val words = englishNextWordBigrams[clean] ?: emptyList()
+        return words.take(maxCount)
     }
 
     fun isValidVietnameseSyllable(word: String): Boolean {

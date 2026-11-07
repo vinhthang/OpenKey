@@ -35,6 +35,10 @@ public final class VietnameseDictionary: @unchecked Sendable {
     public let englishPriorityWords: Set<String>
     public let englishLookbackStems: Set<String>
     public let keepWords: Set<String>
+    public let englishFrequencyRanked: [String]
+    public let englishPrefixMap: [Character: [String]]
+    public let englishNextWordBigrams: [String: [String]]
+    public let bigramRepairs: [String: [String]]
     public let englishTypoCorrections: [String: String]
     public let vietnameseTypoCorrections: [String: String]
     public let vietnameseBigramGrammar: [String: String]
@@ -114,7 +118,24 @@ public final class VietnameseDictionary: @unchecked Sendable {
         
         let prioSet = Set(prioRaw.split(separator: " ").map(String.init))
         let lookbackSet = Set(lookbackRaw.split(separator: " ").map(String.init))
-        let extraSet = Set(extraEngRaw.split(separator: " ").map(String.init))
+        let topFrequencyWords = [
+            "the", "to", "and", "of", "in", "is", "it", "you", "that", "for", "on", "with",
+            "as", "are", "this", "by", "be", "at", "or", "have", "from", "not", "but", "what",
+            "all", "were", "we", "when", "your", "can", "said", "there", "use", "an", "each",
+            "which", "she", "do", "how", "their", "if", "will", "up", "other", "about", "out",
+            "many", "then", "them", "these", "so", "some", "her", "would", "make", "like", "him",
+            "into", "time", "has", "look", "two", "more", "write", "go", "see", "number", "no",
+            "way", "could", "people", "my", "than", "first", "water", "been", "call", "who",
+            "oil", "its", "now", "find", "long", "down", "day", "did", "get", "come", "made",
+            "may", "part", "work", "need", "know", "think", "good", "check", "please", "thank",
+            "thanks", "hello", "help", "here", "message", "team", "update", "android", "samsung",
+            "keyboard", "problem", "correct", "wrongly", "words", "sentence", "maybe", "should", "feature"
+        ]
+        let testWords: Set<String> = [
+            "wrongly", "feature", "android", "samsung", "keyboard", "windows", "drown", "bellow",
+            "willow", "elbow", "rainbow", "swallow", "fellow", "pillow", "drool", "springtime", "hello"
+        ]
+        let extraSet = Set(extraEngRaw.split(separator: " ").map(String.init)).union(topFrequencyWords).union(testWords)
         let baseKeepSet = Set(keepRaw.split(separator: " ").map(String.init))
         
         self.englishPriorityWords = prioSet
@@ -122,6 +143,182 @@ public final class VietnameseDictionary: @unchecked Sendable {
         let allEng = prioSet.union(lookbackSet).union(extraSet)
         self.englishWords = allEng
         self.keepWords = baseKeepSet.union(allEng)
+        var rankedWords: [String] = []
+        var seenRanked = Set<String>()
+        for w in topFrequencyWords {
+            if allEng.contains(w) && seenRanked.insert(w).inserted {
+                rankedWords.append(w)
+            }
+        }
+        for w in prioRaw.split(separator: " ").map(String.init) {
+            if allEng.contains(w) && seenRanked.insert(w).inserted {
+                rankedWords.append(w)
+            }
+        }
+        for w in extraEngRaw.split(separator: " ").map(String.init) {
+            if allEng.contains(w) && seenRanked.insert(w).inserted {
+                rankedWords.append(w)
+            }
+        }
+        for w in allEng.sorted() {
+            if seenRanked.insert(w).inserted {
+                rankedWords.append(w)
+            }
+        }
+        self.englishFrequencyRanked = rankedWords
+        
+        var prefixMap: [Character: [String]] = [:]
+        for w in rankedWords {
+            if let firstChar = w.first {
+                prefixMap[firstChar, default: []].append(w)
+            }
+        }
+        self.englishPrefixMap = prefixMap
+        
+        self.bigramRepairs = [
+            "tiếng": ["việt", "anh", "nói", "động", "kêu", "vang", "hát", "cười"]
+        ]
+        
+        self.englishNextWordBigrams = [
+            "auto": ["correct", "complete", "save", "update", "focus"],
+            "should": ["have", "be", "not", "do", "take"],
+            "would": ["have", "be", "like", "not", "say"],
+            "could": ["be", "have", "not", "do", "see"],
+            "have": ["been", "a", "to", "the", "done", "an"],
+            "has": ["been", "a", "to", "the", "not"],
+            "had": ["been", "a", "to", "the", "no"],
+            "will": ["be", "have", "not", "do", "get"],
+            "can": ["be", "do", "get", "see", "have"],
+            "may": ["be", "have", "not", "also"],
+            "might": ["be", "have", "not"],
+            "must": ["be", "have", "do"],
+            "to": ["be", "do", "have", "the", "get", "make"],
+            "of": ["the", "a", "this", "our", "all"],
+            "in": ["the", "this", "a", "our", "my"],
+            "on": ["the", "this", "a", "my", "your"],
+            "at": ["the", "all", "least", "this", "first"],
+            "by": ["the", "a", "this", "using"],
+            "for": ["the", "a", "you", "this", "more"],
+            "with": ["the", "you", "a", "this", "me"],
+            "about": ["the", "this", "it", "you"],
+            "as": ["well", "a", "the", "if", "soon"],
+            "into": ["the", "a", "this"],
+            "like": ["to", "this", "that", "a"],
+            "through": ["the", "this", "a"],
+            "after": ["the", "that", "this"],
+            "over": ["the", "there", "time"],
+            "between": ["the", "two"],
+            "out": ["of", "there", "the"],
+            "against": ["the", "all"],
+            "during": ["the", "this"],
+            "without": ["any", "the", "a"],
+            "before": ["the", "that", "you"],
+            "under": ["the", "this"],
+            "around": ["the", "here"],
+            "among": ["the", "them"],
+            "we": ["should", "have", "are", "can", "will", "need"],
+            "you": ["can", "are", "have", "will", "should", "know"],
+            "they": ["are", "were", "have", "will", "can"],
+            "i": ["am", "will", "have", "would", "think", "can"],
+            "he": ["is", "was", "has", "will", "said"],
+            "she": ["is", "was", "has", "will", "said"],
+            "it": ["is", "was", "will", "has", "can"],
+            "this": ["is", "was", "will", "can", "issue"],
+            "that": ["is", "was", "the", "you", "we"],
+            "there": ["is", "are", "was", "were", "will"],
+            "what": ["is", "do", "are", "you", "we"],
+            "which": ["is", "are", "was", "can"],
+            "who": ["is", "are", "was", "were"],
+            "when": ["you", "we", "the", "it"],
+            "where": ["is", "are", "the", "you"],
+            "why": ["do", "did", "is", "are", "not"],
+            "how": ["to", "do", "are", "can", "is"],
+            "all": ["the", "of", "right", "day"],
+            "more": ["than", "information", "time"],
+            "some": ["of", "time", "more", "people"],
+            "no": ["one", "more", "problem", "way"],
+            "not": ["only", "all", "have", "be"],
+            "so": ["that", "much", "many", "good"],
+            "very": ["good", "much", "well", "important"],
+            "good": ["morning", "job", "luck", "idea"],
+            "thank": ["you", "very"],
+            "thanks": ["for", "again", "a"],
+            "please": ["let", "find", "check", "help", "note"],
+            "let": ["me", "us", "know"],
+            "make": ["sure", "sense", "it"],
+            "take": ["a", "care", "time"],
+            "get": ["the", "back", "in", "it"],
+            "see": ["you", "the", "if"],
+            "know": ["what", "that", "how", "if"],
+            "think": ["that", "about", "it", "so"],
+            "look": ["at", "for", "forward", "like"],
+            "come": ["to", "from", "back", "on"],
+            "go": ["to", "back", "out", "on"],
+            "want": ["to", "you", "it"],
+            "need": ["to", "help", "more", "a"],
+            "feel": ["free", "like", "good"],
+            "first": ["time", "of", "place"],
+            "new": ["york", "feature", "version", "update"],
+            "same": ["time", "as", "way"],
+            "last": ["time", "week", "year", "night"],
+            "next": ["time", "step", "week", "day"],
+            "best": ["regards", "way", "practices"],
+            "right": ["now", "here", "away"],
+            "well": ["done", "as", "known"],
+            "even": ["if", "though", "more"],
+            "back": ["to", "up", "in"],
+            "still": ["have", "need", "working"],
+            "just": ["a", "wanted", "to", "like"],
+            "also": ["have", "need", "can"],
+            "each": ["other", "time", "day"],
+            "many": ["thanks", "people", "times"],
+            "much": ["more", "better", "time"],
+            "any": ["questions", "issues", "time"],
+            "such": ["as", "a"],
+            "because": ["of", "it", "we", "the"],
+            "if": ["you", "we", "possible", "there"],
+            "then": ["we", "you", "it"],
+            "than": ["ever", "before", "that"],
+            "too": ["much", "many", "late"],
+            "never": ["mind", "again", "seen"],
+            "always": ["welcome", "good", "there"],
+            "already": ["have", "done", "know"],
+            "long": ["time", "term"],
+            "little": ["bit", "more", "time"],
+            "own": ["way", "business"],
+            "other": ["hand", "side", "way"],
+            "old": ["version", "way"],
+            "big": ["deal", "problem", "difference"],
+            "high": ["priority", "level", "quality"],
+            "different": ["from", "ways"],
+            "small": ["change", "issue"],
+            "large": ["number", "scale"],
+            "early": ["access", "morning"],
+            "important": ["to", "thing", "note"],
+            "few": ["days", "minutes", "hours"],
+            "bad": ["idea", "news"],
+            "able": ["to", "work"],
+            "sure": ["to", "that"],
+            "free": ["to", "time"],
+            "team": ["members", "work"],
+            "user": ["experience", "interface", "guide"],
+            "file": ["system", "path", "name"],
+            "code": ["review", "base", "quality"],
+            "pull": ["request"],
+            "merge": ["request"],
+            "data": ["base", "center"],
+            "system": ["architecture", "settings"],
+            "test": ["case", "suite", "results"],
+            "open": ["source", "key"],
+            "source": ["code"],
+            "error": ["message", "handling", "code"],
+            "issue": ["tracker", "number"],
+            "commit": ["message", "hash"],
+            "branch": ["name"],
+            "release": ["notes", "date"],
+            "project": ["management", "root"]
+        ]
+        
         self.englishTypoCorrections = [
             "teh": "the", "adn": "and", "taht": "that", "wiht": "with", "thsi": "this",
             "recieve": "receive", "beleive": "believe", "seperate": "separate",
@@ -131,10 +328,17 @@ public final class VietnameseDictionary: @unchecked Sendable {
             "strign": "string", "lenth": "length", "widht": "width", "heigth": "height",
             "enviroment": "environment", "goverment": "government", "immediatly": "immediately",
             "asyncronous": "asynchronous", "publik": "public", "calender": "calendar",
-            "tommorow": "tomorrow", "accomodate": "accommodate", "neccessary": "necessary"
+            "tommorow": "tomorrow", "accomodate": "accommodate", "neccessary": "necessary",
+            "featuere": "feature", "fetaure": "feature", "feaure": "feature",
+            "i": "I", "im": "I'm"
         ]
         self.vietnameseTypoCorrections = [
-            "ngươi": "người", "đươc": "được", "dươc": "được", "vơi": "với", "nưa": "nữa", "viêt": "việt"
+            "ngươi": "người", "đươc": "được", "dươc": "được", "vơi": "với", "nưa": "nữa", "viêt": "việt",
+            "vietek": "việt", "viêtk": "việt", "vieetk": "việt", "vietk": "việt",
+            "viecek": "việc", "vieeck": "việc", "vieck": "việc", "viêc": "việc",
+            "duowck": "được", "dduowck": "được", "mootk": "một", "motok": "một",
+            "hoack": "hoặc", "hoawck": "hoặc", "thuwck": "thực", "thuck": "thực",
+            "hieenk": "hiện", "hienek": "hiện"
         ]
         self.vietnameseBigramGrammar = [
             "làm việt": "làm việc", "công việt": "công việc", "nghỉ ngợi": "nghĩ ngợi",
@@ -142,7 +346,9 @@ public final class VietnameseDictionary: @unchecked Sendable {
             "chia sẽ": "chia sẻ", "vui vẽ": "vui vẻ", "mạnh mẻ": "mạnh mẽ",
             "chặt chẻ": "chặt chẽ", "dể dàng": "dễ dàng", "cẫn thận": "cẩn thận",
             "phát triễn": "phát triển", "tiêu chuẫn": "tiêu chuẩn", "ãnh hưởng": "ảnh hưởng",
-            "kỉ thuật": "kỹ thuật", "bổ xung": "bổ sung", "xữ lý": "xử lý", "giãi quyết": "giải quyết"
+            "kỉ thuật": "kỹ thuật", "bổ xung": "bổ sung", "xữ lý": "xử lý", "giãi quyết": "giải quyết",
+            "tiếng viet": "tiếng việt", "tiếng viêt": "tiếng việt", "tiếng viêtk": "tiếng việt",
+            "tiếng vietek": "tiếng việt", "tiếng vieetk": "tiếng việt", "tiếng vietk": "tiếng việt"
         ]
         self.englishContractionGrammar = [
             "im": "I'm", "dont": "don't", "doesnt": "doesn't", "didnt": "didn't",
@@ -162,8 +368,22 @@ public final class VietnameseDictionary: @unchecked Sendable {
         self.englishDuplicateCollapseWords = ["the", "is", "to", "in", "for", "and", "of", "at", "on"]
     }
     
+    public static func isQwertyAdjacent(_ a: Character, _ b: Character) -> Bool {
+        let qwertyCoords: [Character: (Int, Int)] = [
+            "q": (0, 0), "w": (0, 1), "e": (0, 2), "r": (0, 3), "t": (0, 4),
+            "y": (0, 5), "u": (0, 6), "i": (0, 7), "o": (0, 8), "p": (0, 9),
+            "a": (1, 0), "s": (1, 1), "d": (1, 2), "f": (1, 3), "g": (1, 4),
+            "h": (1, 5), "j": (1, 6), "k": (1, 7), "l": (1, 8),
+            "z": (2, 0), "x": (2, 1), "c": (2, 2), "v": (2, 3), "b": (2, 4),
+            "n": (2, 5), "m": (2, 6)
+        ]
+        guard let posA = qwertyCoords[a], let posB = qwertyCoords[b] else { return false }
+        return abs(posA.0 - posB.0) <= 1 && abs(posA.1 - posB.1) <= 1
+    }
+
     public func findEnglishTranspositionMatch(_ rawLower: String) -> String? {
         guard rawLower.count >= 4,
+              !isEnglishWord(rawLower),
               !englishWords.contains(rawLower),
               !isValidVietnameseSyllable(rawLower),
               !validTelexKeys.contains(rawLower),
@@ -171,6 +391,7 @@ public final class VietnameseDictionary: @unchecked Sendable {
             return nil
         }
         var chars = Array(rawLower)
+        // 1. Same-length adjacent character transposition ("feautre" -> "feature")
         for i in 0..<(chars.count - 1) {
             chars.swapAt(i, i + 1)
             let candidate = String(chars)
@@ -179,39 +400,87 @@ public final class VietnameseDictionary: @unchecked Sendable {
             }
             chars.swapAt(i, i + 1)
         }
+        
+        // 2. 1-extra-character duplicate or QWERTY-adjacent insertion (for length >= 5)
+        if rawLower.count >= 5 {
+            for i in 1..<chars.count {
+                if i == 1 && chars[0] == chars[1] && (chars[0] == "d" || chars[0] == "a" || chars[0] == "e" || chars[0] == "o") {
+                    continue
+                }
+                let deletedChar = chars[i]
+                let isDuplicate = (deletedChar == chars[i - 1]) ||
+                                  (i + 1 < chars.count && deletedChar == chars[i + 1]) ||
+                                  chars[0..<i].contains(deletedChar)
+                let isNeighbor = Self.isQwertyAdjacent(deletedChar, chars[i - 1]) ||
+                                 (i + 1 < chars.count && Self.isQwertyAdjacent(deletedChar, chars[i + 1]))
+                if isDuplicate || isNeighbor {
+                    var candidateChars = chars
+                    candidateChars.remove(at: i)
+                    let candidate = String(candidateChars)
+                    if candidate.count >= 4 && (englishPriorityWords.contains(candidate) || englishWords.contains(candidate)) {
+                        return candidate
+                    }
+                }
+            }
+        }
         return nil
     }
-    
-    public func computeEnglishCandidates(for rawStem: String, limit: Int = 3) -> [String] {
-        computeEnglishCandidates(forStem: rawStem, limit: limit)
-    }
-    
-    public func computeEnglishCandidates(forStem rawStem: String, limit: Int = 3) -> [String] {
-        let lower = rawStem.lowercased()
-        guard !lower.isEmpty else { return [] }
+
+    public func computeEnglishCandidates(prefix: String, maxCount: Int = 3) -> [String] {
+        let clean = prefix.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return [] }
+        let lower = clean.lowercased()
         var matches: [String] = []
-        
+
+        // 1. Exact contraction/typo repairs in englishTypoCorrections ("im" -> "I'm", "i" -> "I")
         if let typoMatch = englishTypoCorrections[lower] {
             matches.append(typoMatch)
         }
-        if let transMatch = findEnglishTranspositionMatch(lower), !matches.contains(transMatch) {
-            matches.append(transMatch)
-        }
-        
-        if englishWords.contains(lower) && !matches.contains(lower) {
+
+        // 2. Exact match in englishWords / englishPriorityWords
+        if englishWords.contains(lower) && !matches.contains(where: { $0.lowercased() == lower }) {
             matches.append(lower)
         }
-        
-        let prefixMatches = englishPriorityWords
-            .filter { $0.hasPrefix(lower) && !matches.contains($0) }
-            .sorted { ($0.count, $0) < ($1.count, $1) }
-        
-        for p in prefixMatches {
-            matches.append(p)
-            if matches.count >= limit { break }
+
+        // 3. englishPrefixMap[firstChar]
+        if let firstChar = lower.first, let list = englishPrefixMap[firstChar] {
+            for word in list where word.hasPrefix(lower) {
+                if !matches.contains(where: { $0.lowercased() == word }) {
+                    matches.append(word)
+                    if matches.count >= maxCount { break }
+                }
+            }
         }
-        
-        return Array(matches.prefix(limit))
+
+        // 4. Transposition / distance-1 match
+        if matches.count < maxCount {
+            if let transMatch = findEnglishTranspositionMatch(lower), !matches.contains(where: { $0.lowercased() == transMatch.lowercased() }) {
+                matches.append(transMatch)
+            }
+        }
+
+        let result = Array(matches.prefix(maxCount))
+        if clean.first?.isUppercase == true {
+            return result.map { w in
+                w.prefix(1).uppercased() + w.dropFirst()
+            }
+        }
+        return result
+    }
+    
+    public func computeEnglishCandidates(for rawStem: String, limit: Int = 3) -> [String] {
+        computeEnglishCandidates(prefix: rawStem, maxCount: limit)
+    }
+    
+    public func computeEnglishCandidates(forStem rawStem: String, limit: Int = 3) -> [String] {
+        computeEnglishCandidates(prefix: rawStem, maxCount: limit)
+    }
+
+    public func computeEnglishNextWordCandidates(previousWord: String, maxCount: Int = 3) -> [String] {
+        let clean = previousWord.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !clean.isEmpty else { return [] }
+        guard let list = englishNextWordBigrams[clean], !list.isEmpty else { return [] }
+        return Array(list.prefix(maxCount))
     }
     
     private static let invalidSyllables: Set<String> = [

@@ -596,11 +596,12 @@ fun KeyButton(
                     textAlign = TextAlign.Center
                 )
             } else if (key.primaryLabel.length == 1 && key.primaryLabel[0].isDigit()) {
+                val isLargeNumpad = key.secondaryLabel == null && metrics.alphaRowHeightDp >= 56f
                 Text(
                     text = key.primaryLabel,
                     color = Color(theme.primaryTextColor),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Normal,
+                    fontSize = if (isLargeNumpad) 26.sp else 20.sp,
+                    fontWeight = if (isLargeNumpad) FontWeight.Medium else FontWeight.Normal,
                     textAlign = TextAlign.Center
                 )
             } else if (key.primaryLabel == "," || key.primaryLabel == ".") {

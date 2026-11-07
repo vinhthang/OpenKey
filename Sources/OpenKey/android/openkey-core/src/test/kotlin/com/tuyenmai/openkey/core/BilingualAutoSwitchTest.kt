@@ -389,4 +389,76 @@ class BilingualAutoSwitchTest {
         sVnSentence.typeASCII("lúc nhận chạy kiểm tra lỗi chính tả sai ")
         assertEquals("lúc nhận chạy kiểm tra lỗi chính tả sai ", sVnSentence.text, "Vietnamese sentence must remain completely unchanged")
     }
+
+    // REQ-024, AC-024.2: Mixed sentence typing with Vietnamese and English fat-finger/typo auto-correction on comma and space
+    @Test
+    fun testVietnameseModeMixedSentenceWithTyposAndPunctuation() {
+        val screen = VirtualScreen()
+        val input = "thử tiếng vietek, maybe we should have an auto correct featuere, like auto correct 2 wrongly words in this sentence "
+        val expected = "thử tiếng việt, maybe we should have an auto correct feature, like auto correct 2 wrongly words in this sentence "
+
+        screen.typeASCII(input)
+        assertEquals(expected, screen.text)
+    }
+
+    // REQ-024, AC-024.2: English mode auto-correct and contractions via KeyboardSessionController
+    @Test
+    fun testEnglishModeAutoCorrectionAndContractions() {
+        class MockCommitter : TextCommitterTarget {
+            var committedText = ""
+            var deletedBefore = 0
+            override fun beginBatchEdit(): Boolean = true
+            override fun endBatchEdit(): Boolean = true
+            override fun commitText(text: CharSequence, newCursorPosition: Int): Boolean {
+                committedText += text.toString()
+                return true
+            }
+            override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
+                deletedBefore += beforeLength
+                if (committedText.length >= beforeLength) {
+                    committedText = committedText.dropLast(beforeLength)
+                }
+                return true
+            }
+            override fun sendKeyChar(char: Char): Boolean {
+                committedText += char
+                return true
+            }
+            override fun performEditorAction(actionId: Int): Boolean = true
+            override fun moveCursorBy(deltaChars: Int): Boolean = true
+            override fun deletePreviousWord(): Boolean = true
+        }
+
+        val committer = MockCommitter()
+        val controller = KeyboardSessionController(committer = committer)
+        val textCtx = EditorContext(
+            inputType = InputContextEvaluator.TYPE_CLASS_TEXT,
+            imeOptions = InputContextEvaluator.IME_ACTION_DONE,
+            packageName = "com.test.app"
+        )
+        controller.onStartInput(textCtx)
+        controller.onKeyAction(KeyAction.SwitchLanguage) // English mode (language = 0)
+        assertEquals(0, controller.editorUiState.language)
+
+        fun typeSession(text: String) {
+            for (ch in text) {
+                if (ch == ' ') {
+                    controller.onKeyAction(KeyAction.Space)
+                } else {
+                    controller.onKeyAction(KeyAction.CommitChar(ch.toString()))
+                }
+            }
+        }
+
+        typeSession("auto correct featuere,")
+        assertEquals("auto correct feature,", committer.committedText)
+
+        committer.committedText = ""
+        typeSession("im ")
+        assertEquals("I'm ", committer.committedText)
+
+        committer.committedText = ""
+        typeSession("dont ")
+        assertEquals("don't ", committer.committedText)
+    }
 }

@@ -17,6 +17,12 @@ data class WordCandidate(
 )
 
 class AutoWordingEngine private constructor() {
+    fun interface SpellCheckerBridge {
+        fun suggest(word: String, maxCount: Int): List<String>
+    }
+
+    var spellCheckerBridge: SpellCheckerBridge? = null
+
     companion object {
         val shared = AutoWordingEngine()
 
@@ -302,12 +308,22 @@ class AutoWordingEngine private constructor() {
             exactMatches + distinctAccented
         }
 
-        val engCandidates = dict.computeEnglishCandidates(rawStem)
+        val engCandidates = dict.computeEnglishCandidates(rawStem, 3).toMutableList()
+        if (engCandidates.size < 3) {
+            val bridge = spellCheckerBridge?.suggest(rawStem, 3 - engCandidates.size) ?: emptyList()
+            for (b in bridge) {
+                if (!engCandidates.contains(b)) engCandidates.add(b)
+                if (engCandidates.size >= 3) break
+            }
+        }
         val combinedTexts = mutableListOf<String>()
 
         if (languagePriority == LanguagePriority.ENGLISH_FIRST) {
-            for (eng in engCandidates) if (!combinedTexts.contains(eng)) combinedTexts.add(eng)
+            if (engCandidates.isNotEmpty()) {
+                combinedTexts.add(engCandidates.first())
+            }
             for (vn in vietnameseSorted) if (!combinedTexts.contains(vn)) combinedTexts.add(vn)
+            for (eng in engCandidates.drop(1)) if (!combinedTexts.contains(eng)) combinedTexts.add(eng)
         } else {
             for (vn in vietnameseSorted.take(2)) if (!combinedTexts.contains(vn)) combinedTexts.add(vn)
             for (eng in engCandidates) if (!combinedTexts.contains(eng)) combinedTexts.add(eng)
@@ -335,7 +351,7 @@ class AutoWordingEngine private constructor() {
         if (cleanPrev.isEmpty()) return emptyList()
 
         val dict = VietnameseDictionary.shared
-        val continuations = dict.compoundBigrams[cleanPrev] ?: return emptyList()
+        val continuations = dict.compoundBigrams[cleanPrev] ?: dict.englishNextWordBigrams[cleanPrev] ?: return emptyList()
         if (continuations.isEmpty()) return emptyList()
 
         val pool = continuations.take(8)
@@ -470,7 +486,7 @@ class AutoWordingEngine private constructor() {
         fun updateLiveCandidates() {
             submitCandidateTaskForGeneration(genId) {
                 if (postContext.spaceCount == 0 && postContext.charCount > 0 &&
-                    (postContext.rawKeystrokes.length >= 2 || postContext.composedWord.length >= 2)
+                    (postContext.rawKeystrokes.length >= 1 || postContext.composedWord.length >= 1)
                 ) {
                     computeCurrentWordCandidates(
                         rawStem = postContext.rawKeystrokes,
@@ -495,5 +511,94 @@ class AutoWordingEngine private constructor() {
         }
 
         updateLiveCandidates()
+    }
+
+    fun didProcessEnglishKeyEvent(
+        charCode: Int,
+        isBackspace: Boolean,
+        composingWord: String,
+        previousWord: String
+    ): Pair<Int, String>? {
+        val dict = VietnameseDictionary.shared
+        val isBreak = charCode == VietnameseData.KEY_SPACE.toInt() ||
+                charCode == VietnameseData.KEY_COMMA.toInt() ||
+                charCode == VietnameseData.KEY_DOT.toInt() ||
+                charCode == VietnameseData.KEY_RETURN.toInt() ||
+                charCode == ','.code || charCode == '.'.code || charCode == '!'.code ||
+                charCode == '?'.code || charCode == ';'.code || charCode == ':'.code ||
+                charCode == ' '.code
+
+        if (isBreak) {
+            val breakChar = when (charCode) {
+                VietnameseData.KEY_SPACE.toInt(), ' '.code -> " "
+                VietnameseData.KEY_COMMA.toInt(), ','.code -> ","
+                VietnameseData.KEY_DOT.toInt(), '.'.code -> "."
+                '!'.code -> "!"
+                '?'.code -> "?"
+                ';'.code -> ";"
+                ':'.code -> ":"
+                else -> ""
+            }
+            val lower = composingWord.lowercase().trim()
+            if (lower.isEmpty()) {
+                clearCandidates()
+                return null
+            }
+            var corrected: String? = null
+            if (lower == "i") {
+                corrected = "I"
+            } else if (dict.englishContractionGrammar.containsKey(lower)) {
+                corrected = dict.englishContractionGrammar[lower]
+            } else if (dict.englishTypoCorrections.containsKey(lower)) {
+                corrected = dict.englishTypoCorrections[lower]
+            } else if (!dict.isEnglishWord(lower)) {
+                corrected = dict.findEnglishTranspositionMatch(lower)
+            }
+
+            if (corrected != null) {
+                val finalWord = if (composingWord.isNotEmpty() && composingWord.first().isUpperCase() && corrected != "I" && !corrected.startsWith("I'")) {
+                    corrected.replaceFirstChar { it.uppercase() }
+                } else {
+                    corrected
+                }
+                val replacement = finalWord + breakChar
+                val nextCands = computeNextWordCandidates(finalWord)
+                updateCandidates(nextCands)
+                return Pair(composingWord.length, replacement)
+            } else {
+                val nextCands = computeNextWordCandidates(composingWord)
+                updateCandidates(nextCands)
+                return null
+            }
+        }
+
+        if (isBackspace) {
+            if (composingWord.isEmpty()) {
+                clearCandidates()
+            } else {
+                updateEnglishCandidates(composingWord)
+            }
+            return null
+        }
+
+        // Letter input
+        updateEnglishCandidates(composingWord)
+        return null
+    }
+
+    private fun updateEnglishCandidates(stem: String) {
+        val dict = VietnameseDictionary.shared
+        val cands = dict.computeEnglishCandidates(stem, 3).toMutableList()
+        if (cands.size < 3) {
+            val bridge = spellCheckerBridge?.suggest(stem, 3 - cands.size) ?: emptyList()
+            for (b in bridge) {
+                if (!cands.contains(b)) cands.add(b)
+                if (cands.size >= 3) break
+            }
+        }
+        val wordCands = cands.take(3).mapIndexed { idx, txt ->
+            WordCandidate(id = idx, text = txt, kind = CandidateKind.STEM_COMPLETION, replaceLength = stem.length)
+        }
+        updateCandidates(wordCands)
     }
 }

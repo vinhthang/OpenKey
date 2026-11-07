@@ -133,8 +133,29 @@ struct VirtualScreen {
             ":": (41, 1), ",": (43, 0), "/": (44, 0), "?": (44, 1), "n": (45, 0), "N": (45, 1), "m": (46, 0),
             "M": (46, 1), ".": (47, 0), " ": (49, 0)
         ]
+        let telexVnMap: [Character: String] = [
+            "à": "af", "á": "as", "ả": "ar", "ã": "ax", "ạ": "aj",
+            "ă": "aw", "ằ": "awf", "ắ": "aws", "ẳ": "awr", "ẵ": "awx", "ặ": "awj",
+            "â": "aa", "ầ": "aaf", "ấ": "aas", "ẩ": "aar", "ẫ": "aax", "ậ": "aaj",
+            "è": "ef", "é": "es", "ẻ": "er", "ẽ": "ex", "ẹ": "ej",
+            "ê": "ee", "ề": "eef", "ế": "ees", "ể": "eer", "ễ": "eex", "ệ": "eej",
+            "ì": "if", "í": "is", "ỉ": "ir", "ĩ": "ix", "ị": "ij",
+            "ò": "of", "ó": "os", "ỏ": "or", "õ": "ox", "ọ": "oj",
+            "ô": "oo", "ồ": "oof", "ố": "oos", "ổ": "oor", "ỗ": "oox", "ộ": "ooj",
+            "ơ": "ow", "ờ": "owf", "ớ": "ows", "ở": "owr", "ỡ": "owx", "ợ": "owj",
+            "ù": "uf", "ú": "us", "ủ": "ur", "ũ": "ux", "ụ": "uj",
+            "ư": "uw", "ừ": "uwf", "ứ": "uws", "ử": "uwr", "ữ": "uwx", "ự": "uwj",
+            "ỳ": "yf", "ý": "ys", "ỷ": "yr", "ỹ": "yx", "ỵ": "yj",
+            "đ": "dd", "Đ": "Dd"
+        ]
         for ch in str {
-            if let (code, caps) = map[ch] {
+            if let telexSeq = telexVnMap[ch] {
+                for tCh in telexSeq {
+                    if let (code, caps) = map[tCh] {
+                        typeKey(code, caps: caps)
+                    }
+                }
+            } else if let (code, caps) = map[ch] {
                 typeKey(code, caps: caps)
             }
         }

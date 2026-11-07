@@ -11,7 +11,8 @@ data class InputEvaluation(
     val isSecureField: Boolean,
     val enterActionLabel: String,
     val imeActionId: Int = InputContextEvaluator.IME_ACTION_UNSPECIFIED,
-    val shouldSendNewlineOnEnter: Boolean = false
+    val shouldSendNewlineOnEnter: Boolean = false,
+    val isNumericField: Boolean = false
 )
 
 object InputContextEvaluator {
@@ -103,12 +104,15 @@ object InputContextEvaluator {
             }
         }
 
+        val isNumericField = (inputClass == TYPE_CLASS_NUMBER || inputClass == TYPE_CLASS_PHONE || inputClass == TYPE_CLASS_DATETIME)
+
         return InputEvaluation(
             bypassVietnamese = bypass,
             isSecureField = isSecure,
             enterActionLabel = enterActionLabel,
             imeActionId = action,
-            shouldSendNewlineOnEnter = shouldSendNewline
+            shouldSendNewlineOnEnter = shouldSendNewline,
+            isNumericField = isNumericField
         )
     }
 }

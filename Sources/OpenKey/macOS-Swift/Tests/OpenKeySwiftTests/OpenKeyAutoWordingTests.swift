@@ -513,5 +513,51 @@ struct OpenKeyAutoWordingTests {
         #expect(engine.computeCurrentWordCandidates(rawStem: "taon", currentSyllable: "").map(\.text).contains("toàn") == true)
     }
 
+    // MARK: - REQ-024, ADR-025: 1-Character English Prefix Index & Next-Word Bigrams
+    @Test("REQ-024, ADR-025: 1-character English prefix candidates and next-word bigram predictions")
+    func testReq024EnglishPrefixAndNextWordCandidates() {
+        let dict = VietnameseDictionary.shared
+
+        // 1. 1-character prefix completions from 1st char (AC-024.1)
+        let tCandidates = dict.computeEnglishCandidates(prefix: "t", maxCount: 3)
+        #expect(tCandidates == ["the", "to", "that"], "Prefix 't' must return top 3 ranked English words, got \(tCandidates)")
+
+        let iCandidates = dict.computeEnglishCandidates(prefix: "i", maxCount: 3)
+        #expect(iCandidates.contains("I"), "Prefix 'i' must include capitalized 'I', got \(iCandidates)")
+
+        let imCandidates = dict.computeEnglishCandidates(prefix: "im", maxCount: 3)
+        #expect(imCandidates.contains("I'm"), "Prefix 'im' must include contraction \"I'm\", got \(imCandidates)")
+
+        let androCandidates = dict.computeEnglishCandidates(prefix: "andro", maxCount: 3)
+        #expect(androCandidates.contains("android"), "Prefix 'andro' must include 'android', got \(androCandidates)")
+
+        // Capitalization preservation
+        let thCandidates = dict.computeEnglishCandidates(prefix: "Th", maxCount: 3)
+        #expect(thCandidates.first?.first?.isUppercase == true, "TitleCase 'Th' must return capitalized candidates, got \(thCandidates)")
+
+        // 2. Next-word bigram predictions (AC-024.1)
+        let autoNext = dict.computeEnglishNextWordCandidates(previousWord: "auto", maxCount: 3)
+        #expect(autoNext.first == "correct", "Next-word for 'auto' must predict 'correct' first, got \(autoNext)")
+
+        let shouldNext = dict.computeEnglishNextWordCandidates(previousWord: "should", maxCount: 3)
+        #expect(shouldNext == ["have", "be", "not"], "Next-word for 'should' must predict ['have', 'be', 'not'], got \(shouldNext)")
+
+        // AutoWordingEngine next-word integration
+        let engine = AutoWordingEngine.shared
+        let wasEnabled = engine.isEnabled
+        let wasSuggestions = engine.candidateSuggestionsEnabled
+        engine.isEnabled = true
+        engine.candidateSuggestionsEnabled = true
+        defer {
+            engine.isEnabled = wasEnabled
+            engine.candidateSuggestionsEnabled = wasSuggestions
+        }
+        let engineAutoNext = engine.computeNextWordCandidates(previousWord: "auto").map(\.text)
+        #expect(engineAutoNext.contains("correct"), "AutoWordingEngine next-word for 'auto' must contain 'correct', got \(engineAutoNext)")
+
+        // bigramRepairs["tiếng"] verification
+        #expect(dict.bigramRepairs["tiếng"]?.contains("việt") == true, "dict.bigramRepairs['tiếng'] must contain 'việt'")
+    }
+
 }
 }

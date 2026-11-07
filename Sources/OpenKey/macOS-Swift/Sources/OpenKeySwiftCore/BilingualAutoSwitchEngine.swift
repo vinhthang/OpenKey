@@ -10,6 +10,12 @@ import Foundation
 
 // MARK: - Global Public Accessor
 
+public enum BilingualAutoSwitchEngine {
+    public static func findEnglishTranspositionMatch(_ lower: String) -> String? {
+        VietnameseDictionary.shared.findEnglishTranspositionMatch(lower)
+    }
+}
+
 public func OKEngineGetEffectiveLanguagePriority() -> LanguagePriority {
     let state = VietnameseEngineState.shared
     state.lock.lock()
@@ -324,7 +330,8 @@ extension VietnameseEngineState {
         
         // 2. Bigram Grammar Corrections (REQ-025)
         var replacementWord: String? = nil
-        if breakKeyCode == KEY_SPACE && !previousWords.isEmpty {
+        let isPunctOrSpaceWordBreak = (breakKeyCode == KEY_SPACE || breakKeyCode == KEY_COMMA || breakKeyCode == KEY_DOT || breakKeyCode == KEY_SEMICOLON)
+        if isPunctOrSpaceWordBreak && !previousWords.isEmpty {
             let prevEntry = previousWords.last!
             let prevWord = prevEntry.composedString
             let cand1 = "\(prevWord.lowercased()) \(fullRawLower)"
@@ -336,7 +343,7 @@ extension VietnameseEngineState {
                     let newCur = parts[1]
                     if newPrev.lowercased() == prevWord.lowercased() {
                         replacementWord = (fullRawStr.first?.isUppercase == true) ? (newCur.prefix(1).uppercased() + newCur.dropFirst()) : newCur
-                    } else {
+                    } else if breakKeyCode == KEY_SPACE {
                         // Both previous word and current word change (e.g. "a apple" -> "an apple")
                         let prevCap = prevWord.first?.isUppercase == true
                         let finalPrev = prevCap ? (newPrev.prefix(1).uppercased() + newPrev.dropFirst()) : newPrev

@@ -4,6 +4,23 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+fun resolveGitVersionCode(): Int {
+    val propCode = project.findProperty("versionCode")?.toString()?.toIntOrNull()
+    if (propCode != null && propCode > 0) return propCode
+    return try {
+        val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+            .directory(rootProject.projectDir)
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        process.waitFor()
+        (output.toIntOrNull() ?: 0) + 200
+    } catch (_: Exception) {
+        200
+    }
+}
+val resolvedVersionCode = resolveGitVersionCode()
+
 android {
     namespace = "com.tuyenmai.openkey.android"
     compileSdk = 35
@@ -12,15 +29,28 @@ android {
         applicationId = "com.tuyenmai.openkey.android"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = resolvedVersionCode
+        versionName = "1.0.$resolvedVersionCode"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file(System.getenv("OPENKEY_KEYSTORE_PATH") ?: "openkey-debug.keystore")
+            storePassword = System.getenv("OPENKEY_STORE_PASSWORD") ?: "android"
+            keyAlias = System.getenv("OPENKEY_KEY_ALIAS") ?: "androiddebugkey"
+            keyPassword = System.getenv("OPENKEY_KEY_PASSWORD") ?: "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

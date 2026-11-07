@@ -498,9 +498,65 @@ class OpenKeyAndroidAppTest {
         val candidateContent = candidateFile!!.readText()
 
         assertTrue("CandidateStripView must contain 17.sp", candidateContent.contains("17.sp"))
-        assertTrue("CandidateStripView must contain SettingsGearIcon", candidateContent.contains("SettingsGearIcon"))
-        assertTrue("CandidateStripView must contain OneHandedModeIcon", candidateContent.contains("OneHandedModeIcon"))
+        assertFalse("CandidateStripView must not contain SettingsGearIcon", candidateContent.contains("SettingsGearIcon"))
+        assertFalse("CandidateStripView must not contain OneHandedModeIcon", candidateContent.contains("OneHandedModeIcon"))
+        assertFalse("CandidateStripView must not contain 'English (US)'", candidateContent.contains("\"English (US)\""))
+        assertFalse("CandidateStripView must not contain 'Tiếng Việt •'", candidateContent.contains("\"Tiếng Việt •"))
         assertFalse("CandidateStripView must not contain 'Left 82%'", candidateContent.contains("\"Left 82%\""))
         assertFalse("CandidateStripView must not contain 'Right 82%'", candidateContent.contains("\"Right 82%\""))
+    }
+
+    // 12. Persistent APK Signing & Monotonic Versioning (REQ-022, ADR-023)
+    @Test
+    fun testKeystoreAndVersionCodeConfig() {
+        val possibleKeystorePaths = listOf(
+            File("openkey-debug.keystore"),
+            File("app/openkey-debug.keystore"),
+            File("../app/openkey-debug.keystore"),
+            File("Sources/OpenKey/android/app/openkey-debug.keystore")
+        )
+        val keystoreFile = possibleKeystorePaths.firstOrNull { it.exists() }
+        assertNotNull("openkey-debug.keystore must exist in app module", keystoreFile)
+        assertTrue("openkey-debug.keystore must be non-empty", keystoreFile!!.length() > 0)
+
+        val possibleBuildGradlePaths = listOf(
+            File("build.gradle.kts"),
+            File("app/build.gradle.kts"),
+            File("../app/build.gradle.kts"),
+            File("Sources/OpenKey/android/app/build.gradle.kts")
+        )
+        val buildGradleFile = possibleBuildGradlePaths.firstOrNull { it.exists() }
+        assertNotNull("app/build.gradle.kts must exist", buildGradleFile)
+        val buildGradleContent = buildGradleFile!!.readText()
+
+        assertTrue("build.gradle.kts must contain resolveGitVersionCode", buildGradleContent.contains("resolveGitVersionCode"))
+        assertTrue("build.gradle.kts must configure openkey-debug.keystore", buildGradleContent.contains("openkey-debug.keystore"))
+        assertTrue("build.gradle.kts must configure signingConfigs", buildGradleContent.contains("signingConfigs"))
+    }
+
+    // 13. SystemSpellCheckerBridge & Manifest Permissions (REQ-024, ADR-025)
+    @Test
+    fun testSystemSpellCheckerBridgeExistsAndZeroInternetPermissions() {
+        val possibleBridgePaths = listOf(
+            File("src/main/java/com/tuyenmai/openkey/android/SystemSpellCheckerBridge.kt"),
+            File("app/src/main/java/com/tuyenmai/openkey/android/SystemSpellCheckerBridge.kt"),
+            File("../app/src/main/java/com/tuyenmai/openkey/android/SystemSpellCheckerBridge.kt"),
+            File("Sources/OpenKey/android/app/src/main/java/com/tuyenmai/openkey/android/SystemSpellCheckerBridge.kt")
+        )
+        val bridgeFile = possibleBridgePaths.firstOrNull { it.exists() }
+        assertNotNull("SystemSpellCheckerBridge.kt must exist", bridgeFile)
+
+        val possibleManifestPaths = listOf(
+            File("src/main/AndroidManifest.xml"),
+            File("app/src/main/AndroidManifest.xml"),
+            File("../app/src/main/AndroidManifest.xml"),
+            File("Sources/OpenKey/android/app/src/main/AndroidManifest.xml")
+        )
+        val manifestFile = possibleManifestPaths.firstOrNull { it.exists() }
+        assertNotNull("AndroidManifest.xml must exist", manifestFile)
+        val manifestContent = manifestFile!!.readText()
+
+        assertFalse("AndroidManifest.xml must not declare INTERNET permission", manifestContent.contains("android.permission.INTERNET"))
+        assertFalse("AndroidManifest.xml must not declare ACCESS_NETWORK_STATE permission", manifestContent.contains("android.permission.ACCESS_NETWORK_STATE"))
     }
 }

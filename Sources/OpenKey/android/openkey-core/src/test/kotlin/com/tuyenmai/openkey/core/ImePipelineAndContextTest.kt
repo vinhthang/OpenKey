@@ -307,4 +307,26 @@ class ImePipelineAndContextTest {
         assertFalse(methodNames.contains("onHardwareKeyDown"), "KeyboardSessionController must not contain onHardwareKeyDown")
         assertFalse(methodNames.contains("onHardwareKeyUp"), "KeyboardSessionController must not contain onHardwareKeyUp")
     }
+
+    // -------------------------------------------------------------------------
+    // 5. Dedicated Samsung One UI 4x4 Numeric Keypad Context (REQ-025, AC-025.1)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun testInputContextEvaluatorNumericFieldFlag() {
+        val numericClasses = listOf(
+            InputContextEvaluator.TYPE_CLASS_NUMBER,
+            InputContextEvaluator.TYPE_CLASS_PHONE,
+            InputContextEvaluator.TYPE_CLASS_DATETIME
+        )
+        for (cls in numericClasses) {
+            val ctx = EditorContext(cls, InputContextEvaluator.IME_ACTION_DONE, "com.any.app")
+            val eval = InputContextEvaluator.evaluate(ctx)
+            assertTrue(eval.isNumericField, "Input class $cls must have isNumericField = true")
+        }
+
+        val textCtx = EditorContext(InputContextEvaluator.TYPE_CLASS_TEXT, InputContextEvaluator.IME_ACTION_DONE, "com.any.app")
+        val textEval = InputContextEvaluator.evaluate(textCtx)
+        assertFalse(textEval.isNumericField, "TYPE_CLASS_TEXT must have isNumericField = false")
+    }
 }

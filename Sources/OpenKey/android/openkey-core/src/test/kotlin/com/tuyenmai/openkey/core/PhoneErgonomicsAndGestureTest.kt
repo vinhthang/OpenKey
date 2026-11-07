@@ -455,4 +455,57 @@ class PhoneErgonomicsAndGestureTest {
             }
         }
     }
+
+    // REQ-025, AC-025.2: Dedicated Samsung One UI 4x4 Numeric Keypad
+    @Test
+    fun testDedicatedNumpadLayerGeometryAndWeights() {
+        val layerDef = KeyboardLayoutDefinition.getLayer(KeyboardLayer.NUMPAD, imeActionLabel = "Done")
+        assertEquals(4, layerDef.rows.size, "NUMPAD layer must have exactly 4 rows")
+
+        for (row in layerDef.rows) {
+            assertEquals(4, row.keys.size, "Each NUMPAD row must have exactly 4 keys")
+            val sumWeights = row.keys.map { it.weight }.sum()
+            assertEquals(1.00f, sumWeights, 0.001f, "Row weights must sum to 1.00f")
+            assertEquals(0.26f, row.keys[0].weight, 0.001f)
+            assertEquals(0.26f, row.keys[1].weight, 0.001f)
+            assertEquals(0.26f, row.keys[2].weight, 0.001f)
+            assertEquals(0.22f, row.keys[3].weight, 0.001f)
+        }
+
+        // Row 1: 1 2 3 -
+        val r1 = layerDef.rows[0].keys
+        assertEquals("1", r1[0].primaryLabel)
+        assertEquals("2", r1[1].primaryLabel)
+        assertEquals("3", r1[2].primaryLabel)
+        assertEquals("-", r1[3].primaryLabel)
+        assertTrue(r1[3].isFunctional)
+
+        // Row 2: 4 5 6 Space
+        val r2 = layerDef.rows[1].keys
+        assertEquals("4", r2[0].primaryLabel)
+        assertEquals("5", r2[1].primaryLabel)
+        assertEquals("6", r2[2].primaryLabel)
+        assertTrue(r2[3].action is KeyAction.Space)
+        assertTrue(r2[3].isFunctional)
+
+        // Row 3: 7 8 9 ⌫
+        val r3 = layerDef.rows[2].keys
+        assertEquals("7", r3[0].primaryLabel)
+        assertEquals("8", r3[1].primaryLabel)
+        assertEquals("9", r3[2].primaryLabel)
+        assertEquals("⌫", r3[3].primaryLabel)
+        assertTrue(r3[3].action is KeyAction.Backspace)
+        assertTrue(r3[3].isFunctional)
+
+        // Row 4: , 0 . Enter
+        val r4 = layerDef.rows[3].keys
+        assertEquals(",", r4[0].primaryLabel)
+        assertTrue(r4[0].isFunctional)
+        assertEquals("0", r4[1].primaryLabel)
+        assertEquals(".", r4[2].primaryLabel)
+        assertTrue(r4[2].isFunctional)
+        assertEquals("Done", r4[3].primaryLabel)
+        assertTrue(r4[3].action is KeyAction.Enter)
+        assertTrue(r4[3].isFunctional)
+    }
 }

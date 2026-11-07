@@ -297,11 +297,14 @@ public final class AutoWordingEngine: @unchecked Sendable {
         
         var combinedTexts: [String] = []
         if languagePriority == .englishFirst {
-            for eng in engCandidates where !combinedTexts.contains(eng) {
-                combinedTexts.append(eng)
+            if let firstEng = engCandidates.first {
+                combinedTexts.append(firstEng)
             }
             for vn in vietnameseSorted where !combinedTexts.contains(vn) {
                 combinedTexts.append(vn)
+            }
+            for eng in engCandidates.dropFirst() where !combinedTexts.contains(eng) {
+                combinedTexts.append(eng)
             }
         } else {
             for vn in vietnameseSorted.prefix(2) where !combinedTexts.contains(vn) {
@@ -338,7 +341,7 @@ public final class AutoWordingEngine: @unchecked Sendable {
         guard !cleanPrev.isEmpty else { return [] }
         
         let dict = VietnameseDictionary.shared
-        guard let continuations = dict.compoundBigrams[cleanPrev], !continuations.isEmpty else { return [] }
+        guard let continuations = dict.compoundBigrams[cleanPrev] ?? dict.englishNextWordBigrams[cleanPrev], !continuations.isEmpty else { return [] }
         let pool = Array(continuations.prefix(8))
         let freqs = lock.withLock { _userFrequencies }
         let sortedPool = freqs.isEmpty ? pool : pool.sorted { (freqs[$0.lowercased()] ?? 0) > (freqs[$1.lowercased()] ?? 0) }
@@ -497,7 +500,7 @@ public final class AutoWordingEngine: @unchecked Sendable {
         
         func updateLiveCandidates() {
             if postContext.spaceCount == 0 && postContext.charCount > 0 &&
-                (postContext.rawKeystrokes.count >= 2 || postContext.composedWord.count >= 2) {
+                (postContext.rawKeystrokes.count >= 1 || postContext.composedWord.count >= 1) {
                 let candidates = computeCurrentWordCandidates(
                     rawStem: postContext.rawKeystrokes,
                     currentSyllable: postContext.composedWord,

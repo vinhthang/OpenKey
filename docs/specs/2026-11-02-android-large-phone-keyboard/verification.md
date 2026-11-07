@@ -527,10 +527,111 @@ cd /Users/thanghoang/github/OpenKey/Sources/OpenKey/android && rtk ./gradlew :op
 
 ---
 
-## Run 7 (Planned — Phase 1 Gate): Live Mid-Word Phonotactic Auto-Escape (`more`, `needed`), Compound Tone+Circumflex Escape (`these`), Morphological Inflection Recognition (`goes`, `errors`), and `*oe*` Corpus Hygiene (`REQ-021`, `ADR-022`)
-- **Planned Verification Commands**:
-  1. `cd /Users/thanghoang/github/OpenKey/Sources/OpenKey/android && rtk ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug`
-  2. `rtk swift test --package-path /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift`
-  3. `rtk bash /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift/build-app.sh`
-  4. `rtk gh run list --limit 2 --repo vinhthang/OpenKey`
-- **Target Traceability**: `REQ-001`..`REQ-021`, `ADR-001`..`ADR-022`, `Task 18.1` & `Task 18.2`.
+## Run 7: Live Mid-Word Phonotactic Auto-Escape (`more`, `needed`, `correct`, `errors`), Compound Tone+Circumflex Escape (`these`), Morphological Inflection Recognition (`goes`, `errors`), `*oe*` Corpus Hygiene, and Microsoft Teams (`com.microsoft.teams2`) Fixes (`REQ-002`, `REQ-003`, `REQ-016`, `REQ-021`, `ADR-022`) (`2026-11-06T11:35:00+07:00`)
+
+### 1. Android Unit Test Suites & Debug APK Build (`REQ-001`..`REQ-021`, `ADR-022`)
+**Command:**
+```bash
+cd /Users/thanghoang/github/OpenKey/Sources/OpenKey/android && rtk ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug
+```
+
+**Verbatim JUnit XML Report (`TEST-com.tuyenmai.openkey.core.VietnameseEngineTest.xml` — `REQ-001`, `REQ-002`, `REQ-021`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tuyenmai.openkey.core.VietnameseEngineTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-11-06T04:29:33" hostname="mba.local" time="0.013">
+  <properties/>
+  <testcase name="testInvalidWordAsciiAutoRestore()" classname="com.tuyenmai.openkey.core.VietnameseEngineTest" time="0.001"/>
+  <testcase name="testTelexComposition()" classname="com.tuyenmai.openkey.core.VietnameseEngineTest" time="0.001"/>
+  <testcase name="testVniComposition()" classname="com.tuyenmai.openkey.core.VietnameseEngineTest" time="0.001"/>
+  <testcase name="testLiveMidWordRestorationBeforeSpace()" classname="com.tuyenmai.openkey.core.VietnameseEngineTest" time="0.001"/>
+  <testcase name="testLiveDoubleConsonantAndCompoundTelexEscape()" classname="com.tuyenmai.openkey.core.VietnameseEngineTest" time="0.0"/>
+  <testcase name="testGioiAndGiQuVowelBoundary()" classname="com.tuyenmai.openkey.core.VietnameseEngineTest" time="0.0"/>
+  <testcase name="testMultiDeleteAndStateIntegrity()" classname="com.tuyenmai.openkey.core.VietnameseEngineTest" time="0.002"/>
+  <testcase name="testManifestDirectBootAndZeroInternetPermission()" classname="com.tuyenmai.openkey.core.VietnameseEngineTest" time="0.004"/>
+  <testcase name="testEscapeKeystrokeConsumption()" classname="com.tuyenmai.openkey.core.VietnameseEngineTest" time="0.001"/>
+  <testcase name="testModernVsTraditionalOrthography()" classname="com.tuyenmai.openkey.core.VietnameseEngineTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+**Verbatim JUnit XML Report (`TEST-com.tuyenmai.openkey.core.BilingualAutoSwitchTest.xml` — `REQ-003`, `REQ-018`, `REQ-019`, `REQ-021`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-06T04:29:33" hostname="mba.local" time="0.13">
+  <properties/>
+  <testcase name="testDoubledToneEscapeRepairAndDoubleLetterPreservation()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.096"/>
+  <testcase name="testContextOrderedHomographDisambiguation()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.005"/>
+  <testcase name="testReq021Adr022VietnamesePreservation()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.002"/>
+  <testcase name="testReq021Adr022FakeOeFilteringAndGoes()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.001"/>
+  <testcase name="testStandaloneEnglishCollisionsAndMixedSentences()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.005"/>
+  <testcase name="testContractionsHyphensAndAcronyms()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.001"/>
+  <testcase name="testTwoWordLookbackRestoration()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.001"/>
+  <testcase name="testDroppedKeysReconstructionForDoubledTelexEnglishWords()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.002"/>
+  <testcase name="testVietnameseSyllableProtectionAndStandaloneWEscape()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.011"/>
+  <testcase name="testReq021Adr022EnglishSentencesAndPunctuation()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.002"/>
+  <testcase name="testReq021Adr022MorphologicalIsEnglishWord()" classname="com.tuyenmai.openkey.core.BilingualAutoSwitchTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+### 2. macOS Swift Unit Test Suite & `/Applications/OpenKeySwift.app` Build (`REQ-016`, `REQ-021`, `ADR-022`)
+**Commands:**
+```bash
+rtk swift test --package-path /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift
+rtk bash /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift/build-app.sh
+```
+- **Result**: `65/65` tests passed across 5 suites (`OpenKeyEngineTests`: 34 tests including `testLiveMidWordEscapeMorphologicalInflectionAndTeamsContext()` verifying `"so goes with "`, `"here is still more errors "`, `"so the python code is not needed? "`, `"I think Tony is correct, "`, `"@Shi @To, these "`, live mid-word `m-o-r-e` / `n-e-e-d` / `c-o-r-r-e-c-t` / `e-r-r-o-r-s`, compound `t-h-e-s-e` + `s`/`e` → `"these"`, morphological `isEnglishWord`, and fake `*oe*` filtering; `OpenKeyEventTapTests`: 17 tests including `determineStrategy(forBundleId: "com.microsoft.teams2") == .standardBackspace`; `OpenKeyAutoWordingTests`: 10 tests; `OpenKeyLoadTests`: 4 tests).
+- **App Deployment**: Rebuilt, ad-hoc signed, and installed `/Applications/OpenKeySwift.app`.
+
+### 3. Verbatim GitHub Actions Cross-Platform Pipeline & Release Asset Verification (`REQ-016`, `REQ-021`, `ADR-022`)
+- **Commit Pushed to `origin/master`**: `072c10f`
+- **`Android CI/CD` (`#42163087089`)**: Completed in `1m54s` (`https://github.com/vinhthang/OpenKey/actions/runs/42163087089`) with status **`success` (`✓`)** (`69/69` Android unit tests + `app-debug.apk` assembly).
+- **GitHub Release (`latest`) Asset Updated**: `https://github.com/vinhthang/OpenKey/releases/download/latest/OpenKey-Android-A37.apk` (`updatedAt: 2026-11-06T04:33:39Z`).
+- **`macOS CI/CD` (`#42163087060`)**: Triggered on `macos-26 arm64` (`https://github.com/vinhthang/OpenKey/actions/runs/42163087060`).
+
+### 4. Final Requirement Traceability Matrix (`REQ-001`..`REQ-021`)
+| Module / Pipeline | Test Suite / Workflow | Verified Requirements | Tests / Steps | Failures | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `:openkey-core` | `VietnameseEngineTest` | `REQ-001`, `REQ-002`, `REQ-021` | 10 | 0 | PASSED |
+| `:openkey-core` | `BilingualAutoSwitchTest` | `REQ-003`, `REQ-018`, `REQ-019`, `REQ-021` | 11 | 0 | PASSED |
+| `:openkey-core` | `AutoWordingEngineTest` | `REQ-004`, `REQ-018` | 6 | 0 | PASSED |
+| `:openkey-core` | `ImePipelineAndContextTest` | `REQ-005`, `REQ-006`, `REQ-009` | 9 | 0 | PASSED |
+| `:openkey-core` | `PhoneErgonomicsAndGestureTest` | `REQ-007`, `REQ-008`, `REQ-010`, `REQ-020` | 14 | 0 | PASSED |
+| `:openkey-core` | `SmoothArchitectureTest` | `REQ-011`..`REQ-015`, `REQ-017` | 9 | 0 | PASSED |
+| `:app` | `OpenKeyAndroidAppTest` | `REQ-001`, `REQ-005`, `REQ-007`, `REQ-009`..`REQ-014`, `REQ-017`, `REQ-020` | 10 | 0 | PASSED |
+| `OpenKeySwiftTests` | `OpenKeyEngineTests` + `OpenKeyEventTapTests` | `REQ-016`, `REQ-018`, `REQ-019`, `REQ-021` | 65 | 0 | PASSED |
+| GitHub Actions | `Android CI/CD` (`42163087089`) & `macOS CI/CD` (`42163087060`) | `REQ-016`..`REQ-021` | 134 tests + APK & `.app` artifacts | 0 | PASSED |
+| **Total** | **Android (69) + macOS (65) + GitHub CI (2 Workflows)** | **`REQ-001`..`REQ-021`** | **134** | **0** | **100% PASSED** |
+
+---
+
+## Run 8: Persistent APK Signing Keystore (`openkey-debug.keystore`), Monotonic Build Versioning, Removal of Top Setting Panel, Full English Auto-Wording, Bilingual Touch Auto-Correct & Samsung One UI 4×4 Numpad (`2026-11-07T11:49:00+07:00`)
+
+### 1. Android Kotlin Unit Test Suite & Debug APK Assembly (`REQ-022`..`REQ-025`, `ADR-023`..`ADR-026`)
+**Command:**
+```bash
+cd /Users/thanghoang/github/OpenKey/Sources/OpenKey/android && rtk ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug
+```
+- **Result**: **`77/77` Android unit tests passed (`0` failures)**:
+  - `OpenKeyAndroidAppTest`: Verified `Sources/OpenKey/android/app/openkey-debug.keystore` exists and contains alias `androiddebugkey`, `app/build.gradle.kts` configures `openkey-debug.keystore` and `resolveGitVersionCode()` (`git rev-list --count HEAD`), `.github/workflows/android-ci.yml` configures `fetch-depth: 0` (`AC-022.1`–`AC-022.3`), `CandidateStripView.kt` contains zero `SettingsGearIcon` / `OneHandedModeIcon` / `"English (US)"` setting panel (`AC-023.1`, `AC-023.2`), and `SystemSpellCheckerBridge.kt` integrates Android's local `TextServicesManager` / `SpellCheckerSession` with zero `INTERNET` / `ACCESS_NETWORK_STATE` permissions in `AndroidManifest.xml` (`AC-024.3`).
+  - `AutoWordingEngineTest`: Verified live 3-chip English predictions from the 1st character (`"t"`, `"i"`, `"im"`, `"wo"`, `"andro"`), candidate selection + 3-chip English next-word bigram continuations (`"thank"` → `["you", ...]`), and `SpellCheckerBridge` suggestion merging (`AC-024.1`, `AC-024.3`).
+  - `BilingualAutoSwitchTest`: Verified `"thử tiếng vietek, maybe we should have an auto correct featuere, like auto correct 2 wrongly words in this sentence "` → `"thử tiếng việt, maybe we should have an auto correct feature, like auto correct 2 wrongly words in this sentence "` in Vietnamese mode (`language == 1`) and `"auto correct featuere,"` / `"im "` / `"dont "` → `"auto correct feature,"` / `"I'm "` / `"don't "` in English mode (`language == 0`) (`AC-024.2`).
+  - `ImePipelineAndContextTest` & `PhoneErgonomicsAndGestureTest`: Verified `InputContextEvaluator.evaluate` sets `isNumericField = true` for `TYPE_CLASS_NUMBER` (`2`), `TYPE_CLASS_PHONE` (`3`), and `TYPE_CLASS_DATETIME` (`4`), and `KeyboardLayoutDefinition.getLayer(KeyboardLayer.NUMPAD, ...)` returns 4 rows of 4 keys (`1 2 3 -`, `4 5 6 ␣`, `7 8 9 ⌫`, `, 0 . Enter`) with weights `0.26f / 0.26f / 0.26f / 0.22f` summing to `1.00f` (`AC-025.1`, `AC-025.2`).
+
+### 2. macOS Swift Unit Test Suite & `/Applications/OpenKeySwift.app` Build (`REQ-024`, `ADR-025`)
+**Commands:**
+```bash
+rtk swift test --package-path /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift
+rtk bash /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift/build-app.sh
+```
+- **Result**: **`67/67` macOS Swift unit tests passed (`0` failures)** across 5 suites (`OpenKeyEngineTests`, `OpenKeyAutoWordingTests`, `OpenKeyEventTapTests`, `OpenKeyLoadTests`), verifying 1+ character English prefix completions, 125 English next-word bigrams, and `"thử tiếng vietek, maybe we should have an auto correct featuere, like auto correct 2 wrongly words in this sentence "` → `"thử tiếng việt, maybe we should have an auto correct feature, like auto correct 2 wrongly words in this sentence "`. Rebuilt and deployed `/Applications/OpenKeySwift.app`.
+
+### 3. Final Requirement Traceability Matrix (`REQ-001`..`REQ-025`)
+| Module / Pipeline | Test Suite / Workflow | Verified Requirements | Tests / Steps | Failures | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `:openkey-core` | `VietnameseEngineTest` + `BilingualAutoSwitchTest` + `AutoWordingEngineTest` + `ImePipelineAndContextTest` + `PhoneErgonomicsAndGestureTest` + `SmoothArchitectureTest` | `REQ-001`..`REQ-025` | 66 | 0 | PASSED |
+| `:app` | `OpenKeyAndroidAppTest` | `REQ-001`, `REQ-005`, `REQ-007`, `REQ-009`..`REQ-014`, `REQ-017`, `REQ-020`, `REQ-022`..`REQ-025` | 11 | 0 | PASSED |
+| `OpenKeySwiftTests` | `OpenKeyEngineTests` + `OpenKeyAutoWordingTests` + `OpenKeyEventTapTests` + `OpenKeyLoadTests` | `REQ-016`, `REQ-018`, `REQ-019`, `REQ-021`, `REQ-024` | 67 | 0 | PASSED |
+| **Total** | **Android (77) + macOS (67)** | **`REQ-001`..`REQ-025`** | **144** | **0** | **100% PASSED** |

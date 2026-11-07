@@ -388,3 +388,131 @@ flowchart TD
 - **Unaccented Non-Vietnamese Proper-Name & `@mention` Context Continuity (`BilingualAutoSwitchEngine.swift` & `BilingualAutoSwitchEngine.kt`)**:
   - In `evaluateWordBreakRestore`, an unaccented word (`!hasAnyDiacritic`) with `composedLower.count >= 2` that is not a valid Vietnamese syllable (`!dict.isValidVietnameseSyllable(composedLower)`) and not in `vietnameseShorthandSet` (`{"ko", "dc", "vs", "vk", "ck", "mk", "nt", "nc", "bt", "bh", "uk", "uh", "ak", "ah"}`) is classified as `isComposedEng = true` (`isEng = true`).
   - When `breakKeyCode == KEY_COMMA`, if `isEng` is `true` or `!wordStartOk` (e.g. `@To,`), `consecutiveEnglishWordCount` is incremented/preserved rather than reset to `0`, so `"I think Tony is correct,"` and `"@Shi @To, these "` stay in `ENGLISH_FIRST` context throughout the clause.
+
+---
+
+## 10. Persistent APK Signing & Monotonic Build Versioning Architecture (`REQ-022`, `ADR-023`)
+
+### 10.1 Repository-Scoped Signing Keystore (`Sources/OpenKey/android/app/openkey-debug.keystore`)
+- Generated once via `keytool -genkeypair -v -keystore Sources/OpenKey/android/app/openkey-debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"`.
+- Tracked in Git so every GitHub Actions runner (`ubuntu-latest`) and every local developer build (`macOS` / `Linux`) signs `com.tuyenmai.openkey.android` with the exact same X.509 certificate (`SHA-256` fingerprint).
+
+### 10.2 Gradle Signing & Monotonic Versioning Configuration (`Sources/OpenKey/android/app/build.gradle.kts`)
+- **Monotonic `versionCode` & `versionName` Resolver**:
+  ```kotlin
+  fun resolveGitVersionCode(): Int {
+      val propCode = project.findProperty("versionCode")?.toString()?.toIntOrNull()
+      if (propCode != null && propCode > 0) return propCode
+      return try {
+          val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+              .directory(rootProject.projectDir)
+              .redirectErrorStream(true)
+              .start()
+          val output = process.inputStream.bufferedReader().readText().trim()
+          process.waitFor()
+          output.toIntOrNull()?.coerceAtLeast(1) ?: 1
+      } catch (_: Exception) {
+          1
+      }
+  }
+  val resolvedVersionCode = resolveGitVersionCode()
+  ```
+- **`defaultConfig`**:
+  ```kotlin
+  versionCode = resolvedVersionCode
+  versionName = "1.0.$resolvedVersionCode"
+  ```
+- **`signingConfigs` & `buildTypes`**:
+  ```kotlin
+  signingConfigs {
+      getByName("debug") {
+          storeFile = file(System.getenv("OPENKEY_KEYSTORE_PATH") ?: "openkey-debug.keystore")
+          storePassword = System.getenv("OPENKEY_STORE_PASSWORD") ?: "android"
+          keyAlias = System.getenv("OPENKEY_KEY_ALIAS") ?: "androiddebugkey"
+          keyPassword = System.getenv("OPENKEY_KEY_PASSWORD") ?: "android"
+      }
+  }
+
+  buildTypes {
+      debug {
+          signingConfig = signingConfigs.getByName("debug")
+      }
+      release {
+          isMinifyEnabled = false
+          signingConfig = signingConfigs.getByName("debug")
+          proguardFiles(
+              getDefaultProguardFile("proguard-android-optimize.txt"),
+              "proguard-rules.pro"
+          )
+      }
+  }
+  ```
+
+### 10.3 GitHub Actions Full-History Checkout (`.github/workflows/android-ci.yml`)
+- Update `actions/checkout@v4` in `.github/workflows/android-ci.yml`:
+  ```yaml
+  - name: Checkout repository
+    uses: actions/checkout@v4
+    with:
+      fetch-depth: 0
+  ```
+  ensuring `git rev-list --count HEAD` resolves the exact total commit count (`> 1`) on GitHub Actions runners.
+
+### 10.4 Removal of Top Keyboard Setting Panel (`CandidateStripView.kt`, `KeyboardScreen.kt`, `REQ-023`, `ADR-024`)
+- **`CandidateStripView.kt`**:
+  - Remove `OneHandedModeIcon`, `SettingsGearIcon`, and the entire idle `else` block (`"Tiếng Việt • Telex"` / `"English (US)"`, `onOneHandedCycle`, `onOpenSettings`, `onLanguageToggled`, `onInputTypeToggled`).
+  - `CandidateStripView` renders the `heightDp` strip showing `[candidates.getOrNull(1), candidates.getOrNull(0), candidates.getOrNull(2)]` when `candidates.isNotEmpty()`, and a clean empty suggestion strip (zero setting buttons or text) when `candidates.isEmpty()`.
+
+### 10.5 Full English Auto-Wording Engine & Android `SpellCheckerSession` Bridge (`KeyboardSessionController.kt`, `AutoWordingEngine.kt`, `VietnameseDictionary.kt`, `SystemSpellCheckerBridge.kt`, `REQ-024`, `ADR-025`)
+- **1. English Mode (`language == 0`) Session Routing (`KeyboardSessionController.kt`)**:
+  - In `KeyAction.CommitChar`:
+    - Only bypass without tracking when `editorUiState.bypassVietnamese == true` (secure/password, email, URI, numeric, terminal fields).
+    - When `editorUiState.language == 0` (English mode) and `!editorUiState.bypassVietnamese`:
+      - Commit `charStr` immediately via `batchCoordinator.commitBatch(target, 0, charStr)` (120Hz Commit-First invariant).
+      - If `charStr.length == 1 && (charStr[0].isLetter() || charStr[0] == '\'')`, append `charStr` to `_composingWord` and invoke `autoWordingEngine.onEnglishKeyEvent(_composingWord)` to compute 3-slot English candidates (`computeEnglishModeCandidates(_composingWord)`).
+      - Otherwise (punctuation/symbol), reset `_composingWord = ""` and `autoWordingEngine.clearCandidates()`.
+  - In `KeyAction.Backspace` (`language == 0` && `!bypassVietnamese`):
+    - Delete 1 character via `target.deleteSurroundingText(1, 0)` and `batchCoordinator.onCursorMovedByTrackpad(-1)`.
+    - If `_composingWord.isNotEmpty()`, drop the last character (`_composingWord = _composingWord.dropLast(1)`) and update live English candidates via `autoWordingEngine.onEnglishKeyEvent(_composingWord)` (or `clearCandidates()` when empty).
+  - In `KeyAction.Space` (`language == 0` && `!bypassVietnamese`):
+    - Capture `val word = _composingWord`, reset `_composingWord = ""`.
+    - Check `autoWordingEngine.interceptEnglishWordBreak(word)`:
+      - First checks custom shorthands (`expandShorthand(word)`).
+      - Next, if `autoWordingEngine.isEnabled && autoWordingEngine.grammarRepairEnabled`, checks standalone `"i"` → `"I"`, `englishContractionGrammar` (`"im"` → `"I'm"`, `"dont"` → `"don't"`, `"cant"` → `"can't"`, `"wont"` → `"won't"`, `"didnt"` → `"didn't"`, `"doesnt"` → `"doesn't"`, `"isnt"` → `"isn't"`, `"arent"` → `"aren't"`, `"wasnt"` → `"wasn't"`, `"werent"` → `"weren't"`, `"havent"` → `"haven't"`, `"hasnt"` → `"hasn't"`, `"hadnt"` → `"hadn't"`, `"wouldnt"` → `"wouldn't"`, `"couldnt"` → `"couldn't"`, `"shouldnt"` → `"shouldn't"`, `"ive"` → `"I've"`, `"id"` → `"I'd"`, `"ill"` → `"I'll"`), and `englishTypoCorrections` (`"teh"` → `"the"`, `"recieve"` → `"receive"`, `"becuase"` → `"because"`, etc.), preserving uppercase/TitleCase.
+      - If repaired/expanded to `replacement`, commits `batchCoordinator.commitBatch(target, word.length, "$replacement ")` and populates next-word candidates for `replacement`.
+      - Otherwise commits `batchCoordinator.commitBatch(target, 0, " ")` and populates next-word candidates via `autoWordingEngine.onEnglishSpace(word)`.
+- **2. Full-Corpus Ranked English Prefix Index & Next-Word Bigrams (`VietnameseDictionary.kt` & `AutoWordingEngine.kt` + Swift Parity)**:
+  - **`VietnameseDictionary`**:
+    - Precompute `englishRankedWords: List<String>` ordering high-frequency conversational/technical English words first (`"the"`, `"to"`, `"and"`, `"of"`, `"in"`, `"is"`, `"it"`, `"you"`, `"that"`, `"for"`, `"on"`, `"with"`, `"as"`, `"are"`, `"this"`, `"by"`, `"be"`, `"at"`, `"or"`, `"have"`, `"from"`, `"not"`, `"but"`, `"what"`, `"all"`, `"were"`, `"we"`, `"when"`, `"your"`, `"can"`, `"said"`, `"there"`, `"use"`, `"an"`, `"each"`, `"which"`, `"she"`, `"do"`, `"how"`, `"their"`, `"if"`, `"will"`, `"up"`, `"other"`, `"about"`, `"out"`, `"many"`, `"then"`, `"them"`, `"these"`, `"so"`, `"some"`, `"her"`, `"would"`, `"make"`, `"like"`, `"him"`, `"into"`, `"time"`, `"has"`, `"look"`, `"two"`, `"more"`, `"write"`, `"go"`, `"see"`, `"number"`, `"no"`, `"way"`, `"could"`, `"people"`, `"my"`, `"than"`, `"first"`, `"water"`, `"been"`, `"call"`, `"who"`, `"oil"`, `"its"`, `"now"`, `"find"`, `"long"`, `"down"`, `"day"`, `"did"`, `"get"`, `"come"`, `"made"`, `"may"`, `"part"`, `"work"`, `"need"`, `"know"`, `"think"`, `"good"`, `"check"`, `"please"`, `"thank"`, `"thanks"`, `"hello"`, `"help"`, `"here"`, `"message"`, `"team"`, `"update"`, `"android"`, `"samsung"`, `"keyboard"`, etc.) followed by all remaining words in `englishWords`.
+    - Build `englishPrefixIndex: Map<String, List<String>>` for 1-to-3 character prefixes so `computeEnglishCandidates(rawStem, limit)` returns instant `O(1)` top-ranked completions from the very first character (`"i"` → `["I", "in", "is"]`, `"t"` → `["the", "to", "that"]`, `"a"` → `["a", "and", "are"]`, `"w"` → `["we", "with", "what"]`, `"th"` → `["the", "that", "this"]`, `"im"` → `["I'm", "image", "import"]`, `"dont"` → `["don't"]`), preserving initial capitalization (`"Th"` → `["The", "That", "This"]`).
+    - Add `englishNextWordBigrams: Map<String, List<String>>` (`120+` common English word continuations) and update `AutoWordingEngine.computeNextWordCandidates(previousWord)` to query `compoundBigrams[cleanPrev] ?: englishNextWordBigrams[cleanPrev]`.
+    - Update `AutoWordingEngine.didProcessKeyEvent` so live candidates are computed for `1+` character stems (`rawKeystrokes.length >= 1 || composedWord.length >= 1`).
+- **3. Bilingual Touch-Typing Auto-Correct (`findVietnameseAutoCorrectMatch` & `findEnglishAutoCorrectMatch` in `VietnameseDictionary` & `BilingualAutoSwitchEngine`, `Kotlin` & `Swift`)**:
+  - **Vietnamese Fat-Finger Tone & Bigram Auto-Correct (`findVietnameseAutoCorrectMatch`)**:
+    - `vietnameseTypoCorrections` includes `"vietek" to "việt"`, `"vieetk" to "việt"`, `"vietk" to "việt"`, `"viêt" to "việt"`, `"viecek" to "việc"`, `"vieeck" to "việc"`, `"vieck" to "việc"`, `"viêc" to "việc"`, `"duowck" to "được"`, `"dduowck" to "được"`, `"mootk" to "một"`, `"motok" to "một"`, `"hoack" to "hoặc"`, `"hoawck" to "hoặc"`, `"thuwck" to "thực"`, `"thuck" to "thực"`, `"hieenk" to "hiện"`, `"hienek" to "hiện"`.
+    - `vietnameseBigramGrammar` includes `"tiếng viet" to "tiếng việt"`, `"tiếng viêt" to "tiếng việt"`, `"tiếng vietek" to "tiếng việt"`, `"tiếng vieetk" to "tiếng việt"`, `"tiếng vietk" to "tiếng việt"`, and in `BilingualAutoSwitchEngine.evaluateWordBreakRestore` Step 2 (`Bigram Grammar Corrections`), single-current-word bigram replacements (`newPrev.lowercase() == prevWord.lowercase()`) execute on **any** word-break key (`KEY_SPACE`, `KEY_COMMA`, `KEY_DOT`, `KEY_QUESTION`, `KEY_EXCLAMATION`, `KEY_SEMICOLON`, `KEY_COLON`).
+  - **English Damerau-Levenshtein Distance-1 Auto-Correct (`findEnglishAutoCorrectMatch(rawLower)`)**:
+    - Guarded by `rawLower.length >= 4 && !isEnglishWord(rawLower) && !isValidVietnameseSyllable(rawLower) && !keepWords.contains(rawLower) && !validTelexKeys.contains(rawLower)`.
+    - Checks:
+      1. `englishTypoCorrections[rawLower]` (including `"featuere" to "feature"`, `"fetaure" to "feature"`, `"feaure" to "feature"`).
+      2. **Adjacent Transposition (`swap i, i+1`)**: matches `englishPriorityWords` or `englishWords`.
+      3. **1-Extra-Character Deletion (`rawLower.length >= 5`)**: for `i` in `1 until rawLower.length`, if `rawLower[i] == rawLower[i - 1]` or `isQwertyAdjacent(rawLower[i], rawLower[i - 1])` or (`i + 1 < rawLower.length && isQwertyAdjacent(rawLower[i], rawLower[i + 1])`), removing `rawLower[i]` forms `candidate = rawLower.removeRange(i, i + 1)`. If `englishPriorityWords.contains(candidate)` or `englishWords.contains(candidate)`, returns `candidate` (repairing `"featuere"` → `"feature"`, `"keyboasrd"` → `"keyboard"`, `"mesasage"` → `"message"`, `"andrtoid"` → `"android"`, `"problrem"` → `"problem"`).
+- **4. Android System `TextServicesManager` / `SpellCheckerSession` Bridge (`SystemSpellCheckerBridge.kt` in `:app`)**:
+  - `AutoWordingEngine` exposes `var externalEnglishSuggester: ((String) -> List<String>)? = null`.
+  - In `:app`, `SystemSpellCheckerBridge.kt` wraps `context.getSystemService(Context.TEXT_SERVICES_MANAGER_SERVICE) as? TextServicesManager`, opening a local `SpellCheckerSession` (`Locale.US`), caching recent system spellchecker suggestions in a thread-safe `ConcurrentHashMap<String, List<String>>`, and triggering `fetchSuggestions(word)` so Samsung / Android system dictionary suggestions seamlessly augment `:openkey-core`'s offline dictionary with zero network permissions.
+
+### 10.6 Dedicated Samsung One UI 4×4 Numeric Keypad (`KeyboardLayer.NUMPAD`, `REQ-025`, `ADR-026`)
+- **`InputContextEvaluator.kt` & `KeyboardSessionController.kt` (`:openkey-core`)**:
+  - Add `val isNumericField: Boolean = false` to `InputEvaluation` and `EditorUiState` (`true` when `(context.inputType and TYPE_MASK_CLASS)` is `TYPE_CLASS_NUMBER`, `TYPE_CLASS_PHONE`, or `TYPE_CLASS_DATETIME`).
+- **`PhoneLayoutMetrics.kt` & `KeyboardLayoutDefinition.kt` (`:openkey-core`)**:
+  - Add `NUMPAD` to `enum class KeyboardLayer`.
+  - In `KeyboardLayoutDefinition.buildLayer(KeyboardLayer.NUMPAD, ...)`:
+    - **Row 1**: `1` (`0.26f`), `2` (`0.26f`), `3` (`0.26f`), `-` (`0.22f`, `isFunctional = true`, `action = KeyAction.CommitChar("-")`)
+    - **Row 2**: `4` (`0.26f`), `5` (`0.26f`), `6` (`0.26f`), `␣` (`0.22f`, `isFunctional = true`, `action = KeyAction.Space`)
+    - **Row 3**: `7` (`0.26f`), `8` (`0.26f`), `9` (`0.26f`), `⌫` (`0.22f`, `isFunctional = true`, `action = KeyAction.Backspace`)
+    - **Row 4**: `,` (`0.26f`, `isFunctional = true`, `action = KeyAction.CommitChar(",")`), `0` (`0.26f`), `.` (`0.26f`, `isFunctional = true`, `action = KeyAction.CommitChar(".")`), `Enter` (`0.22f`, `primaryLabel = imeActionLabel`, `isFunctional = true`, `action = KeyAction.Enter`)
+- **`KeyboardScreen.kt` & `KeyButton.kt` (`:app`)**:
+  - When `editorUiState.isNumericField == true`:
+    - Do not render `LiveCandidateStripHost` (numeric fields have no word candidates).
+    - Select `KeyboardLayer.NUMPAD` automatically and render each of the 4 rows at `58.dp` portrait height (`42.dp` landscape height) with `26.sp` (`FontWeight.Medium`) digit labels (`0`–`9`) in `KeyButton.kt`.
+

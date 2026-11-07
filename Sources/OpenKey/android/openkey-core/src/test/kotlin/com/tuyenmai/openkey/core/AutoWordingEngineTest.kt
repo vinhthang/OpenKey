@@ -249,4 +249,116 @@ class AutoWordingEngineTest {
         assertEquals("sex", engCandidates[0].text, "ENGLISH_FIRST must rank 'sex' first")
         assertEquals("sẽ", engCandidates[1].text, "ENGLISH_FIRST must rank 'sẽ' second")
     }
+
+    // 7. English mode live 3-chip predictions from 1st character and bigrams (REQ-024, AC-024.1)
+    @Test
+    fun testEnglishModeLiveThreeChipPredictionsAndCandidateSelection() {
+        class MockCommitter : TextCommitterTarget {
+            var committedText = ""
+            var deletedBefore = 0
+            override fun beginBatchEdit(): Boolean = true
+            override fun endBatchEdit(): Boolean = true
+            override fun commitText(text: CharSequence, newCursorPosition: Int): Boolean {
+                committedText += text.toString()
+                return true
+            }
+            override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
+                deletedBefore += beforeLength
+                if (committedText.length >= beforeLength) {
+                    committedText = committedText.dropLast(beforeLength)
+                }
+                return true
+            }
+            override fun sendKeyChar(char: Char): Boolean {
+                committedText += char
+                return true
+            }
+            override fun performEditorAction(actionId: Int): Boolean = true
+            override fun moveCursorBy(deltaChars: Int): Boolean = true
+            override fun deletePreviousWord(): Boolean = true
+        }
+
+        val committer = MockCommitter()
+        val controller = KeyboardSessionController(committer = committer)
+        val textCtx = EditorContext(
+            inputType = InputContextEvaluator.TYPE_CLASS_TEXT,
+            imeOptions = InputContextEvaluator.IME_ACTION_DONE,
+            packageName = "com.test.app"
+        )
+        controller.onStartInput(textCtx)
+        controller.onKeyAction(KeyAction.SwitchLanguage) // switch to English (language = 0)
+        assertEquals(0, controller.editorUiState.language)
+
+        // Type "t" -> 3 predictions starting with "t", e.g. ["the", "to", "that"]
+        controller.onKeyAction(KeyAction.CommitChar("t"))
+        val tCands = controller.autoWordingEngine.activeCandidates
+        assertEquals(3, tCands.size, "Typing 't' must yield 3 candidates")
+        assertTrue(tCands.all { it.text.lowercase().startsWith("t") }, "All candidates must start with 't'")
+
+        // Backspace to reset
+        controller.onKeyAction(KeyAction.Backspace)
+        assertTrue(controller.autoWordingEngine.activeCandidates.isEmpty())
+
+        // Type "i" -> includes "I"
+        controller.onKeyAction(KeyAction.CommitChar("i"))
+        val iCands = controller.autoWordingEngine.activeCandidates
+        assertEquals(3, iCands.size)
+        assertTrue(iCands.any { it.text == "I" || it.text == "in" || it.text == "is" })
+
+        // Type "m" -> "im" -> includes "I'm"
+        controller.onKeyAction(KeyAction.CommitChar("m"))
+        val imCands = controller.autoWordingEngine.activeCandidates
+        assertEquals(3, imCands.size)
+        assertTrue(imCands.any { it.text == "I'm" }, "Candidates for 'im' must include 'I'm'")
+
+        // Backspace twice
+        controller.onKeyAction(KeyAction.Backspace)
+        controller.onKeyAction(KeyAction.Backspace)
+
+        // Type "w", "o" -> 3 English candidates
+        controller.onKeyAction(KeyAction.CommitChar("w"))
+        controller.onKeyAction(KeyAction.CommitChar("o"))
+        val woCands = controller.autoWordingEngine.activeCandidates
+        assertEquals(3, woCands.size, "Candidates for 'wo' must be 3 English candidates")
+        assertTrue(woCands.all { it.text.lowercase().startsWith("wo") })
+
+        // Clear
+        controller.onKeyAction(KeyAction.Backspace)
+        controller.onKeyAction(KeyAction.Backspace)
+
+        // Type "andro" -> includes "android"
+        for (c in "andro") {
+            controller.onKeyAction(KeyAction.CommitChar(c.toString()))
+        }
+        val androCands = controller.autoWordingEngine.activeCandidates
+        assertTrue(androCands.any { it.text.equals("android", ignoreCase = true) }, "Candidates for 'andro' must include 'android'")
+
+        // Select "android"
+        val androidIdx = androCands.indexOfFirst { it.text.equals("android", ignoreCase = true) }
+        assertTrue(androidIdx >= 0)
+        controller.onCandidateSelected(androidIdx)
+        assertEquals("android ", committer.committedText)
+
+        // Selecting candidate populates next-word predictions
+        val nextCands = controller.autoWordingEngine.activeCandidates
+        assertEquals(3, nextCands.size, "Next word candidates for 'android' must be 3")
+    }
+
+    // 8. SpellCheckerBridge hook merges external suggestions (REQ-024, AC-024.3)
+    @Test
+    fun testExternalSpellCheckerBridgeHook() {
+        val engine = AutoWordingEngine.shared
+        val mockBridge = AutoWordingEngine.SpellCheckerBridge { word, maxCount ->
+            listOf("customsuggestion1", "customsuggestion2")
+        }
+        engine.spellCheckerBridge = mockBridge
+
+        // For a rare prefix with 0 or few dictionary matches
+        val cands = VietnameseDictionary.shared.computeEnglishCandidates("xyz", 3)
+        // If computeEnglishCandidates or AutoWordingEngine merges spellCheckerBridge
+        val merged = engine.computeCurrentWordCandidates("xyz", "xyz", false, LanguagePriority.ENGLISH_FIRST)
+        assertTrue(merged.any { it.text.startsWith("customsuggestion") }, "SpellCheckerBridge suggestions must be merged")
+
+        engine.spellCheckerBridge = null
+    }
 }

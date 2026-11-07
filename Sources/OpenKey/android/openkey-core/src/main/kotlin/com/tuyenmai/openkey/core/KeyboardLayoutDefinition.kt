@@ -233,6 +233,42 @@ object KeyboardLayoutDefinition {
 
                 KeyboardLayerDef(listOf(row1, row2, row3, row4, row5))
             }
+
+            KeyboardLayer.NUMPAD -> {
+                val row1 = KeyRow(
+                    listOf(
+                        KeyModel(primaryLabel = "1", weight = 0.26f, action = KeyAction.CommitChar("1")),
+                        KeyModel(primaryLabel = "2", weight = 0.26f, action = KeyAction.CommitChar("2")),
+                        KeyModel(primaryLabel = "3", weight = 0.26f, action = KeyAction.CommitChar("3")),
+                        KeyModel(primaryLabel = "-", weight = 0.22f, isFunctional = true, action = KeyAction.CommitChar("-"))
+                    )
+                )
+                val row2 = KeyRow(
+                    listOf(
+                        KeyModel(primaryLabel = "4", weight = 0.26f, action = KeyAction.CommitChar("4")),
+                        KeyModel(primaryLabel = "5", weight = 0.26f, action = KeyAction.CommitChar("5")),
+                        KeyModel(primaryLabel = "6", weight = 0.26f, action = KeyAction.CommitChar("6")),
+                        KeyModel(primaryLabel = "␣", weight = 0.22f, isFunctional = true, action = KeyAction.Space)
+                    )
+                )
+                val row3 = KeyRow(
+                    listOf(
+                        KeyModel(primaryLabel = "7", weight = 0.26f, action = KeyAction.CommitChar("7")),
+                        KeyModel(primaryLabel = "8", weight = 0.26f, action = KeyAction.CommitChar("8")),
+                        KeyModel(primaryLabel = "9", weight = 0.26f, action = KeyAction.CommitChar("9")),
+                        KeyModel(primaryLabel = "⌫", weight = 0.22f, isFunctional = true, action = KeyAction.Backspace)
+                    )
+                )
+                val row4 = KeyRow(
+                    listOf(
+                        KeyModel(primaryLabel = ",", weight = 0.26f, isFunctional = true, action = KeyAction.CommitChar(",")),
+                        KeyModel(primaryLabel = "0", weight = 0.26f, action = KeyAction.CommitChar("0")),
+                        KeyModel(primaryLabel = ".", weight = 0.26f, isFunctional = true, action = KeyAction.CommitChar(".")),
+                        KeyModel(primaryLabel = imeActionLabel, weight = 0.22f, isFunctional = true, action = KeyAction.Enter)
+                    )
+                )
+                KeyboardLayerDef(listOf(row1, row2, row3, row4))
+            }
         }
     }
 

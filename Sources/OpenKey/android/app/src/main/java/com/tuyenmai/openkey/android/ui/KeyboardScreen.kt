@@ -151,8 +151,9 @@ fun KeyboardScreen(
     )
     val metrics = PhoneLayoutMetrics.compute(layoutConfig)
 
+    val effectiveLayer = if (editorUiState.isNumericField) KeyboardLayer.NUMPAD else currentLayer
     val layerDef = KeyboardLayoutDefinition.getLayer(
-        layer = currentLayer,
+        layer = effectiveLayer,
         isShifted = isShifted || isCapsLock,
         language = language,
         imeActionLabel = effectiveEnterLabel
@@ -191,6 +192,7 @@ fun KeyboardScreen(
                     KeyboardLayer.SYMBOLS_2 -> {
                         if (keyModel.primaryLabel == "2/2") KeyboardLayer.SYMBOLS_1 else KeyboardLayer.QWERTY
                     }
+                    KeyboardLayer.NUMPAD -> KeyboardLayer.NUMPAD
                 }
             }
         }
@@ -212,35 +214,37 @@ fun KeyboardScreen(
             .fillMaxWidth()
             .background(Color(palette.backgroundColor))
     ) {
-        // Candidate Strip / Top Toolbar (42dp scaled) isolated from Key Grid recomposition (REQ-014)
-        LiveCandidateStripHost(
-            autoWordingEngine = autoWordingEngine,
-            heightDp = metrics.candidateStripHeightDp,
-            palette = palette,
-            language = language,
-            inputType = inputType,
-            oneHandedMode = metrics.effectiveOneHandedMode,
-            onCandidateSelected = handleCandidateSelected,
-            onLanguageToggled = {
-                val nextLang = if (language == 1) 0 else 1
-                settingsStore.language = nextLang
-                VietnameseEngine.resetSession()
-                autoWordingEngine.clearCandidates()
-            },
-            onInputTypeToggled = {
-                val nextType = if (inputType == 0) 1 else 0
-                settingsStore.inputType = nextType
-            },
-            onOneHandedCycle = {
-                val nextMode = when (oneHandedMode) {
-                    OneHandedMode.OFF -> OneHandedMode.LEFT
-                    OneHandedMode.LEFT -> OneHandedMode.RIGHT
-                    OneHandedMode.RIGHT -> OneHandedMode.OFF
-                }
-                settingsStore.oneHandedMode = nextMode
-            },
-            onOpenSettings = onOpenSettings
-        )
+        // Candidate Strip / Top Toolbar (42dp scaled) isolated from Key Grid recomposition (REQ-014, REQ-025)
+        if (!editorUiState.isNumericField) {
+            LiveCandidateStripHost(
+                autoWordingEngine = autoWordingEngine,
+                heightDp = metrics.candidateStripHeightDp,
+                palette = palette,
+                language = language,
+                inputType = inputType,
+                oneHandedMode = metrics.effectiveOneHandedMode,
+                onCandidateSelected = handleCandidateSelected,
+                onLanguageToggled = {
+                    val nextLang = if (language == 1) 0 else 1
+                    settingsStore.language = nextLang
+                    VietnameseEngine.resetSession()
+                    autoWordingEngine.clearCandidates()
+                },
+                onInputTypeToggled = {
+                    val nextType = if (inputType == 0) 1 else 0
+                    settingsStore.inputType = nextType
+                },
+                onOneHandedCycle = {
+                    val nextMode = when (oneHandedMode) {
+                        OneHandedMode.OFF -> OneHandedMode.LEFT
+                        OneHandedMode.LEFT -> OneHandedMode.RIGHT
+                        OneHandedMode.RIGHT -> OneHandedMode.OFF
+                    }
+                    settingsStore.oneHandedMode = nextMode
+                },
+                onOpenSettings = onOpenSettings
+            )
+        }
 
         // Main Keyboard Container (with One-Handed docking)
         Row(
@@ -264,137 +268,164 @@ fun KeyboardScreen(
             ) {
                 val rows = layerDef.rows
 
-                // Row 1: Dedicated Number Row (if visible)
-                if (metrics.isNumberRowVisible && rows.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(metrics.numberRowHeightDp.dp)
-                    ) {
-                        rows[0].keys.forEach { keyModel ->
-                            KeyButton(
-                                key = keyModel,
-                                metrics = metrics,
-                                palette = palette,
-                                hapticFeedbackEnabled = hapticFeedbackEnabled,
-                                keyPopupPreviewEnabled = keyPopupPreviewEnabled,
-                                gestureController = gestureController,
-                                onKeyPressed = { act -> handleKeyAction(act, keyModel) },
-                                onMoveCursor = onMoveCursor,
-                                onDeleteWord = onDeleteWord,
-                                modifier = Modifier.weight(keyModel.weight)
-                            )
-                        }
-                    }
-                }
-
-                // Row 2: Top Letter Row (q..p)
-                if (rows.size > 1) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(metrics.alphaRowHeightDp.dp)
-                    ) {
-                        rows[1].keys.forEach { keyModel ->
-                            KeyButton(
-                                key = keyModel,
-                                metrics = metrics,
-                                palette = palette,
-                                hapticFeedbackEnabled = hapticFeedbackEnabled,
-                                keyPopupPreviewEnabled = keyPopupPreviewEnabled,
-                                gestureController = gestureController,
-                                onKeyPressed = { act -> handleKeyAction(act, keyModel) },
-                                onMoveCursor = onMoveCursor,
-                                onDeleteWord = onDeleteWord,
-                                modifier = Modifier.weight(keyModel.weight)
-                            )
-                        }
-                    }
-                }
-
-                // Row 3: Home Letter Row (a..l) with 5% side insets
-                if (rows.size > 2) {
-                    val row3Def = rows[2]
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(metrics.alphaRowHeightDp.dp)
-                    ) {
-                        if (row3Def.sideInsetFraction > 0f) {
-                            Spacer(modifier = Modifier.weight(row3Def.sideInsetFraction))
-                        }
-                        row3Def.keys.forEach { keyModel ->
-                            KeyButton(
-                                key = keyModel,
-                                metrics = metrics,
-                                palette = palette,
-                                hapticFeedbackEnabled = hapticFeedbackEnabled,
-                                keyPopupPreviewEnabled = keyPopupPreviewEnabled,
-                                gestureController = gestureController,
-                                onKeyPressed = { act -> handleKeyAction(act, keyModel) },
-                                onMoveCursor = onMoveCursor,
-                                onDeleteWord = onDeleteWord,
-                                modifier = Modifier.weight(keyModel.weight)
-                            )
-                        }
-                        if (row3Def.sideInsetFraction > 0f) {
-                            Spacer(modifier = Modifier.weight(row3Def.sideInsetFraction))
-                        }
-                    }
-                }
-
-                // Row 4: Bottom Letter Row (⇧ [15%] + 7 keys [10%] + ⌫ [15%])
-                if (rows.size > 3) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(metrics.alphaRowHeightDp.dp)
-                    ) {
-                        rows[3].keys.forEach { keyModel ->
-                            val displayKey = if (keyModel.action is KeyAction.Shift) {
-                                val shiftLabel = if (isCapsLock) "⇪" else "⇧"
-                                keyModel.copy(primaryLabel = shiftLabel)
-                            } else {
-                                keyModel
+                if (editorUiState.isNumericField) {
+                    val numpadRowHeight = if (isLandscape) 42f else 58f
+                    val numpadMetrics = metrics.copy(alphaRowHeightDp = numpadRowHeight)
+                    rows.forEach { rowDef ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(numpadRowHeight.dp)
+                        ) {
+                            rowDef.keys.forEach { keyModel ->
+                                KeyButton(
+                                    key = keyModel,
+                                    metrics = numpadMetrics,
+                                    palette = palette,
+                                    hapticFeedbackEnabled = hapticFeedbackEnabled,
+                                    keyPopupPreviewEnabled = keyPopupPreviewEnabled,
+                                    gestureController = gestureController,
+                                    onKeyPressed = { act -> handleKeyAction(act, keyModel) },
+                                    onMoveCursor = onMoveCursor,
+                                    onDeleteWord = onDeleteWord,
+                                    modifier = Modifier.weight(keyModel.weight)
+                                )
                             }
-                            KeyButton(
-                                key = displayKey,
-                                metrics = metrics,
-                                palette = palette,
-                                hapticFeedbackEnabled = hapticFeedbackEnabled,
-                                keyPopupPreviewEnabled = keyPopupPreviewEnabled,
-                                gestureController = gestureController,
-                                onKeyPressed = { act -> handleKeyAction(act, displayKey) },
-                                onMoveCursor = onMoveCursor,
-                                onDeleteWord = onDeleteWord,
-                                modifier = Modifier.weight(displayKey.weight),
-                                isShiftActive = isShifted || isCapsLock,
-                                isCapsLocked = isCapsLock
-                            )
                         }
                     }
-                }
+                } else {
+                    // Row 1: Dedicated Number Row (if visible)
+                    if (metrics.isNumberRowVisible && rows.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(metrics.numberRowHeightDp.dp)
+                        ) {
+                            rows[0].keys.forEach { keyModel ->
+                                KeyButton(
+                                    key = keyModel,
+                                    metrics = metrics,
+                                    palette = palette,
+                                    hapticFeedbackEnabled = hapticFeedbackEnabled,
+                                    keyPopupPreviewEnabled = keyPopupPreviewEnabled,
+                                    gestureController = gestureController,
+                                    onKeyPressed = { act -> handleKeyAction(act, keyModel) },
+                                    onMoveCursor = onMoveCursor,
+                                    onDeleteWord = onDeleteWord,
+                                    modifier = Modifier.weight(keyModel.weight)
+                                )
+                            }
+                        }
+                    }
 
-                // Row 5: Bottom Function Row (!#1 [15%] + , [10%] + Spacebar [50%] + . [10%] + Enter [15%])
-                if (rows.size > 4) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(metrics.bottomRowHeightDp.dp)
-                    ) {
-                        rows[4].keys.forEach { keyModel ->
-                            KeyButton(
-                                key = keyModel,
-                                metrics = metrics,
-                                palette = palette,
-                                hapticFeedbackEnabled = hapticFeedbackEnabled,
-                                keyPopupPreviewEnabled = keyPopupPreviewEnabled,
-                                gestureController = gestureController,
-                                onKeyPressed = { act -> handleKeyAction(act, keyModel) },
-                                onMoveCursor = onMoveCursor,
-                                onDeleteWord = onDeleteWord,
-                                modifier = Modifier.weight(keyModel.weight)
-                            )
+                    // Row 2: Top Letter Row (q..p)
+                    if (rows.size > 1) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(metrics.alphaRowHeightDp.dp)
+                        ) {
+                            rows[1].keys.forEach { keyModel ->
+                                KeyButton(
+                                    key = keyModel,
+                                    metrics = metrics,
+                                    palette = palette,
+                                    hapticFeedbackEnabled = hapticFeedbackEnabled,
+                                    keyPopupPreviewEnabled = keyPopupPreviewEnabled,
+                                    gestureController = gestureController,
+                                    onKeyPressed = { act -> handleKeyAction(act, keyModel) },
+                                    onMoveCursor = onMoveCursor,
+                                    onDeleteWord = onDeleteWord,
+                                    modifier = Modifier.weight(keyModel.weight)
+                                )
+                            }
+                        }
+                    }
+
+                    // Row 3: Home Letter Row (a..l) with 5% side insets
+                    if (rows.size > 2) {
+                        val row3Def = rows[2]
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(metrics.alphaRowHeightDp.dp)
+                        ) {
+                            if (row3Def.sideInsetFraction > 0f) {
+                                Spacer(modifier = Modifier.weight(row3Def.sideInsetFraction))
+                            }
+                            row3Def.keys.forEach { keyModel ->
+                                KeyButton(
+                                    key = keyModel,
+                                    metrics = metrics,
+                                    palette = palette,
+                                    hapticFeedbackEnabled = hapticFeedbackEnabled,
+                                    keyPopupPreviewEnabled = keyPopupPreviewEnabled,
+                                    gestureController = gestureController,
+                                    onKeyPressed = { act -> handleKeyAction(act, keyModel) },
+                                    onMoveCursor = onMoveCursor,
+                                    onDeleteWord = onDeleteWord,
+                                    modifier = Modifier.weight(keyModel.weight)
+                                )
+                            }
+                            if (row3Def.sideInsetFraction > 0f) {
+                                Spacer(modifier = Modifier.weight(row3Def.sideInsetFraction))
+                            }
+                        }
+                    }
+
+                    // Row 4: Bottom Letter Row (⇧ [15%] + 7 keys [10%] + ⌫ [15%])
+                    if (rows.size > 3) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(metrics.alphaRowHeightDp.dp)
+                        ) {
+                            rows[3].keys.forEach { keyModel ->
+                                val displayKey = if (keyModel.action is KeyAction.Shift) {
+                                    val shiftLabel = if (isCapsLock) "⇪" else "⇧"
+                                    keyModel.copy(primaryLabel = shiftLabel)
+                                } else {
+                                    keyModel
+                                }
+                                KeyButton(
+                                    key = displayKey,
+                                    metrics = metrics,
+                                    palette = palette,
+                                    hapticFeedbackEnabled = hapticFeedbackEnabled,
+                                    keyPopupPreviewEnabled = keyPopupPreviewEnabled,
+                                    gestureController = gestureController,
+                                    onKeyPressed = { act -> handleKeyAction(act, displayKey) },
+                                    onMoveCursor = onMoveCursor,
+                                    onDeleteWord = onDeleteWord,
+                                    modifier = Modifier.weight(displayKey.weight),
+                                    isShiftActive = isShifted || isCapsLock,
+                                    isCapsLocked = isCapsLock
+                                )
+                            }
+                        }
+                    }
+
+                    // Row 5: Bottom Function Row (!#1 [15%] + , [10%] + Spacebar [50%] + . [10%] + Enter [15%])
+                    if (rows.size > 4) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(metrics.bottomRowHeightDp.dp)
+                        ) {
+                            rows[4].keys.forEach { keyModel ->
+                                KeyButton(
+                                    key = keyModel,
+                                    metrics = metrics,
+                                    palette = palette,
+                                    hapticFeedbackEnabled = hapticFeedbackEnabled,
+                                    keyPopupPreviewEnabled = keyPopupPreviewEnabled,
+                                    gestureController = gestureController,
+                                    onKeyPressed = { act -> handleKeyAction(act, keyModel) },
+                                    onMoveCursor = onMoveCursor,
+                                    onDeleteWord = onDeleteWord,
+                                    modifier = Modifier.weight(keyModel.weight)
+                                )
+                            }
                         }
                     }
                 }

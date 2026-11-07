@@ -9,7 +9,8 @@ enum class OneHandedMode {
 enum class KeyboardLayer {
     QWERTY,
     SYMBOLS_1,
-    SYMBOLS_2
+    SYMBOLS_2,
+    NUMPAD
 }
 
 data class PhoneLayoutConfig(

@@ -202,9 +202,16 @@ object BilingualAutoSwitchEngine {
             }
         }
 
+        val isWordBreakKey = breakKeyCode == KEY_SPACE ||
+                breakKeyCode == VietnameseData.KEY_COMMA ||
+                breakKeyCode == VietnameseData.KEY_DOT ||
+                breakKeyCode == VietnameseData.KEY_SLASH ||
+                breakKeyCode == VietnameseData.KEY_SEMICOLON ||
+                breakKeyCode == VietnameseData.KEY_QUOTE
+
         // 2. Bigram Grammar Corrections
         var replacementWord: String? = null
-        if (breakKeyCode == KEY_SPACE && state.previousWords.isNotEmpty()) {
+        if (isWordBreakKey && state.previousWords.isNotEmpty()) {
             val prevEntry = state.previousWords.last()
             val prevWord = prevEntry.composedString
             val cand1 = "${prevWord.lowercase()} $fullRawLower"
@@ -225,7 +232,7 @@ object BilingualAutoSwitchEngine {
                         } else {
                             newCur
                         }
-                    } else {
+                    } else if (breakKeyCode == KEY_SPACE) {
                         val prevCap = prevWord.firstOrNull()?.isUpperCase() == true
                         val finalPrev = if (prevCap) newPrev.replaceFirstChar { it.uppercase() } else newPrev
                         val curCap = fullRawStr.firstOrNull()?.isUpperCase() == true
@@ -573,5 +580,9 @@ object BilingualAutoSwitchEngine {
             }
             return false
         }
+    }
+
+    fun findEnglishTranspositionMatch(lower: String): String? {
+        return VietnameseDictionary.shared.findEnglishTranspositionMatch(lower)
     }
 }

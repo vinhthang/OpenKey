@@ -312,3 +312,93 @@
   - *Mitigation*: Standard and natural Vietnamese Telex types the diphthong `oe` before the tone mark (`h-o-e-s` → `"hoé"`, `x-o-e-f` → `"xoè"`), which remains 100% supported, while `m-o-r-e`, `c-o-r-e`, `s-t-o-r-e`, `c-a-r-e`, `s-h-a-r-e`, `f-i-r-e`, `s-u-r-e`, `c-a-s-e`, `n-o-s-e`, `u-s-e`, `h-o-u-s-e`, `l-i-f-e` are overwhelmingly English words in real user logs.
 - **Rejected Alternatives**:
   - *Waiting until `Space` to restore `"more"` (`"moẻ"`) and `"needed"` (`"nêd"`)*: Rejected because `openkey-debug.log` proved that users see `"moẻ"` and `"nêd"` mid-word, assume the word is corrupted, and immediately press Backspace or extra escape keys before ever reaching `Space`.
+
+---
+
+## `ADR-023`: Persistent Repository-Scoped APK Signing Keystore (`openkey-debug.keystore`) & Git-Commit Monotonic `versionCode` for Seamless In-Place Android Updates (`REQ-022`, `REQ-016`)
+- **Date**: `2026-11-07`
+- **Status**: `Accepted`
+- **Context**: When attempting to install a newly built `OpenKey-Android-A37.apk` from GitHub Releases over an existing installation on the Samsung Galaxy A37, Android's Package Installer rejected the update (`"App not installed as package conflicts with an existing package"` / `INSTALL_FAILED_UPDATE_INCOMPATIBLE`), forcing the user to manually uninstall the old APK and reinstall from scratch (wiping IME activation in Android System Settings, default keyboard selection, and user settings). Inspection of `Sources/OpenKey/android/app/build.gradle.kts` and `.github/workflows/android-ci.yml` revealed two compounding root causes:
+  1. **Ephemeral Per-Runner Debug Keystore (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`)**: `app/build.gradle.kts` did not configure `signingConfigs`. When `./gradlew :app:assembleDebug` executed on an ephemeral GitHub Actions `ubuntu-latest` runner, the Android Gradle Plugin (AGP) saw no `~/.android/debug.keystore` and generated a brand-new random RSA 2048-bit keypair and self-signed X.509 certificate for that single CI run. Because every CI run (and every developer laptop) produced a different signing certificate `SHA-256` fingerprint, Android `PackageManager` blocked every in-place update.
+  2. **Hardcoded `versionCode = 1` & `versionName = "1.0.0"` (`INSTALL_FAILED_VERSION_DOWNGRADE` & Opaque Build Identity)**: `defaultConfig` in `app/build.gradle.kts` hardcoded `versionCode = 1` and `versionName = "1.0.0"`. Even with matching certificates, static version codes prevent Android from recognizing subsequent releases as strictly newer upgrades and make it impossible to verify which commit/build is installed on the phone.
+- **Options Considered**:
+  - **Option A (Chosen): Repository-Tracked Deterministic Signing Keystore (`Sources/OpenKey/android/app/openkey-debug.keystore`) + Git-Commit Monotonic `versionCode` (`git rev-list --count HEAD`) with Optional Environment Override**:
+    - Commit a dedicated, deterministic Android keystore (`Sources/OpenKey/android/app/openkey-debug.keystore`, `storePassword = "android"`, `keyAlias = "androiddebugkey"`, `keyPassword = "android"`) and explicitly bind `signingConfigs.getByName("debug")` and `buildTypes.release.signingConfig` in `Sources/OpenKey/android/app/build.gradle.kts` to `file("openkey-debug.keystore")` (falling back to `OPENKEY_KEYSTORE_PATH` if provided via environment variables).
+    - Compute `versionCode` dynamically in `Sources/OpenKey/android/app/build.gradle.kts` via `-PversionCode` or `git rev-list --count HEAD` (with fallback `>= 1`), set `versionName = "1.0.$resolvedVersionCode"`, and set `fetch-depth: 0` on `actions/checkout@v4` in `.github/workflows/android-ci.yml`.
+    - *Blast Radius & Coupling*: Low — isolated to `Sources/OpenKey/android/app/build.gradle.kts`, `Sources/OpenKey/android/app/openkey-debug.keystore`, and `.github/workflows/android-ci.yml`.
+    - *Maintenance Cost*: Zero — works out-of-the-box across all GitHub Actions CI runs, PRs, forks, and local macOS `adb install` builds with zero manual secret rotation, guaranteeing that local builds and GitHub Release APKs share the exact same certificate and `versionCode` progression.
+  - **Option B: GitHub Actions Encrypted Secret (`ANDROID_KEYSTORE_BASE64`) + `github.run_number` Versioning**:
+    - Store a base64-encoded keystore exclusively in GitHub repository secrets and use `${{ github.run_number }}` as `versionCode`.
+    - *Blast Radius & Coupling*: Medium — couples APK signing and versioning to GitHub-hosted runner secrets and workflow variables.
+    - *Maintenance Cost*: High — fails if secrets are not manually provisioned in GitHub settings, fails on forks, and produces a *different* signing certificate and `versionCode` scale than local `./gradlew :app:assembleDebug` builds, re-triggering `INSTALL_FAILED_UPDATE_INCOMPATIBLE` whenever a developer switches between local `adb install` and GitHub Release downloads.
+- **Decision**: Adopt **Option A** (Repository-tracked `Sources/OpenKey/android/app/openkey-debug.keystore` with optional `OPENKEY_KEYSTORE_PATH` override + `git rev-list --count HEAD` monotonic `versionCode` and `versionName = "1.0.<versionCode>"`).
+- **Trade-offs & Risks**:
+  - *Trade-off*: After upgrading to the first build signed with `Sources/OpenKey/android/app/openkey-debug.keystore`, a user who currently has an older ephemeral-CI-signed APK installed will perform one final transition install; from that point onward, every subsequent CI release (`OpenKey-Android-A37.apk`) and local build will update seamlessly in-place forever without uninstalling.
+
+---
+
+## `ADR-024`: Removal of Top Keyboard Setting Panel & Dedicated Auto-Wording Strip (`REQ-023`, `REQ-020`)
+- **Date**: `2026-11-07`
+- **Status**: `Accepted`
+- **Context**: User screenshot (`media_1794018317892_e6caf697.jpg`) on the Samsung Galaxy A37 showed the `44dp` top bar above the `1–0` number row displaying `English (US)` on the left and `OneHandedModeIcon` (`📱`) + `SettingsGearIcon` (`⚙`) on the right. Because Row 5 already provides the dedicated `🌐` language key and Spacebar language label (`‹ English (US) ›` / `‹ Tiếng Việt ›`) and Android provides the dedicated OpenKey launcher app for settings, those idle controls in `CandidateStripView.kt` functioned as an unwanted setting panel (`"there is still setting panel, remove it"`).
+- **Options Considered**:
+  - **Option A (Chosen): Delete the Idle Setting Toolbar (`SettingsGearIcon`, `OneHandedModeIcon`, Mode Text) Completely and Dedicate `CandidateStripView` Strictly to Auto-Wording Suggestions**:
+    - Remove `OneHandedModeIcon`, `SettingsGearIcon`, and the idle `else` branch from `CandidateStripView.kt`.
+    - Dedicate `CandidateStripView` 100% to rendering 3-slot Vietnamese and English Auto-Wording suggestions (`candidates`).
+    - *Blast Radius & Coupling*: Low — isolated to `CandidateStripView.kt` and `KeyboardScreen.kt`.
+    - *Maintenance Cost*: Low — removes ~140 lines of unused toolbar icon/label UI code.
+  - **Option B: Keep Settings & Mode Controls in the Top Strip**:
+    - *Rejected*: Explicitly rejected by the user (`"there is still setting panel, remove it"`).
+- **Decision**: Adopt **Option A** (Delete the setting panel from `CandidateStripView.kt` and `KeyboardScreen.kt` so the top strip only displays Auto-Wording word suggestions).
+
+---
+
+## `ADR-025`: Hybrid Offline Frequency-Indexed English Auto-Wording, Bilingual Touch-Typing Auto-Correct (`"vietek"` → `"việt"`, `"featuere"` → `"feature"`) & Android `TextServicesManager` (`SpellCheckerSession`) Bridge (`REQ-024`, `REQ-003`, `REQ-004`, `REQ-011`)
+- **Date**: `2026-11-07`
+- **Status**: `Accepted`
+- **Context**:
+  1. When switching the keyboard to English (`language == 0`), no auto-wording suggestions appeared because `KeyboardSessionController.onKeyAction` had an early return `if (editorUiState.bypassVietnamese || editorUiState.language != 1)` that skipped `AutoWordingEngine` entirely when `language == 0`, and `VietnameseDictionary.computeEnglishCandidates` only searched `englishPriorityWords` (~350 words) without an English next-word bigram table.
+  2. When typing `"thử tiếng vietek, maybe we should have an auto correct featuere, like auto correct 2 wrongly words in this sentence"`, two real-world mobile touch-typing typos occurred before commas (`,`):
+     - **`"vietek"` → `"việt"`**: The user typed `v-i-e-t-e` (`"viêt"`) and fat-fingered **`k`** (directly right of **`j`** on QWERTY Row 3 `h-j-k`) instead of `j` (*dấu nặng*), which triggered invalid-coda auto-restore to `"vietek"`, and `BilingualAutoSwitchEngine` only ran bigram grammar on `KEY_SPACE` (ignoring `KEY_COMMA`).
+     - **`"featuere"` → `"feature"`**: As the user moved from `'u'` to `'r'` on QWERTY Row 2 (`e-r-t-y-u`), their thumb grazed the adjacent `'e'` key (`f-e-a-t-u-e-r-e`), and `findEnglishTranspositionMatch` only checked same-length character swaps rather than 1-extra-key deletion distance.
+- **Options Considered**:
+  - **Option A (Chosen): Hybrid Architecture — Full-Corpus Frequency-Ranked English Index & Bigrams + Bilingual Touch-Typing Auto-Correct (`findVietnameseAutoCorrectMatch` & `findEnglishAutoCorrectMatch`) in `:openkey-core` + Android Native `TextServicesManager` (`SpellCheckerSession`) Bridge in `:app`**:
+    - Fix `KeyboardSessionController.kt` so `language == 0` (when `!bypassVietnamese`) tracks `_composingWord`, runs Commit-First character output, computes 3-slot English candidates from the 1st character (`length >= 1`), auto-repairs English contractions/typos (`"im"` → `"I'm"`, `"dont"` → `"don't"`, `"i"` → `"I"`, `"teh"` → `"the"`, `"featuere"` → `"feature"`) on `Space` and punctuation (`,`, `.`, `?`, `!`), and predicts next-word continuations after `Space`.
+    - Add `findVietnameseAutoCorrectMatch` (handling trailing `k`-for-`j` QWERTY neighbor fat-finger on Vietnamese circumflex/horn stems: `"vietek"` / `"vieetk"` / `"vietk"` → `"việt"`, `"viecek"` → `"việc"`, `"duowck"` → `"được"`, `"mootk"` → `"một"`, `"hoack"` → `"hoặc"`, `"thuwck"` → `"thực"`, `"hieenk"` → `"hiện"`, plus single-target bigram repair on punctuation breaks) and `findEnglishAutoCorrectMatch` (handling adjacent transpositions + 1-extra-character duplicate/QWERTY-neighbor deletions like `"featuere"` → `"feature"`, `"keyboasrd"` → `"keyboard"`, `"mesasage"` → `"message"`, `"andrtoid"` → `"android"`, `"problrem"` → `"problem"`) in `VietnameseDictionary` (`Kotlin` & `Swift`).
+    - Build a pre-sorted frequency rank and 1–3 char prefix index over the full `englishWords` corpus (`2,500+` words) + `englishNextWordBigrams` (`120+` common English word pairs) in `VietnameseDictionary` (`Kotlin` & `Swift`).
+    - Add `SystemSpellCheckerBridge.kt` in `:app` using Android's standard, zero-permission `android.view.textservice.TextServicesManager` (`newSpellCheckerSession(..., Locale.US, ...)`).
+    - *Blast Radius & Coupling*: Low — `:openkey-core` and `OpenKeySwiftCore` share identical deterministic auto-correct algorithms, while `:app` wires Android's `TextServicesManager` cleanly in `OpenKeyImeService`.
+    - *Maintenance Cost*: Low — zero external AAR/Maven dependencies and zero network permissions (`REQ-001` preserved).
+  - **Option B: Rely Solely on Static Typo Maps or Android `SpellCheckerSession`**:
+    - *Rejected*: Static maps cannot cover systematic QWERTY neighbor fat-finger patterns (`k`-for-`j` in Telex or extra adjacent vowel in English), and `SpellCheckerSession` alone cannot repair Vietnamese Telex tone fat-fingers (`"vietek"` → `"việt"`) or run synchronously on word break.
+- **Decision**: Adopt **Option A**.
+
+---
+
+## `ADR-026`: Dedicated Samsung One UI 4×4 Numeric Keypad (`KeyboardLayer.NUMPAD`) for `TYPE_CLASS_NUMBER`, `TYPE_CLASS_PHONE` & `TYPE_CLASS_DATETIME` Fields (`REQ-025`, `REQ-009`, `REQ-011`)
+- **Date**: `2026-11-07`
+- **Status**: `Accepted`
+- **Context**: User screenshot (`media_1794019317151_50bd3369.jpg`) in Vietcombank VCB Digibank (`"Số tiền 750,000 VND"`) showed the full 45-key QWERTY keyboard appearing inside a numeric-only field (`"why in this number only, I see the full keyboard"`). Although `InputContextEvaluator` detected `TYPE_CLASS_NUMBER` / `TYPE_CLASS_PHONE` / `TYPE_CLASS_DATETIME` to set `bypassVietnamese = true`, it did not propagate an `isNumericField: Boolean` flag to `EditorUiState` or switch `KeyboardScreen` to a numeric keypad layer.
+- **Options Considered**:
+  - **Option A (Chosen): Add `isNumericField: Boolean` to `InputEvaluation` / `EditorUiState` and `KeyboardLayer.NUMPAD` (Samsung One UI 4×4 Numpad) to `KeyboardLayoutDefinition`**:
+    - When `inputClass` is `TYPE_CLASS_NUMBER`, `TYPE_CLASS_PHONE`, or `TYPE_CLASS_DATETIME`, `InputContextEvaluator.evaluate` sets `isNumericField = true`.
+    - When `editorUiState.isNumericField == true`, `KeyboardScreen` hides the candidate strip and renders `KeyboardLayer.NUMPAD`: 4 rows × 4 columns (`1 2 3 -`, `4 5 6 Space`, `7 8 9 ⌫`, `, 0 . Enter` with `0.26f / 0.26f / 0.26f / 0.22f` weights, `58.dp` portrait row height, and `26.sp` digit typography).
+    - *Blast Radius & Coupling*: Low — cleanly extends `InputEvaluation`, `EditorUiState`, `KeyboardLayer`, `KeyboardLayoutDefinition`, `KeyboardScreen`, and `KeyButton`.
+    - *Maintenance Cost*: Low — reuses the existing single-pass `KeyButton` renderer and `LayerCacheKey` cache (`REQ-014`).
+  - **Option B: Keep QWERTY Keyboard and Force `SYMBOLS_1` Layer on Numeric Fields**:
+    - *Rejected*: `SYMBOLS_1` still has 37 small keys across 5 rows instead of large, thumb-friendly 4×4 Numpad keys expected in banking, OTP, PIN, and phone-number fields.
+- **Decision**: Adopt **Option A** (4×4 Samsung One UI `KeyboardLayer.NUMPAD` automatically activated whenever `editorUiState.isNumericField == true`).
+
+---
+
+## Gate 1: Normative Source Self-Validation
+
+| Check # | Gate 1 Criterion | Status | Evidence |
+| :--- | :--- | :---: | :--- |
+| **1** | **Codebase Grounding** | `PASS` | Inspected `InputContextEvaluator.kt`, `KeyboardSessionController.kt`, `KeyboardLayoutDefinition.kt`, `KeyboardScreen.kt`, `KeyButton.kt`, `AutoWordingEngine.kt`, `VietnameseDictionary.kt`, `CandidateStripView.kt`, `app/build.gradle.kts`, and `android-ci.yml`. |
+| **2** | **Intent Attribution & Non-Goals** | `PASS` | `REQ-022`..`REQ-025` cite verbatim user prompts (`"I can't update the apk..."`, `"there is still setting panel, remove it"`, `"why in english, I do not see the auto wording..."`, `"thử tiếng vietek... featuere..."`, `"why in this number only, I see the full keyboard"`, `2026-11-07`), and `spec.md` declares explicit `## 3. Non-Goals`. |
+| **3** | **EARS & Falsifiable ACs** | `PASS` | `REQ-022`..`REQ-025` use EARS `WHEN ... THE ... SHALL` syntax paired with observable acceptance criteria `AC-022.1`–`AC-025.2`. |
+| **4** | **Zero Deferral Placeholders** | `PASS` | Zero `TODO`, `TBD`, `FIXME`, or unowned placeholders exist in `spec.md` or `decisions.md`. |
+| **5** | **Anti-Strawman ADR Debate** | `PASS` | `ADR-023`..`ADR-026` compare $\ge 2$ viable options across blast radius, coupling, and maintenance cost. |
+| **6** | **Cross-Spec Lineage & 1-Hop Cascade** | `PASS` | `spec.md` header declares `Type: enhancement`, `Version: 1.6.0`, `Status: Planning`, and `Lineage: None`, and `docs/specs/INDEX.md` is synchronized. |
+
