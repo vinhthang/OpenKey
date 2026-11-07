@@ -16,6 +16,15 @@ data class WordCandidate(
     val replaceLength: Int
 )
 
+data class AutoWordingConfig(
+    val isEnabled: Boolean = false,
+    val candidateSuggestionsEnabled: Boolean = false,
+    val shorthandExpansionEnabled: Boolean = false,
+    val nextWordPredictionEnabled: Boolean = true,
+    val grammarRepairEnabled: Boolean = false,
+    val doubleSpacePeriodEnabled: Boolean = false
+)
+
 class AutoWordingEngine private constructor() {
     fun interface SpellCheckerBridge {
         fun suggest(word: String, maxCount: Int): List<String>
@@ -96,35 +105,67 @@ class AutoWordingEngine private constructor() {
         }
     }
 
+    @Volatile
+    private var config = AutoWordingConfig()
+
     var isEnabled: Boolean
-        get() = lock.withLock { _isEnabled }
+        get() = config.isEnabled
         set(value) {
-            lock.withLock { _isEnabled = value }
+            lock.withLock {
+                _isEnabled = value
+                config = config.copy(isEnabled = value)
+            }
             if (!value) clearCandidates()
         }
     private var _isEnabled: Boolean = false
 
     var grammarRepairEnabled: Boolean
-        get() = lock.withLock { _grammarRepairEnabled }
-        set(value) { lock.withLock { _grammarRepairEnabled = value } }
+        get() = config.grammarRepairEnabled
+        set(value) {
+            lock.withLock {
+                _grammarRepairEnabled = value
+                config = config.copy(grammarRepairEnabled = value)
+            }
+        }
     private var _grammarRepairEnabled: Boolean = false
 
     var shorthandExpansionEnabled: Boolean
-        get() = lock.withLock { _shorthandExpansionEnabled }
-        set(value) { lock.withLock { _shorthandExpansionEnabled = value } }
+        get() = config.shorthandExpansionEnabled
+        set(value) {
+            lock.withLock {
+                _shorthandExpansionEnabled = value
+                config = config.copy(shorthandExpansionEnabled = value)
+            }
+        }
     private var _shorthandExpansionEnabled: Boolean = false
 
     var candidateSuggestionsEnabled: Boolean
-        get() = lock.withLock { _candidateSuggestionsEnabled }
+        get() = config.candidateSuggestionsEnabled
         set(value) {
-            lock.withLock { _candidateSuggestionsEnabled = value }
+            lock.withLock {
+                _candidateSuggestionsEnabled = value
+                config = config.copy(candidateSuggestionsEnabled = value)
+            }
             if (!value) clearCandidates()
         }
     private var _candidateSuggestionsEnabled: Boolean = false
 
+    var nextWordPredictionEnabled: Boolean
+        get() = config.nextWordPredictionEnabled
+        set(value) {
+            lock.withLock {
+                config = config.copy(nextWordPredictionEnabled = value)
+            }
+        }
+
     var doubleSpacePeriodEnabled: Boolean
-        get() = lock.withLock { _doubleSpacePeriodEnabled }
-        set(value) { lock.withLock { _doubleSpacePeriodEnabled = value } }
+        get() = config.doubleSpacePeriodEnabled
+        set(value) {
+            lock.withLock {
+                _doubleSpacePeriodEnabled = value
+                config = config.copy(doubleSpacePeriodEnabled = value)
+            }
+        }
     private var _doubleSpacePeriodEnabled: Boolean = false
 
     fun syncConfig(
@@ -140,6 +181,14 @@ class AutoWordingEngine private constructor() {
             this._shorthandExpansionEnabled = shorthandExpansion
             this._candidateSuggestionsEnabled = candidateSuggestions
             this._doubleSpacePeriodEnabled = doubleSpacePeriod
+            this.config = AutoWordingConfig(
+                isEnabled = isEnabled,
+                grammarRepairEnabled = grammarRepair,
+                shorthandExpansionEnabled = shorthandExpansion,
+                candidateSuggestionsEnabled = candidateSuggestions,
+                nextWordPredictionEnabled = true,
+                doubleSpacePeriodEnabled = doubleSpacePeriod
+            )
         }
         if (!isEnabled || !candidateSuggestions) clearCandidates()
     }
@@ -516,6 +565,8 @@ class AutoWordingEngine private constructor() {
         }
 
         fun updateLiveCandidates() {
+            val capturedPriority = VietnameseEngine.effectiveLanguagePriority()
+            val capturedPrevWord = VietnameseEngine.lastPreviousWord()
             submitCandidateTaskForGeneration(genId) {
                 if (postContext.spaceCount == 0 && postContext.charCount > 0 &&
                     (postContext.rawKeystrokes.length >= 1 || postContext.composedWord.length >= 1)
@@ -524,8 +575,8 @@ class AutoWordingEngine private constructor() {
                         rawStem = postContext.rawKeystrokes,
                         currentSyllable = postContext.composedWord,
                         isWrongSpelling = postContext.isWrongSpelling,
-                        languagePriority = VietnameseEngineState.shared.effectiveLanguagePriority(),
-                        previousWord = VietnameseEngineState.shared.previousWords.lastOrNull()?.composedString
+                        languagePriority = capturedPriority,
+                        previousWord = capturedPrevWord
                     )
                 } else {
                     emptyList()

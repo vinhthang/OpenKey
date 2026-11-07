@@ -6,11 +6,15 @@ on:
     tags: [ "v*" ]
     paths:
       - "Sources/OpenKey/macOS-Swift/**"
+      - "Sources/OpenKey/shared-data/**"
+      - "scripts/sync_shared_lexicon.py"
       - ".github/workflows/macos-ci.yml"
   pull_request:
     branches: [ "master", "main" ]
     paths:
       - "Sources/OpenKey/macOS-Swift/**"
+      - "Sources/OpenKey/shared-data/**"
+      - "scripts/sync_shared_lexicon.py"
       - ".github/workflows/macos-ci.yml"
   workflow_dispatch:
 
@@ -30,6 +34,9 @@ jobs:
         run: |
           swift --version
           xcodebuild -version
+
+      - name: Run Shared Lexicon Parity Check
+        run: python3 scripts/sync_shared_lexicon.py --check
 
       - name: Run Swift 6 unit and load tests
         run: swift test --package-path Sources/OpenKey/macOS-Swift

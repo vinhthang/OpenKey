@@ -508,4 +508,88 @@ class BilingualAutoSwitchTest {
             assertEquals(w, screen.text, "English word '$w' must not be corrupted")
         }
     }
+
+    // 15. Vietnamese Corpus Phonotactic Sanitization & Pure Bucket Invariants (REQ-027, ADR-028, AC-027.1, AC-027.2)
+    @Test
+    fun testVietnameseCorpusSanitizationAndPureBuckets() {
+        val dict = VietnameseDictionary.shared
+
+        // AC-027.1: Every (stem, words) satisfies strip(word) == stem
+        for ((stem, words) in dict.stemToWords) {
+            assertTrue(
+                words.all { VietnameseDictionary.shared.stripVietnameseDiacritics(it) == stem },
+                "Every word in stem bucket '$stem' must have strip(word) == stem"
+            )
+        }
+        val vietWords = dict.stemToWords["viet"] ?: emptyList()
+        assertFalse(vietWords.contains("viên"), "stemToWords['viet'] must not contain 'viên'")
+        val tiengWords = dict.stemToWords["tieng"] ?: emptyList()
+        assertFalse(tiengWords.contains("tiện"), "stemToWords['tieng'] must not contain 'tiện'")
+        val thanhWords = dict.stemToWords["thanh"] ?: emptyList()
+        assertFalse(thanhWords.contains("thẳng"), "stemToWords['thanh'] must not contain 'thẳng'")
+
+        // Every (sig, words) in telexSignatureToWords satisfies sorted(strip(word)) == sig
+        for ((sig, words) in dict.telexSignatureToWords) {
+            assertTrue(
+                words.all { VietnameseDictionary.shared.stripVietnameseDiacritics(it).toCharArray().sorted().joinToString("") == sig },
+                "Every word in signature bucket '$sig' must match signature"
+            )
+        }
+
+        // AC-027.2: Phonotactically invalid syllables must return false
+        val invalidSyllables = listOf(
+            // Half-horned *uơ+coda strings
+            "duờng", "luờng", "huờng", "cuờng", "tuờng", "phuờng", "thuờng", "chuờng", "vuờn", "suờn",
+            // Orthographic non-words
+            "ghuy", "kuy", "byên", "bơng", "bưn", "tưn", "bưm", "bíc", "bẹc", "buển",
+            // Fake d- shadows
+            "dất", "dến", "diểm", "dồng", "dứng", "dể"
+        )
+        for (w in invalidSyllables) {
+            assertFalse(
+                dict.isValidVietnameseSyllable(w),
+                "Invalid syllable '$w' must not be considered valid Vietnamese syllable"
+            )
+        }
+    }
+
+    // 16. Half-horned, Single-d, and Class 5 Insertion Auto-Correction (REQ-027, ADR-028, AC-027.3)
+    @Test
+    fun testHalfHornedSingleDAndClass5InsertionAutoCorrect() {
+        val testCases = listOf(
+            "luongf " to "lường ",
+            "huongf " to "hường ",
+            "cuongf " to "cường ",
+            "tuongf " to "tường ",
+            "phuongf " to "phường ",
+            "thuongf " to "thường ",
+            "vuonf " to "vườn ",
+            "suonf " to "sườn ",
+            "daats " to "đất ",
+            "deens " to "đến ",
+            "dieemr " to "điểm ",
+            "doongf " to "đồng ",
+            "duwngs " to "đứng ",
+            "deer " to "để ",
+            "ngiax " to "nghĩa ",
+            "ngiengs " to "nghiếng "
+        )
+
+        for ((input, expected) in testCases) {
+            val screen = VirtualScreen()
+            screen.typeASCII(input)
+            assertEquals(expected, screen.text, "Typing '$input' must produce '$expected'")
+        }
+
+        val tuwnfxScreen = VirtualScreen()
+        tuwnfxScreen.typeASCII("tuwnfx ")
+        assertTrue(
+            tuwnfxScreen.text == "tững " || tuwnfxScreen.text == "từng ",
+            "Typing 'tuwnfx ' must produce 'tững ' or 'từng ', got '${tuwnfxScreen.text}'"
+        )
+        assertFalse(
+            tuwnfxScreen.text.contains("tưn"),
+            "Typing 'tuwnfx ' must never produce 'tưn'"
+        )
+    }
 }

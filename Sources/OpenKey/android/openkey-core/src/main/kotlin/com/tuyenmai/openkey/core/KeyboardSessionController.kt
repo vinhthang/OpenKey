@@ -88,13 +88,11 @@ class KeyboardSessionController(
 
         val eval = InputContextEvaluator.evaluate(context)
         val appLang = if (settingsStore.useSmartSwitchKey) {
-            val resolved = smartSwitchStore.onAppSwitched(
+            smartSwitchStore.onAppSwitched(
                 packageName = context.packageName,
                 currentGlobalLanguage = settingsStore.language,
                 useSmartSwitchKey = true
             )
-            settingsStore.language = resolved
-            resolved
         } else {
             settingsStore.language
         }

@@ -578,4 +578,53 @@ class OpenKeyAndroidAppTest {
         assertTrue("padding must exist in KeyButton.kt", paddingIndex != -1)
         assertTrue("pointerInput must appear before padding in KeyButton.kt", pointerIndex < paddingIndex)
     }
+
+    // 15. Codebase Modularity & Shared Lexicon Invariants (REQ-028, ADR-029, AC-028.2–AC-028.4)
+    @Test
+    fun testCodebaseModularityAndSharedLexiconInvariants() {
+        val dictFile = listOf(
+            File("../openkey-core/src/main/kotlin/com/tuyenmai/openkey/core/VietnameseDictionary.kt"),
+            File("openkey-core/src/main/kotlin/com/tuyenmai/openkey/core/VietnameseDictionary.kt"),
+            File("Sources/OpenKey/android/openkey-core/src/main/kotlin/com/tuyenmai/openkey/core/VietnameseDictionary.kt")
+        ).firstOrNull { it.exists() }
+        assertNotNull("VietnameseDictionary.kt must exist", dictFile)
+        val dictLines = dictFile!!.readLines()
+        assertTrue("VietnameseDictionary.kt must have < 550 lines, got ${dictLines.size}", dictLines.size < 550)
+        assertFalse("VietnameseDictionary.kt must not contain countVowelGroups", dictFile.readText().contains("countVowelGroups"))
+
+        val autoSwitchFile = listOf(
+            File("../openkey-core/src/main/kotlin/com/tuyenmai/openkey/core/BilingualAutoSwitchEngine.kt"),
+            File("openkey-core/src/main/kotlin/com/tuyenmai/openkey/core/BilingualAutoSwitchEngine.kt"),
+            File("Sources/OpenKey/android/openkey-core/src/main/kotlin/com/tuyenmai/openkey/core/BilingualAutoSwitchEngine.kt")
+        ).firstOrNull { it.exists() }
+        assertNotNull("BilingualAutoSwitchEngine.kt must exist", autoSwitchFile)
+        val autoSwitchLines = autoSwitchFile!!.readLines()
+        val fnStartIndex = autoSwitchLines.indexOfFirst { it.contains("fun evaluateWordBreakRestore") }
+        assertTrue("evaluateWordBreakRestore must exist", fnStartIndex != -1)
+        var fnEndIndex = autoSwitchLines.subList(fnStartIndex + 1, autoSwitchLines.size)
+            .indexOfFirst { it.matches(Regex("^    (private )?fun .*")) }
+        if (fnEndIndex == -1) {
+            fnEndIndex = autoSwitchLines.size
+        } else {
+            fnEndIndex += fnStartIndex + 1
+        }
+        val fnLength = fnEndIndex - fnStartIndex
+        assertTrue("evaluateWordBreakRestore must be < 120 lines, got $fnLength", fnLength < 120)
+
+        val engineFile = listOf(
+            File("../openkey-core/src/main/kotlin/com/tuyenmai/openkey/core/VietnameseEngine.kt"),
+            File("openkey-core/src/main/kotlin/com/tuyenmai/openkey/core/VietnameseEngine.kt"),
+            File("Sources/OpenKey/android/openkey-core/src/main/kotlin/com/tuyenmai/openkey/core/VietnameseEngine.kt")
+        ).firstOrNull { it.exists() }
+        assertNotNull("VietnameseEngine.kt must exist", engineFile)
+        assertFalse("VietnameseEngine.kt must not contain NavSavedSnapshot", engineFile!!.readText().contains("NavSavedSnapshot"))
+
+        val syllablesFile = listOf(
+            File("../../shared-data/vietnamese_syllables.txt"),
+            File("../shared-data/vietnamese_syllables.txt"),
+            File("Sources/OpenKey/shared-data/vietnamese_syllables.txt")
+        ).firstOrNull { it.exists() }
+        assertNotNull("Sources/OpenKey/shared-data/vietnamese_syllables.txt must exist", syllablesFile)
+        assertTrue("vietnamese_syllables.txt must be non-empty", syllablesFile!!.length() > 0)
+    }
 }

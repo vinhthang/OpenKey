@@ -409,14 +409,57 @@
 
 ---
 
+## `ADR-028`: Phonotactic Corpus Sanitization, Pure Bucket Invariants (`strip(word) == stem`), Class 5 Insertion & Single-`d` `đ` Recovery (`REQ-027`, `REQ-026`, `REQ-003`, `REQ-004`)
+- **Date**: `2026-11-07`
+- **Status**: `Accepted`
+- **Context**: Full-project maintainability review (`review.md`) and corpus inspection revealed four concrete Vietnamese word bugs:
+  1. `SYLLABLES_0`..`SYLLABLES_31` contained invalid half-horned `*uơng` / `*uơn` strings (`"duờng"`, `"luờng"`, `"huờng"`, `"cuờng"`, `"tuờng"`, `"phuờng"`, `"thuờng"`, `"chuờng"`, `"vuờn"`, `"suờn"`) before valid `ươ` syllables, poisoning `stemToneToSyllable` for `"luongf"`, `"huongf"`, `"cuongf"`, `"tuongf"`, `"phuongf"`, `"thuongf"`, `"chuongf"`, `"vuonf"`, `"suonf"`.
+  2. Combinatorial non-words (`ghuy*`, `kuy*`, `byên*`, `-ơng` like `bơng`/`cơng`, `-ưn` like `bưn`/`cưn`/`dưn`/`lưn`/`tưn`, `-ưm`, `-ic`, `-ec`, `-uển`) and non-existent `d-` shadow words (`"dất"`, `"dến"`, `"diểm"`, `"dồng"`, `"dứng"`, `"dể"`, `"dữa"`) caused `isValidVietnameseSyllable` to return `true` for typos (`"daats "` for `"đất "`, `"deens "` for `"đến "`, `"dieemr "` for `"điểm "`, `"doongf "` for `"đồng "`, `"duwngs "` for `"đứng "`, `"tuwnfx "` for `"tững "`/`"từng "`), preventing spatial auto-correct from firing.
+  3. Manual `stems[...]` and `signatures[...]` overrides in `VietnameseDictionary` injected non-homophones (`"viên"` under `"viet"`, `"tiện"` under `"tieng"`, `"thẳng"` under `"thanh"`).
+  4. `findVietnameseSpatialCandidates` lacked Class 5 (1-missing-key insertion for `"ngiax"` → `"nghĩa"`, `"ngiengs"` → `"nghiếng"`).
+- **Options Considered**:
+  - **Option A (Chosen): Phonotactic Corpus Validator (`isPhonotacticallyValidVietnameseSyllable`) + Pure Corpus-Derived `stemToWords`/`telexSignatureToWords` + Single-`d` `đ` Indexing + Bounded Class 5 Insertion**:
+    - Validate every syllable in `rawSyllables` against Vietnamese orthographic and phonotactic rules (`gh`/`k`/`g`/`c`/`ng`/`ngh` distribution, valid vowel clusters without half-horned `*uơ`+coda, valid rhymes without `-ơng`/`-ưn`/`-ưm`/`-ic`/`-ec`/`-uển`, entering-tone `-c/-ch/-p/-t` check, and exclusion of fake `d-` shadows `"dất"`, `"dến"`, `"diểm"`, `"dồng"`, `"dứng"`, `"dể"`, `"dữa"`).
+    - Delete all manual `stems[...]` and `signatures[...]` overrides and expand `priorityMap` with real Vietnamese word frequencies so every bucket strictly satisfies `stripVietnameseDiacritics(w) == stem`.
+    - Index single-`d` + vowel-modifier + tone keys (`"daats"` → `"đất"`, `"deens"` → `"đến"`, `"dieemr"` → `"điểm"`, `"doongf"` → `"đồng"`, `"duwngs"` → `"đứng"`, `"deer"` → `"để"`) when no valid `d-` word exists.
+    - Add Class 5 (1-missing-key insertion for `rawLower.length in 4..7`) in `findVietnameseSpatialCandidates` with `SpatialScoringWeights.INSERTION_PENALTY = -100`.
+    - *Blast Radius & Coupling*: Low — isolated to `VietnameseDictionary` and `VietnameseDictionaryCorpus` across Kotlin and Swift.
+    - *Maintenance Cost*: Low — eliminates manual stem overrides permanently and enforces corpus hygiene via invariant unit tests.
+  - **Option B: Keep Combinatorial `SYLLABLES_*` and Patch Individual Bad Words in `invalidSyllables`**:
+    - *Rejected*: Patching one word at a time (`"nhữn"`, `"goé"`) leaves hundreds of sibling combinatorial non-words (`"tữn"`, `"luờng"`, `"huờng"`, `"dất"`, `"dến"`) broken in production.
+- **Decision**: Adopt **Option A**.
+
+---
+
+## `ADR-029`: Single-Source Shared Lexicon (`Sources/OpenKey/shared-data/`), Modular `BilingualAutoSwitchEngine` Rule Pipeline & Lock-Free Hot-Path Config (`REQ-028`, `REQ-003`, `REQ-004`, `REQ-011`, `REQ-016`)
+- **Date**: `2026-11-07`
+- **Status**: `Accepted`
+- **Context**: `review.md` identified four structural maintainability and runtime defects:
+  1. `KeyboardSessionController.onStartInput` wrote per-app language back to `settingsStore.language`, overwriting the global language preference (`P1-4`).
+  2. `AutoWordingEngine.didProcessKeyEvent` accessed `VietnameseEngineState.shared.previousWords` on the background worker thread without `VietnameseEngineState.lock` (`P1-5`), while `VietnameseEngine.handleKeyEvent` acquired `AutoWordingEngine.lock` 5–7 times per keystroke (`P2-6`).
+  3. `BilingualAutoSwitchEngine.evaluateWordBreakRestore` was a 517-line god function with 4× duplicated `hookOutput` emission blocks and unnamed magic scoring constants (`P1-3`, `P2-1`, `P2-2`).
+  4. `VietnameseDictionary.kt` (`1,322` LOC) and `VietnameseDictionary.swift` (`1,533` LOC) mixed lookup algorithms with 20KB single-line word strings and `SYLLABLES_0`..`SYLLABLES_31`, requiring every data fix to edit 2 large code files (`P1-6`, `P1-7`).
+- **Options Considered**:
+  - **Option A (Chosen): Canonical `Sources/OpenKey/shared-data/` + Isolated `VietnameseDictionaryCorpus` Files + Decomposed `BilingualAutoSwitchEngine` Helpers + Lock-Free `@Volatile` `AutoWordingConfig`**:
+    - Extract all word lists, priority maps, bigrams, and typo tables into 1-entry-per-line files in `Sources/OpenKey/shared-data/` and generate `VietnameseDictionaryCorpus.kt` and `VietnameseDictionaryCorpus.swift` via `scripts/sync_shared_lexicon.py` (keeping `VietnameseDictionary.kt` and `VietnameseDictionary.swift` `< 550` LOC of pure algorithm code).
+    - Decompose `evaluateWordBreakRestore` into `< 65`-line single-responsibility helpers (`extractWordBreakContext`, `tryCollapseDuplicateEnglishWord`, `tryApplyBigramGrammar`, `resolveWordReplacement`, `shouldRestoreCurrentWord`, `tryRewriteTwoWordLookback`, `emitHookReplacement`, `recordWordInSlidingWindow`, `applyCasingPattern`), introduce `SpatialScoringWeights`, and remove dead fields (`countVowelGroups`, `NavSavedSnapshot`, `navSavedState`, `enKeys`).
+    - Fix `onStartInput` so `settingsStore.language` is never overwritten by per-app smart switch, capture `previousWord` and `languagePriority` under `VietnameseEngineState.lock` before dispatching async candidate tasks, and publish `AutoWordingConfig` via `@Volatile`.
+    - *Blast Radius & Coupling*: Medium — touches core engine files in `:openkey-core` and `OpenKeySwiftCore` while preserving 100% of public API signatures and existing unit test behavior.
+    - *Maintenance Cost*: Very Low — data fixes become a 1-line edit in `shared-data/`, and each word-break rule is independently readable and testable.
+  - **Option B: Immediate Full Rewrite of `:openkey-core` and `OpenKeySwiftCore` into Rust C-FFI**:
+    - *Rejected for this increment*: Introducing a Rust toolchain + JNI (`Android NDK`) + Swift C-interop changes the build/packaging pipeline across both CI workflows and increases binary size; Option A achieves 1-source data locality and `< 550` LOC readable engine files immediately while keeping pure Kotlin/Swift toolchains intact.
+- **Decision**: Adopt **Option A**.
+
+---
+
 ## Gate 1: Normative Source Self-Validation
 
 | Check # | Gate 1 Criterion | Status | Evidence |
 | :--- | :--- | :---: | :--- |
-| **1** | **Codebase Grounding** | `PASS` | Inspected `KeyButton.kt`, `VietnameseDictionary.kt`, `BilingualAutoSwitchEngine.kt`, `AutoWordingEngine.kt`, `VietnameseDictionary.swift`, `BilingualAutoSwitchEngine.swift`, and `AutoWordingEngine.swift`. |
-| **2** | **Intent Attribution & Non-Goals** | `PASS` | `REQ-022`..`REQ-026` cite verbatim user prompts (`"on android it is very easy to input a wrong word, like this, nfhiax, it should be nghĩa, how can we resolve the issue"`, `2026-11-07`), and `spec.md` declares explicit `## 3. Non-Goals`. |
-| **3** | **EARS & Falsifiable ACs** | `PASS` | `REQ-022`..`REQ-026` use EARS `WHEN ... THE ... SHALL` syntax paired with observable acceptance criteria `AC-022.1`–`AC-026.3`. |
+| **1** | **Codebase Grounding** | `PASS` | Inspected `VietnameseDictionary.kt`, `BilingualAutoSwitchEngine.kt`, `AutoWordingEngine.kt`, `KeyboardSessionController.kt`, `SmartSwitchStore.kt`, `VietnameseEngine.kt`, and Swift counterparts against `review.md`. |
+| **2** | **Intent Attribution & Non-Goals** | `PASS` | `REQ-022`..`REQ-028` cite verbatim user prompts (`"/code-review review this project fully, will human able to read it? and is it easy to fix a bug without modify many files?"`, `"proceed on a plan to fix these findings, maybe there is still bug on some vietnamese word"`, `2026-11-07`) and `review.md`, and `spec.md` declares explicit `## 3. Non-Goals`. |
+| **3** | **EARS & Falsifiable ACs** | `PASS` | `REQ-022`..`REQ-028` use EARS `WHEN ... THE ... SHALL` syntax paired with observable acceptance criteria `AC-022.1`–`AC-028.4`. |
 | **4** | **Zero Deferral Placeholders** | `PASS` | Zero `TODO`, `TBD`, `FIXME`, or unowned placeholders exist in `spec.md` or `decisions.md`. |
-| **5** | **Anti-Strawman ADR Debate** | `PASS` | `ADR-023`..`ADR-027` compare $\ge 2$ viable options across blast radius, coupling, and maintenance cost. |
-| **6** | **Cross-Spec Lineage & 1-Hop Cascade** | `PASS` | `spec.md` header declares `Type: enhancement`, `Version: 1.7.0`, `Status: Planning`, and `Lineage: None`, and `docs/specs/INDEX.md` is synchronized. |
+| **5** | **Anti-Strawman ADR Debate** | `PASS` | `ADR-023`..`ADR-029` compare $\ge 2$ viable options across blast radius, coupling, and maintenance cost. |
+| **6** | **Cross-Spec Lineage & 1-Hop Cascade** | `PASS` | `spec.md` header declares `Type: enhancement`, `Version: 1.8.0`, `Status: Planning`, and `Lineage: None`, and `docs/specs/INDEX.md` is synchronized. |
 

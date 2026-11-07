@@ -74,10 +74,8 @@ final class VietnameseEngineState: @unchecked Sendable {
     var previousWords: [PreviousWordEntry] = []
     var sentenceEndedWithPunctuation: Bool = false
     var consecutiveEnglishWordCount: Int = 0
-    var enKeys: [UInt32] = []
     var autoRestoreUndoState: AutoRestoreUndoSnapshot? = nil
     var undoneRawWord: String? = nil
-    var navSavedState: NavSavedSnapshot? = nil
     var hasDigitPrefix: Bool = false
     var wordStartOk: Bool = true
     var lastSpaceUptime: TimeInterval = 0
@@ -181,8 +179,8 @@ final class VietnameseEngineState: @unchecked Sendable {
         isCorrect = false; isChanged = false; vowelCount = 0; vowelStartIndex = 0; vowelEndIndex = 0; vowelWillSetMark = 0
         isRestoredW = false; keyForAEO = 0; isCheckedGrammar = false; isCaps = false; spaceCount = 0; isCharKeyCode = false
         specialChar.removeAll(); useSpellCheckingBefore = vCheckSpelling; willTempOffEngine = false
-        previousWords.removeAll(); consecutiveEnglishWordCount = 0; enKeys.removeAll()
-        autoRestoreUndoState = nil; undoneRawWord = nil; navSavedState = nil
+        previousWords.removeAll(); consecutiveEnglishWordCount = 0
+        autoRestoreUndoState = nil; undoneRawWord = nil
         hasDigitPrefix = false; wordStartOk = true
         sentenceEndedWithPunctuation = false
         lastSpaceUptime = 0
@@ -226,12 +224,18 @@ final class VietnameseEngineState: @unchecked Sendable {
         typingStates.removeAll()
         typingStatesData.removeAll()
     }
+
+    func lastPreviousWord() -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return previousWords.last?.composedString
+    }
     
     @discardableResult
     func resetSession() -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        let wasDirty = index > 0 || stateIndex > 0 || rawStateIndex > 0 || !specialChar.isEmpty || !typingStates.isEmpty || spaceCount > 0 || !previousWords.isEmpty || consecutiveEnglishWordCount > 0 || !enKeys.isEmpty || autoRestoreUndoState != nil || undoneRawWord != nil || navSavedState != nil || hasDigitPrefix || !wordStartOk || sentenceEndedWithPunctuation || willTempOffEngine
+        let wasDirty = index > 0 || stateIndex > 0 || rawStateIndex > 0 || !specialChar.isEmpty || !typingStates.isEmpty || spaceCount > 0 || !previousWords.isEmpty || consecutiveEnglishWordCount > 0 || autoRestoreUndoState != nil || undoneRawWord != nil || hasDigitPrefix || !wordStartOk || sentenceEndedWithPunctuation || willTempOffEngine
         clearBuffersInternal()
         specialChar.removeAll()
         typingStates.removeAll()
@@ -241,10 +245,8 @@ final class VietnameseEngineState: @unchecked Sendable {
         willTempOffEngine = false
         previousWords.removeAll()
         consecutiveEnglishWordCount = 0
-        enKeys.removeAll()
         autoRestoreUndoState = nil
         undoneRawWord = nil
-        navSavedState = nil
         hasDigitPrefix = false
         wordStartOk = true
         sentenceEndedWithPunctuation = false
@@ -461,6 +463,12 @@ public func OKEngineHandleEnglishModeKeyEvent(_ keyCode: UInt16, _ capsStatus: U
     VietnameseEngineState.shared.handleEnglishModeKeyEvent(keyCode: keyCode, capsStatus: capsStatus, otherControlKey: otherControlKey)
 }
 
+public enum VietnameseEngine {
+    public static func lastPreviousWord() -> String? {
+        VietnameseEngineState.shared.lastPreviousWord()
+    }
+}
+
 // MARK: - Event Dispatcher Extension (REQ-008, REQ-009, REQ-015..020, REQ-023)
 
 extension VietnameseEngineState {
@@ -484,11 +492,6 @@ extension VietnameseEngineState {
         }
         if keyCode != KEY_DELETE {
             autoRestoreUndoState = nil
-        }
-        
-        // Single-step Left/Right arrow navigation recovery (REQ-023, D51)
-        if let navSnapshot = handleArrowNavigationKey(keyCode: keyCode, capsStatus: capsStatus) {
-            return navSnapshot
         }
         
         let isAlphaKey = !isNumberKey(keyCode) && !charKeyCode.contains(keyCode)

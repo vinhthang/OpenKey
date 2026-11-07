@@ -89,8 +89,6 @@ class VietnameseEngineState {
     var undoneRawWord: String? = null
     var lastSpaceUptime: Double = 0.0
     var sentenceEndedWithPunctuation: Boolean = false
-    var navSavedState: NavSavedSnapshot? = null
-    val enKeys = mutableListOf<UInt>()
 
     fun effectiveLanguagePriority(): LanguagePriority = BilingualAutoSwitchEngine.effectiveLanguagePriority(this)
     fun reconstructedRawKeys(): List<UInt> = rawKeyStates.slice(0 until rawStateIndex)
@@ -181,8 +179,6 @@ class VietnameseEngineState {
             autoRestoreUndoState = null
             undoneRawWord = null
             sentenceEndedWithPunctuation = false
-            navSavedState = null
-            enKeys.clear()
 
             if (phonotacticRepairHook == null) {
                 phonotacticRepairHook = { tw, idx, vsi, vei, vc, isIns ->
@@ -258,8 +254,6 @@ class VietnameseEngineState {
         autoRestoreUndoState = null
         undoneRawWord = null
         sentenceEndedWithPunctuation = false
-        navSavedState = null
-        enKeys.clear()
         AutoWordingEngine.shared.clearCandidates()
 
         wasDirty
@@ -1043,5 +1037,9 @@ object VietnameseEngine {
 
     fun reconstructedRawKeys(): List<UInt> {
         return VietnameseEngineState.shared.reconstructedRawKeys()
+    }
+
+    fun lastPreviousWord(): String? = VietnameseEngineState.shared.lock.withLock {
+        VietnameseEngineState.shared.previousWords.lastOrNull()?.composedString
     }
 }

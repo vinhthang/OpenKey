@@ -329,4 +329,35 @@ class ImePipelineAndContextTest {
         val textEval = InputContextEvaluator.evaluate(textCtx)
         assertFalse(textEval.isNumericField, "TYPE_CLASS_TEXT must have isNumericField = false")
     }
+
+    // -------------------------------------------------------------------------
+    // 6. Per-App SmartSwitch Language Isolation (REQ-028, ADR-029, AC-028.1)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun testPerAppSmartSwitchDoesNotOverwriteGlobalLanguage() {
+        val settingsStorage = InMemoryKeyValueStorage()
+        val settingsStore = OpenKeySettingsStore(settingsStorage)
+        settingsStore.language = 1
+        settingsStore.useSmartSwitchKey = true
+
+        val smartSwitchStorage = InMemoryKeyValueStorage()
+        val smartSwitchStore = SmartSwitchStore(smartSwitchStorage)
+        smartSwitchStore.setAppLanguage("com.slack", 0)
+
+        val controller = KeyboardSessionController(
+            settingsStore = settingsStore,
+            smartSwitchStore = smartSwitchStore
+        )
+
+        // Focus com.slack (per-app language = 0 EN)
+        controller.onStartInput(EditorContext(packageName = "com.slack"))
+        assertEquals(0, controller.editorUiState.language, "editorUiState.language must be 0 for com.slack")
+        assertEquals(1, settingsStore.language, "settingsStore.language must remain global default (1)")
+
+        // Focus brand new app without saved language -> must default to global language 1 (VI)
+        controller.onStartInput(EditorContext(packageName = "com.unknown.newapp"))
+        assertEquals(1, controller.editorUiState.language, "editorUiState.language must default to global setting (1)")
+        assertEquals(1, settingsStore.language, "settingsStore.language must still remain 1")
+    }
 }

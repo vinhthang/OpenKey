@@ -837,15 +837,6 @@ struct OpenKeyEngineTests {
         s4.typeASCII("base64 ")
         #expect(s4.text == "base64 ")
         
-        // Single-step Left + Right mid-word navigation snapshot
-        OKEngineResetSession()
-        var sNav = VirtualScreen()
-        sNav.typeASCII("vie")
-        _ = OKEngineHandleKeyEvent(123, 0, false) // KEY_LEFT
-        _ = OKEngineHandleKeyEvent(124, 0, false) // KEY_RIGHT
-        sNav.typeASCII("ejt ")
-        #expect(sNav.text == "việt ")
-        
         // Compound-token boundary
         OKEngineResetSession()
         var sComp = VirtualScreen()

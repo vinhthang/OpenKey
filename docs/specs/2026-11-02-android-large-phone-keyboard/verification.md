@@ -657,10 +657,44 @@ rtk swift test --package-path /Users/thanghoang/github/OpenKey/Sources/OpenKey/m
 ```
 - **Result**: **`69/69` macOS Swift unit tests passed (`0` failures)** across 5 suites (`OpenKeyEngineTests`, `OpenKeyAutoWordingTests`, `OpenKeyEventTapTests`, `OpenKeyLoadTests`), verifying 1:1 parity across all 26 Vietnamese Telex spatial auto-correct cases, 4 non-regression English cases, and live candidate strip `CandidateKind.correction` ranking.
 
-### 3. Final Requirement Traceability Matrix (`REQ-001`..`REQ-026`)
+### 3. Final Requirement Traceability Matrix (`REQ-001`..`REQ-028`)
+
+---
+
+## Run 10 — Task 21: Vietnamese Corpus Phonotactic Sanitization, Pure Bucket Invariants, Class 5 Insertion (`"ngiax"` → `"nghĩa"`), Runtime Concurrency/SmartSwitch Fixes, Engine Modularization & Single-Source Shared Lexicon (`REQ-027`, `REQ-028`, `ADR-028`, `ADR-029`)
+
+### 1. Shared Lexicon Parity & File Modularity Verification (`AC-028.3`, `AC-028.4`)
+```text
+$ python3 scripts/sync_shared_lexicon.py --check
+[OK] Shared lexicon parity check passed: 100% synchronized across Kotlin and Swift.
+
+$ wc -l Sources/OpenKey/android/openkey-core/src/main/kotlin/com/tuyenmai/openkey/core/VietnameseDictionary.kt Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/VietnameseDictionary.swift
+547 Sources/OpenKey/android/openkey-core/src/main/kotlin/com/tuyenmai/openkey/core/VietnameseDictionary.kt
+547 Sources/OpenKey/macOS-Swift/Sources/OpenKeySwiftCore/VietnameseDictionary.swift
+```
+
+### 2. Android `:openkey-core` + `:app` Unit Tests & Debug APK Assembly (`84/84` Passed)
+```text
+$ cd Sources/OpenKey/android && ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug
+BUILD SUCCESSFUL in 8s
+- :openkey-core:test: 70 tests, 0 failures
+- :app:testDebugUnitTest: 14 tests, 0 failures
+- Total Android tests: 84/84 passed
+```
+
+### 3. macOS Swift `OpenKeySwiftTests` & App Bundle Verification (`69/69` Passed)
+```text
+$ swift test --package-path Sources/OpenKey/macOS-Swift
+✔ Test run with 69 tests in 13 suites passed after 1.182 seconds.
+
+$ CODESIGN_IDENTITY="-" bash Sources/OpenKey/macOS-Swift/build-app.sh
+==> Build complete: Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app
+```
+
+### 4. Final Requirement Traceability Matrix (`REQ-001`..`REQ-028`)
 | Module / Pipeline | Test Suite / Workflow | Verified Requirements | Tests / Steps | Failures | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `:openkey-core` | `VietnameseEngineTest` + `BilingualAutoSwitchTest` + `AutoWordingEngineTest` + `ImePipelineAndContextTest` + `PhoneErgonomicsAndGestureTest` + `SmoothArchitectureTest` | `REQ-001`..`REQ-026` | 67 | 0 | PASSED |
-| `:app` | `OpenKeyAndroidAppTest` | `REQ-001`, `REQ-005`, `REQ-007`, `REQ-009`..`REQ-014`, `REQ-017`, `REQ-020`, `REQ-022`..`REQ-026` | 13 | 0 | PASSED |
-| `OpenKeySwiftTests` | `OpenKeyEngineTests` + `OpenKeyAutoWordingTests` + `OpenKeyEventTapTests` + `OpenKeyLoadTests` | `REQ-016`, `REQ-018`, `REQ-019`, `REQ-021`, `REQ-024`, `REQ-026` | 69 | 0 | PASSED |
-| **Total** | **Android (80) + macOS (69)** | **`REQ-001`..`REQ-026`** | **149** | **0** | **100% PASSED** |
+| `:openkey-core` | `VietnameseEngineTest` + `BilingualAutoSwitchTest` + `AutoWordingEngineTest` + `ImePipelineAndContextTest` + `PhoneErgonomicsAndGestureTest` + `SmoothArchitectureTest` | `REQ-001`..`REQ-028` | 70 | 0 | PASSED |
+| `:app` | `OpenKeyAndroidAppTest` | `REQ-001`, `REQ-005`, `REQ-007`, `REQ-009`..`REQ-014`, `REQ-017`, `REQ-020`, `REQ-022`..`REQ-028` | 14 | 0 | PASSED |
+| `OpenKeySwiftTests` | `OpenKeyEngineTests` + `OpenKeyAutoWordingTests` + `OpenKeyEventTapTests` + `OpenKeyLoadTests` | `REQ-016`, `REQ-018`, `REQ-019`, `REQ-021`, `REQ-024`, `REQ-026`, `REQ-027`, `REQ-028` | 69 | 0 | PASSED |
+| **Total** | **Android (84) + macOS (69)** | **`REQ-001`..`REQ-028`** | **153** | **0** | **100% PASSED** |

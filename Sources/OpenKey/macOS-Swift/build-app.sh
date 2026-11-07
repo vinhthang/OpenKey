@@ -119,5 +119,5 @@ if [[ -d "${DEPLOY_DIR}" && -w "${DEPLOY_DIR}" ]]; then
     rm -rf "${DEPLOY_DIR}/OpenKeySwift.app"
     cp -R "${APP_BUNDLE}" "${DEPLOY_DIR}/OpenKeySwift.app"
     echo "=== Deployed successfully to ${DEPLOY_DIR}/OpenKeySwift.app ==="
-    open -a "${DEPLOY_DIR}/OpenKeySwift.app"
+    open -a "${DEPLOY_DIR}/OpenKeySwift.app" || true
 fi

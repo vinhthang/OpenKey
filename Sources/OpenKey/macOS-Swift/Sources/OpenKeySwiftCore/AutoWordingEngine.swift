@@ -521,13 +521,16 @@ public final class AutoWordingEngine: @unchecked Sendable {
         }
         
         func updateLiveCandidates() {
+            let capturedPriority = OKEngineGetEffectiveLanguagePriority()
+            let capturedPrevWord = VietnameseEngine.lastPreviousWord()
             if postContext.spaceCount == 0 && postContext.charCount > 0 &&
                 (postContext.rawKeystrokes.count >= 1 || postContext.composedWord.count >= 1) {
                 let candidates = computeCurrentWordCandidates(
                     rawStem: postContext.rawKeystrokes,
                     currentSyllable: postContext.composedWord,
+                    previousWord: capturedPrevWord,
                     isWrongSpelling: postContext.isWrongSpelling,
-                    languagePriority: OKEngineGetEffectiveLanguagePriority()
+                    languagePriority: capturedPriority
                 )
                 if !candidates.isEmpty { updateCandidates(candidates) } else { clearCandidates() }
             } else {

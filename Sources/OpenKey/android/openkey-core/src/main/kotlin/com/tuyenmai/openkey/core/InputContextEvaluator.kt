@@ -1,8 +1,8 @@
 package com.tuyenmai.openkey.core
 
 data class EditorContext(
-    val inputType: Int,
-    val imeOptions: Int,
+    val inputType: Int = InputContextEvaluator.TYPE_CLASS_TEXT,
+    val imeOptions: Int = InputContextEvaluator.IME_ACTION_DONE,
     val packageName: String
 )
 

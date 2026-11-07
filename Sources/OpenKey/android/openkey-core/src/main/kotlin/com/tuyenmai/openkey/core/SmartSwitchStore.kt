@@ -29,8 +29,6 @@ class SmartSwitchStore(private val storage: KeyValueStorage) {
         currentGlobalLanguage: Int,
         useSmartSwitchKey: Boolean
     ): Int {
-        VietnameseEngine.resetSession()
-
         if (!useSmartSwitchKey || packageName.isBlank() || packageName == SELF_PACKAGE) {
             return currentGlobalLanguage
         }

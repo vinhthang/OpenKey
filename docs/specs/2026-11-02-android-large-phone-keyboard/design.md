@@ -575,4 +575,48 @@ flowchart TD
 - **`BilingualAutoSwitchEngine.evaluateWordBreakRestore`**:
   - In Step 5 (`Typo & Transposition Corrections`), when `!dict.isValidVietnameseSyllable(composedLower)` and `replacementWord == null`, invoke `dict.findVietnameseSpatialMatch(fullRawLower, composedLower, prevWord)` (before falling back to English transposition matches in `VIETNAMESE_FIRST` mode) so pressing `Space`, `,`, `.`, etc. after `"nfhiax"` automatically replaces `"nfhiax"` with `"nghĩa"`.
 
+---
+
+## 12. Vietnamese Corpus Phonotactic Sanitization, Pure Bucket Invariants, Class 5 Insertion, Runtime Bug Fixes & Single-Source Shared Lexicon (`REQ-027`, `REQ-028`, `ADR-028`, `ADR-029`)
+
+### 12.1 Phonotactic Corpus Sanitization & Pure Bucket Invariants (`VietnameseDictionary` & `VietnameseDictionaryCorpus`)
+1. **`isPhonotacticallyValidVietnameseSyllable(word: String): Boolean`**:
+   - Rejects any syllable in `rawSyllables` that violates Vietnamese orthography or phonotactics:
+     - **Half-Horned `*uơ` + Coda Violation**: Any syllable containing unhorned `'u'` immediately followed by `{ơ, ớ, ờ, ở, ỡ, ợ}` and a final consonant (`*uơng`, `*uơn`, `*uơm`, `*uơc`, `*uơt`, `*uơp`, `*uơi`, `*uơu`, e.g. `"duờng"`, `"luờng"`, `"huờng"`, `"cuờng"`, `"tuờng"`, `"phuờng"`, `"thuờng"`, `"chuờng"`, `"vuờn"`, `"suờn"`), or any non-`q`/`h`/`th` onset before `uơ`.
+     - **Velar/Palatal Orthographic Distribution**:
+       - `gh` or `ngh` followed by `{a, ă, â, o, ô, ơ, u, ư, y}` (e.g. `ghuy*`, `ghy*`).
+       - `g` (when not `gh` or `gi`) or `ng` (when not `ngh`) followed by `{e, ê, i}` (e.g. `gue*`, `guê*`, `guè*`).
+       - `k` followed by `{a, ă, â, o, ô, ơ, u, ư}` or `ky` + coda (`kuy*`, `kyên*`).
+       - `c` (when not `ch`) followed by `{e, ê, i, y}` (`cue*`, `cuê*`).
+       - `y` vowel nucleus after a non-`qu` consonant when followed by `ê` (`byên*`, `chyên*`, `dyên*`, `hyên*`, `lyên*`, etc.).
+     - **Non-Existent Rhymes & Labiovelar Medials**:
+       - Rhymes ending in `-ơng` (`bơng`, `cơng`, `dơng`, `hơng`, `lơng`), `-ưn` (`bưn`, `cưn`, `dưn`, `lưn`, `tưn`, `nhưn`), `-ưm` (`bưm`, `cưm`, `dưm`), `-ic` (`bíc`, `chíc`), `-ec` (`bẹc`, `chẹc`), or `-uển` after non-valid labiovelar onsets (`buển`, `chuển`, `cuển`, `duển`, `luển`).
+       - Labiovelar medials `oa*`, `oă*`, `oe*`, `uê*`, `uy*`, `uâ*`, `uây*` after labial consonants (`b`, `m`, `p`, `ph`, `v`) or invalid `giu*` combinations (`giuôi*`, `giuân*`, `giuê*`, `giuy*`).
+     - **Entering-Tone Restriction (`-c`, `-ch`, `-p`, `-t`)**: Any syllable ending in `c`, `ch`, `p`, or `t` that does not carry *sắc* or *nặng*.
+     - **Fake `d-` Shadow Words**: `"dất"`, `"dến"`, `"diểm"`, `"dồng"`, `"dứng"`, `"dể"`, `"dữa"` (where standard Vietnamese uses `"đất"`, `"đến"`, `"điểm"`, `"đồng"`, `"đứng"`, `"để"`, `"nữa"`/`"giữa"`).
+2. **Pure Corpus-Derived `stemToWords` & `telexSignatureToWords` (`P1-1`)**:
+   - Remove the manual `stems[...]` and `signatures[...]` overrides (`VietnameseDictionary.kt` L279–293, `VietnameseDictionary.swift` L101–115).
+   - Expand `priorityMap` to cover `200+` high-frequency Vietnamese syllables so every bucket in `stemToWords` and `telexSignatureToWords` is 100% corpus-derived and strictly satisfies `stripVietnameseDiacritics(w) == stem`.
+3. **Single-`d` `đ` Key Indexing & Class 5 Missing-Key Insertion (`P1-2`)**:
+   - When indexing `đ-` words (`word.startsWith("đ")`), also index single-`d` + vowel-modifier + tone keys (`"daats"` → `"đất"`, `"deens"` → `"đến"`, `"dieemr"` → `"điểm"`, `"doongf"` → `"đồng"`, `"duwngs"` → `"đứng"`, `"deer"` → `"để"`) in `stemToneToSyllable` whenever no valid `d-` syllable claims that key.
+   - In `findVietnameseSpatialCandidates`, add **Class 5 (1-Missing-Key Insertion)** for `rawLower.length in 4..7`: iterate `pos in 0..baseStr.length` and `insChar in "hgnrtcpmuoiaeywd"`, test `lookupTelexCandidate(candKey)` with `isInsertion = true` (`SpatialScoringWeights.INSERTION_PENALTY = -100`), repairing `"ngiax"` → `"nghĩa"` and `"ngiengs"` → `"nghiếng"`.
+
+### 12.2 Runtime Bug Fixes (`KeyboardSessionController`, `SmartSwitchStore`, `AutoWordingEngine`, `P1-4`, `P1-5`, `P2-6`, `P2-7`)
+1. **Per-App Language Isolation (`KeyboardSessionController.kt` & `SmartSwitchStore.kt`)**:
+   - In `KeyboardSessionController.onStartInput`, remove `settingsStore.language = resolved` so `appLang` is stored only in `editorUiState.language`.
+   - In `SmartSwitchStore.onAppSwitched`, remove the redundant `VietnameseEngine.resetSession()` call.
+2. **Thread-Safe Async Candidate Dispatch & Lock-Free `@Volatile` Config (`AutoWordingEngine.kt` & `AutoWordingEngine.swift`)**:
+   - Define `data class AutoWordingConfig(val isEnabled: Boolean = true, val candidateSuggestionsEnabled: Boolean = true, val shorthandExpansionEnabled: Boolean = true, val nextWordPredictionEnabled: Boolean = true, val grammarRepairEnabled: Boolean = true)` published via `@Volatile var config = AutoWordingConfig()` so hot-path flag reads acquire zero locks.
+   - In `AutoWordingEngine.didProcessKeyEvent`, capture `val capturedPriority = VietnameseEngine.effectiveLanguagePriority()` and `val capturedPrevWord = VietnameseEngine.lastPreviousWord()` synchronously under `VietnameseEngineState.lock` on the input thread before submitting the worker closure.
+
+### 12.3 Decomposing `BilingualAutoSwitchEngine.evaluateWordBreakRestore` & Named Scoring Weights (`P1-3`, `P2-1`, `P2-2`)
+- Introduce `object SpatialScoringWeights` (`COMPOUND_BIGRAM_BONUS = 1000`, `DIRECT_ZERO_EDIT_BONUS = 600`, `ONSET_REPAIR_BONUS = 500`, `EXACT_MATCH_BONUS = 400`, `FULL_TELEX_BONUS = 300`, `TONE_MODIFIER_BONUS = 200`, `INSERTION_PENALTY = -100`, `DELETION_PENALTY = -150`, `HIGH_FREQUENCY_EVIDENCE_THRESHOLD = 95`, `DEFAULT_PRIORITY = 50`).
+- Remove dead symbols `countVowelGroups`, `NavSavedSnapshot`, `navSavedState`, `enKeys`, and `BilingualAutoSwitchEngine.findEnglishTranspositionMatch`.
+- Decompose `evaluateWordBreakRestore` into `< 65`-line helpers (`extractWordBreakContext`, `tryCollapseDuplicateEnglishWord`, `tryApplyBigramGrammar`, `resolveWordReplacement`, `shouldRestoreCurrentWord`, `tryRewriteTwoWordLookback`, `emitHookReplacement`, `recordWordInSlidingWindow`, `applyCasingPattern`).
+
+### 12.4 Single-Source Shared Lexicon (`Sources/OpenKey/shared-data/` & `scripts/sync_shared_lexicon.py`, `P1-6`, `P1-7`)
+- Move all word lists and corpus tables out of `VietnameseDictionary.kt` and `VietnameseDictionary.swift` into:
+  - Canonical human-readable, 1-entry-per-line files under `Sources/OpenKey/shared-data/` (`vietnamese_syllables.txt`, `vietnamese_priorities.tsv`, `vietnamese_compound_bigrams.tsv`, `english_words.tsv`, `english_next_word_bigrams.tsv`, `typo_and_grammar_rules.tsv`).
+  - Generated platform data files `VietnameseDictionaryCorpus.kt` and `VietnameseDictionaryCorpus.swift` synchronized via `scripts/sync_shared_lexicon.py` (`--write` / `--check`), keeping `VietnameseDictionary.kt` and `VietnameseDictionary.swift` `< 550` lines of clean indexing and search logic.
+
 
