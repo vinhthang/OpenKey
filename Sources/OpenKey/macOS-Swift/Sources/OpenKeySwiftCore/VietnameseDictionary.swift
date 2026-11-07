@@ -22,6 +22,12 @@ public final class VietnameseDictionary: @unchecked Sendable {
     /// Pre-indexed set of canonical Telex keystrokes for all valid Vietnamese syllables
     public let validTelexKeys: Set<String>
     
+    /// Universal full-Telex index mapping canonical and free-order keystrokes to composing syllables
+    public let telexKeyToSyllable: [String: String]
+    
+    /// Universal fast/omitted-modifier Telex index mapping unaccented ASCII stem + tone to accented syllables
+    public let stemToneToSyllable: [String: String]
+    
     /// Unaccented ASCII stem -> frequency-ranked accented Vietnamese words
     public let stemToWords: [String: [String]]
     
@@ -111,6 +117,64 @@ public final class VietnameseDictionary: @unchecked Sendable {
         self.stemToWords = stems
         self.telexSignatureToWords = signatures
         
+        var telexMap: [String: String] = [:]
+        func putCandidate(_ map: inout [String: String], _ key: String, _ word: String) {
+            guard key.count >= 2 else { return }
+            let wordPrio = priorityMap[word] ?? 50
+            let existingPrio = priorityMap[map[key] ?? ""] ?? -1
+            if wordPrio > existingPrio {
+                map[key] = word
+            }
+        }
+        
+        for word in rawSyllables {
+            let canon = Self.canonicalTelexKey(word)
+            putCandidate(&telexMap, canon, word)
+            if canon.contains("uow") {
+                putCandidate(&telexMap, canon.replacingOccurrences(of: "uow", with: "uwow"), word)
+            }
+            for endMod in Self.endModifierTelexKeys(word) {
+                putCandidate(&telexMap, endMod, word)
+            }
+            for inlineTone in Self.inlineToneTelexKeys(word) {
+                putCandidate(&telexMap, inlineTone, word)
+            }
+        }
+        self.telexKeyToSyllable = telexMap
+        
+        let hatOrHornChars: Set<Character> = [
+            "ă", "ắ", "ằ", "ẳ", "ẵ", "ặ",
+            "â", "ấ", "ầ", "ẩ", "ẫ", "ậ",
+            "ê", "ế", "ề", "ể", "ễ", "ệ",
+            "ô", "ố", "ồ", "ổ", "ỗ", "ộ",
+            "ơ", "ớ", "ờ", "ở", "ỡ", "ợ",
+            "ư", "ứ", "ừ", "ử", "ữ", "ự",
+            "đ"
+        ]
+        
+        var stemMap: [String: String] = [:]
+        for word in rawSyllables {
+            let hasTone = word.contains(where: { "áắấéếíóốớúứýàằầèềìòồờùừỳảẳẩẻểỉỏổởủửỷãẵẫẽễĩõỗỡũữỹạặậẹệịọộợụựỵ".contains($0) })
+            let hasHatOrHorn = word.contains(where: { hatOrHornChars.contains($0) })
+            if hasTone && hasHatOrHorn {
+                let toneKey = Self.extractToneKey(word)
+                if !toneKey.isEmpty {
+                    let asciiBase = Self.stripVietnameseDiacritics(word)
+                    let stemKey1 = asciiBase + toneKey
+                    if telexMap[stemKey1] == nil {
+                        putCandidate(&stemMap, stemKey1, word)
+                    }
+                    if word.hasPrefix("đ") {
+                        let stemKey2 = "d" + asciiBase + toneKey
+                        if telexMap[stemKey2] == nil {
+                            putCandidate(&stemMap, stemKey2, word)
+                        }
+                    }
+                }
+            }
+        }
+        self.stemToneToSyllable = stemMap
+        
         let prioRaw = "test tests testing tested tester list lists this best rest west nest fest jest pest vest zest host hosts post posts most cost costs lost fast last past cast vast mast east just must rust dust gust bust lust trust first next text texts context view views review new news few knew crew drew grew flew blew chew skew stew more core cores store stores score scores shore bore fore lore pore sore tore wore swore ignore restore explore before care cares share shares ware wares bare dare fare hare mare pare rare tare aware spare square stare compare prepare declare fire fires wire wires hire hires tire tires dire mire sire spire desire require inspire acquire entire retire pure sure cure lure obscure secure ensure insure mature nature future feature picture structure culture capture lecture measure pleasure treasure pressure closure exposure failure figure architecture true blue clue glue due cue sue issue issues value values continue statue venue rescue argue queue user users use uses used using useful useless abuse accuse excuse refuse confuse peruse fuse muse ruse case cases base bases based basic phase phases chase erase phrase lease please release increase decrease cease grease tease disease close closes closed closing choose chose chosen lose loses loose loosen goose moose noose pose poses rose nose hose dose prose those whose purpose suppose propose expose impose compose dispose oppose vars chars cors nums docs args opts props refs errs logs bugs tags tabs urls apis sdks cli gui tree trees free three agree degree see sees seed seeds seek seeks seems seemed need needs needed feed feeds feel feels feet keep deep deepseek sleep sweep weep beep jeep peep seep steep creep cheese breeze freeze squeeze sneeze wheeze week weeks weekend geek geeks cheek creek sleek meek peek reek leek leaf deaf meet street sweet sheet fleet greet tweet beet too tool tools tooth boot root shoot foot loot soot hoot moot food foods good goods wood woods hood mood stood blood flood book books look looks took cook hook shook brook crook nook cool pool fool wool stool spool school rooms zoom bloom broom groom spoon loop poop hoop scoop troop stoop droop snoop poor doors floor add adds added did odd odds boss loss moss toss cross floss gloss pass passed class glass mass bass grass brass less mess ness press dress stress express address process success access assess possess obsess confess profess recess excess princess unless bless chess guess miss kiss bliss hiss swiss abyss mix fix box fox wax fax flex apex index complex vertex vortex cortex mutex regex telex unix linux nginx prefix suffix matrix phoenix helix remix unmix affix infix hotfix bugfix off iff buff cuff puff ruff stuff bluff fluff scuff snuff staff cliff skiff sniff stiff whiff diff diffs tarp carp harp sharp warp scarp corp corps we with what when where which while who why will would want work world word well way were went water watch wait walk think goes does toes foes woes hoes shoes heroes zeroes echoes her hers hero errors cars bars wars stars chairs hairs pairs airs arms hours years ours yours tours pours fours floors ears fears tears bears wears hears gears pears appears clears nears beers furs occurs worst worse burst thirst horse course nurse purse curse verse parse sense theme chest born burn turn term down town own low now row lots its dad here mere were"
         let lookbackRaw = "is as os us if of or for nor far car bar jar tar war par mar scar star char ban can dan fan man pan ran tan van wan plan scan span clan tran his has was gas bus plus thus on in an at it to do go no so up by my we he me be sex vex max six tax lax hex moon noon soon seen seem beef reef room boom doom loom boots roots loops meets keeps moor door there these"
         let extraEngRaw = "the and that have with not you are from they will would there their what about which when make like time know take people into year your some could them other than then now only come its over think also back after work well way even want because these give day find here thing many tell one very her down should call world still try ask state never become between high really something another much family own out leave put old while mean student why let great same big group begin country help talk where turn problem every start hand might show part against place such again week company system each right program hear question during play government run small number always move night live point believe hold today bring happen without large all million home under water write mother area national money story young fact month different lot study eye job word though business side kind four head black long both little house yes since provide service around friend important father sit away until power hour game often yet line political among ever stand bad however member pay law city almost include set later community name five once white least president learn real change team minute several idea kid body information nothing ago lead social understand whether watch together follow parent stop face anything create public already speak others read level allow office spend health person art history party within grow result open morning walk reason low win research girl guy early moment himself air teacher force offer enough education across although remember second boy maybe toward able age policy everything love music including consider appear actually buy probably human wait serve market die send expect sense build stay fall oh nation cut college interest death course someone experience behind reach local kill remain effect yeah suggest control raise perhaps late hard field else former sell major sometimes along development themselves report role better economic effort decide rate strong possible heart drug leader light voice wife whole police mind finally pull return military price according decision explain son hope develop relationship carry town road drive arm federal break difference thank receive international building action full model join season society director position player especially record pick wear paper special space ground form support event official matter everyone center couple site project hit activity table court produce eat teach oil half situation easy industry image itself phone either data cover quite clear practice piece land recent describe product doctor wall patient worker movie certain north personal simply third technology catch step baby computer type attention draw film source red nearly organization cause hair century evidence window difficult listen billion chance brother energy period summer realize hundred available plant likely opportunity term short letter condition choice single rule daughter administration south husband congress campaign material population economy medical hospital church thousand risk current wrong involve defense anyone security bank myself certainly sport board subject officer private behavior deal performance fight throw top quickly goal bed order author fill represent focus foreign drop upon agency push color recently reduce sound note fine near movement page enter common natural race concern series significant similar hot language usually response dead rise animal factor decade article save seven artist scene stock career despite central eight treatment beyond happy exactly protect approach lie size dog fund serious occur media ready sign thought individual simple quality accept answer resource identify left meeting determine whatever cup particularly amount ability recognize indicate character growth wonder attack herself region television training pretty trade election everybody physical lay general feeling standard bill message fail outside arrive analysis benefit forward lawyer present section environmental skill sister professor operation financial crime stage authority design sort act ten knowledge gun station strategy clearly discuss indeed truth song example democratic check environment leg dark various rather laugh executive prove hang rock forget claim remove manager enjoy network legal religious cold final main science green memory card above seat cell establish nice trial expert spring firm radio visit management avoid imagine tonight huge ball finish yourself theory impact respond statement maintain charge popular traditional onto reveal direction weapon employee cultural contain peace pain apply wide shake fly interview manage chair fish particular camera politics perform bit weight suddenly discover candidate treat trip evening affect inside conference unit style adult worry range mention edge specific writer trouble necessary throughout challenge fear shoulder institution middle sea dream beautiful property instead improve detail method somebody magazine hotel soldier reflect heavy sexual bag heat marriage tough sing surface exist pattern whom skin agent owner machine ahead generation commercial cancer item reality coach yard beat violence total tend investment discussion finger garden notice collection modern task partner positive civil kitchen consumer shot budget wish painting scientist safe agreement capital mouth victim newspaper threat responsibility smile attorney account interesting audience rich dinner vote western relate travel debate prevent citizen majority none front born admit senior assume wind key professional mission alone customer suffer speech successful option participant southern fresh eventually forest video global senate reform restaurant judge publish relation bird opinion credit critical corner concerned recall version safety effective neighborhood original income directly hurt species immediately track strike sky freedom absolutely plane nobody achieve object attitude labor refer concept client powerful perfect nine therefore conduct announce conversation examine touch attend completely variety involved investigation nuclear researcher conflict spirit replace british encourage argument camp brain afternoon dozen possibility insurance department battle beginning date generally sorry crisis complete stick define easily hole element vision status normal chinese ship solution stone slowly scale university introduce driver attempt park spot lack ice boat drink sun distance handle truck mountain survey supposed tradition winter village sales roll communication screen gain resident hide gold club farm European presence independent district shape reader contract crowd christian apartment willing strength previous band obviously horse interested target prison ride guard terms demand reporter deliver wild vehicle observe flight facility understanding average emerge advantage quick leadership earn pound basis bright operate guest sample contribute tiny block protection settle collect additional highly identity title mostly lesson faith river promote living count marry tomorrow technique path ear shop folk principle survive border competition jump gather limit fit cry equipment worth associate critic warm aspect insist annual french christmas comment responsible affair procedure regular spread chairman baseball soft egg belief demonstrate anybody murder gift editor engage coffee document speed influence anyway threaten commit female youth wave afraid quarter background native broad wonderful deny apparently slightly reaction twice suit perspective growing blow construction intelligence destroy connection burn shoe grade committee hey mistake location clothes indian quiet promise neighbor function bone active extend chief combine wine below voter learning hell dangerous remind moral united category relatively victory academic internet healthy negative following historical medicine tour depend photo finding grab direct classroom contact justice participate daily fair pair famous exercise knee flower tape familiar appropriate supply fully actor birth search tie democracy eastern primary yesterday circle device progress bottom island exchange clean studio train lady colleague application neck lean damage plastic tall plate hate otherwise writing male alive expression football intend chicken army theater shut map extra session danger welcome domestic lots literature rain assessment injury respect northern nod paint fuel dry russian instruction climb engine fourth salt expand importance metal fat ticket software disappear corporate strange lip reading urban mental increasingly lunch educational somewhere farmer sugar planet favorite obtain enemy greatest surround athlete invite repeat carefully soul scientific impossible panel meaning mom married instrument predict weather presidential emotional commitment supreme bear pocket thin temperature surprise poll proposal consequence breath sight balance adopt minority straight connect works teaching belong aid advice okay photograph empty regional trail novel code somehow organize jury breast acknowledge theme storm union desk thanks fruit expensive yellow conclusion prime shadow struggle conclude analyst dance regulation being ring largely shift revenue mark locate county appearance package difficulty bridge recommend obvious basically generate anymore thinking possibly trend visitor loan currently comfortable investor profit angry accident meal hearing traffic muscle notion prefer truly earth chest thick cash museum beauty emergency unique internal ethnic link content select declare appreciate actual bottle hardly setting launch file sick outcome defend ought extremely extent component slow contrast zone wake airport brown shirt pilot warn ultimately cat contribution capacity ourselves estate guide circumstance snow english politician steal pursue slip percentage meat funny neither soil surgery correct blame estimate basketball golf investigate crazy significantly chain branch combination frequently governor relief dad kick manner ancient silence rating golden motion german gender solve fee landscape bowl equal forth frame typical except conservative eliminate hall ocean row producer afford meanwhile regime division confirm appeal mirror smart length entirely rely topic complain variable telephone perception attract confidence bedroom secret debt tank nurse coverage opposition aside anywhere bond master era requirement fun expectation wing separate somewhat pour stir judgment beer reference tear doubt grant seriously minister totally hero industrial cloud stretch winner volume surprised fashion pepper busy cheap cite king blog google reddit github gitlab docker kubernetes swift python rust golang java kotlin react vue angular node npm yarn pnpm bun cargo maven gradle xcode vscode cursor claude gemini openai anthropic llama mistral qwen array string struct enum protocol extension import export public static const async await return break switch default throw throws catch guard defer repeat print debug warning info trace fatal panic assert expect verify build clean deploy commit merge rebase cherry stash fetch push clone revert checkout remote origin develop staging server request header query param params route router middleware handler controller repository schema column foreign cache redis postgres mysql sqlite mongodb kafka pulsar rabbit queue stream listener worker cron schedule timer timeout retry backoff circuit breaker quota token auth login logout cookie bearer oauth saml oidc admin viewer role permission scope revoke encrypt decrypt hashcert certificate keychain config options flag flags env constants helper helpers util utils utility shared module library framework plugin addon widget modal dialog popup popover tooltip menu navbar sidebar footer button input label checkbox toggle slider grid avatar badge icon audio canvas chart graph styles colors font fonts layout margin padding width height left center scroll hidden visible inline fixed sticky pointer hover disabled checked selected loading pending secondary tertiary system custom terrible horrible chaos error did said went got made came took gave saw told felt kept began held wrote sat stood paid spent grew won bought fell cut sold ate drew chose fought threw hid done seen gone run become meant lost sent built fallen update updated delete deleted"
@@ -133,7 +197,42 @@ public final class VietnameseDictionary: @unchecked Sendable {
         ]
         let testWords: Set<String> = [
             "wrongly", "feature", "android", "samsung", "keyboard", "windows", "drown", "bellow",
-            "willow", "elbow", "rainbow", "swallow", "fellow", "pillow", "drool", "springtime", "hello"
+            "willow", "elbow", "rainbow", "swallow", "fellow", "pillow", "drool", "springtime", "hello",
+            "foo", "bars", "series", "views", "speed", "feed", "weed", "need", "free", "agree",
+            "sleep", "sheet", "fleet", "greet", "steel", "wheel", "feel", "heel",
+            "peel", "brief", "chief", "grief", "thief", "friend", "field", "yield",
+            "shield", "priest", "diesel", "client", "quiet", "diet", "variety", "society",
+            "anxiety", "science", "ancient", "patient", "action", "section", "station", "nation",
+            "motion", "portion", "option", "window", "winter", "winner", "wind",
+            "wild", "wire", "wise", "wish", "with", "within", "without", "write",
+            "writer", "writing", "world", "worker", "working", "worth", "would", "wound",
+            "answer", "paper", "water", "power", "tower", "flower", "shower", "lawyer",
+            "owner", "crowd", "brown", "crown", "clown", "grow", "glow",
+            "blow", "flow", "snow", "slow", "throw", "show", "shadow", "meadow",
+            "yellow", "follow", "hollow", "brightest", "strong",
+            "call", "fall", "ball", "wall", "small", "tall", "hall", "mall",
+            "install", "recall", "overall", "football", "baseball", "basketball",
+            "shoot", "foot", "wood", "stood", "blood", "flood", "book", "cook",
+            "look", "took", "hook", "shook", "spoon", "pool", "tool", "fool",
+            "wool", "bloom", "broom", "groom", "mood", "proof", "goose", "loose",
+            "choose", "tooth", "smooth", "soothe", "groove", "gloom", "zoom",
+            "spool", "school", "state", "status", "stop", "step", "stick",
+            "stock", "store", "storm", "story", "study", "stuff", "style",
+            "sugar", "suit", "summer", "system", "table", "teach", "team",
+            "tear", "text", "than", "spring", "autumn", "string", "struct",
+            "class", "record", "weather", "method", "switch", "branch", "flight",
+            "bright", "night", "light", "right", "sight", "might", "tight",
+            "fight", "length", "strength", "depth", "width", "birth", "earth",
+            "growth", "health", "wealth", "truth", "youth", "faith", "breath",
+            "death", "craft", "draft", "shaft", "shift", "swift", "gift",
+            "lift", "smart", "start", "chart", "heart", "sport", "short",
+            "court", "plant", "print", "point", "joint", "front", "count",
+            "mount", "blank", "thank", "think", "drink", "blink", "sound",
+            "round", "bound", "found", "ground", "spend", "stand", "brand",
+            "grand", "trend", "blend", "great", "break", "speak", "track",
+            "black", "block", "clock", "shock", "check", "quick", "thick",
+            "brick", "trick", "truck", "structure", "crust", "drift", "frost",
+            "blast", "clasp", "flask", "grasp"
         ]
         let extraSet = Set(extraEngRaw.split(separator: " ").map(String.init)).union(topFrequencyWords).union(testWords)
         let baseKeepSet = Set(keepRaw.split(separator: " ").map(String.init))
@@ -368,6 +467,35 @@ public final class VietnameseDictionary: @unchecked Sendable {
         self.englishDuplicateCollapseWords = ["the", "is", "to", "in", "for", "and", "of", "at", "on"]
     }
     
+    public static let qwertyNeighbors: [Character: [Character]] = [
+        "q": ["w", "a", "s"],
+        "w": ["q", "e", "a", "s", "d"],
+        "e": ["w", "r", "s", "d", "f"],
+        "r": ["e", "t", "d", "f", "g"],
+        "t": ["r", "y", "f", "g", "h"],
+        "y": ["t", "u", "g", "h", "j"],
+        "u": ["y", "i", "h", "j", "k"],
+        "i": ["u", "o", "j", "k", "l"],
+        "o": ["i", "p", "k", "l"],
+        "p": ["o", "l"],
+        "a": ["q", "w", "s", "z"],
+        "s": ["q", "w", "e", "a", "d", "z", "x"],
+        "d": ["w", "e", "r", "s", "f", "x", "c"],
+        "f": ["e", "r", "t", "d", "g", "c", "v"],
+        "g": ["r", "t", "y", "f", "h", "v", "b"],
+        "h": ["t", "y", "u", "g", "j", "b", "n"],
+        "j": ["y", "u", "i", "h", "k", "n", "m"],
+        "k": ["u", "i", "o", "j", "l", "m"],
+        "l": ["i", "o", "p", "k"],
+        "z": ["a", "s", "x"],
+        "x": ["z", "s", "d", "c"],
+        "c": ["x", "d", "f", "v"],
+        "v": ["c", "f", "g", "b"],
+        "b": ["v", "g", "h", "n"],
+        "n": ["b", "h", "j", "m"],
+        "m": ["n", "j", "k"]
+    ]
+
     public static func isQwertyAdjacent(_ a: Character, _ b: Character) -> Bool {
         let qwertyCoords: [Character: (Int, Int)] = [
             "q": (0, 0), "w": (0, 1), "e": (0, 2), "r": (0, 3), "t": (0, 4),
@@ -484,7 +612,9 @@ public final class VietnameseDictionary: @unchecked Sendable {
     }
     
     private static let invalidSyllables: Set<String> = [
-        "uẻ", "uè", "ué", "uẹ", "uẽ", "mỏe", "cỏe", "trúe", "cáe", "báe", "pủe", "sủe"
+        "uẻ", "uè", "ué", "uẹ", "uẽ", "mỏe", "cỏe", "trúe", "cáe", "báe", "pủe", "sủe",
+        "nhưn", "nhứn", "nhừn", "nhửn", "nhữn", "nhựn",
+        "ngui", "ngúi", "ngùi", "ngủi", "ngũi", "ngụi"
     ]
     
     public static func extractVietnameseOnset(_ asciiWord: String) -> String {
@@ -583,6 +713,22 @@ public final class VietnameseDictionary: @unchecked Sendable {
         return false
     }
     
+    public static let telexBaseModMap: [Character: (String, String)] = [
+        "a": ("a", ""), "á": ("a", "s"), "à": ("a", "f"), "ả": ("a", "r"), "ã": ("a", "x"), "ạ": ("a", "j"),
+        "ă": ("aw", ""), "ắ": ("aw", "s"), "ằ": ("aw", "f"), "ẳ": ("aw", "r"), "ẵ": ("aw", "x"), "ặ": ("aw", "j"),
+        "â": ("aa", ""), "ấ": ("aa", "s"), "ầ": ("aa", "f"), "ẩ": ("aa", "r"), "ẫ": ("aa", "x"), "ậ": ("aa", "j"),
+        "e": ("e", ""), "é": ("e", "s"), "è": ("e", "f"), "ẻ": ("e", "r"), "ẽ": ("e", "x"), "ẹ": ("e", "j"),
+        "ê": ("ee", ""), "ế": ("ee", "s"), "ề": ("ee", "f"), "ể": ("ee", "r"), "ễ": ("ee", "x"), "ệ": ("ee", "j"),
+        "i": ("i", ""), "í": ("i", "s"), "ì": ("i", "f"), "ỉ": ("i", "r"), "ĩ": ("i", "x"), "ị": ("i", "j"),
+        "o": ("o", ""), "ó": ("o", "s"), "ò": ("o", "f"), "ỏ": ("o", "r"), "õ": ("o", "x"), "ọ": ("o", "j"),
+        "ô": ("oo", ""), "ố": ("oo", "s"), "ồ": ("oo", "f"), "ổ": ("oo", "r"), "ỗ": ("oo", "x"), "ộ": ("oo", "j"),
+        "ơ": ("ow", ""), "ớ": ("ow", "s"), "ờ": ("ow", "f"), "ở": ("ow", "r"), "ỡ": ("ow", "x"), "ợ": ("ow", "j"),
+        "u": ("u", ""), "ú": ("u", "s"), "ù": ("u", "f"), "ủ": ("u", "r"), "ũ": ("u", "x"), "ụ": ("u", "j"),
+        "ư": ("uw", ""), "ứ": ("uw", "s"), "ừ": ("uw", "f"), "ử": ("uw", "r"), "ữ": ("uw", "x"), "ự": ("uw", "j"),
+        "y": ("y", ""), "ý": ("y", "s"), "ỳ": ("y", "f"), "ỷ": ("y", "r"), "ỹ": ("y", "x"), "ỵ": ("y", "j"),
+        "đ": ("dd", "")
+    ]
+    
     public static func canonicalTelexKey(_ word: String) -> String {
         canonicalTelexKey(for: word)
     }
@@ -591,21 +737,7 @@ public final class VietnameseDictionary: @unchecked Sendable {
         let lower = Array(word.lowercased())
         var out = ""
         var toneSuffix = ""
-        let baseAndMod: [Character: (String, String)] = [
-            "a": ("a", ""), "á": ("a", "s"), "à": ("a", "f"), "ả": ("a", "r"), "ã": ("a", "x"), "ạ": ("a", "j"),
-            "ă": ("aw", ""), "ắ": ("aw", "s"), "ằ": ("aw", "f"), "ẳ": ("aw", "r"), "ẵ": ("aw", "x"), "ặ": ("aw", "j"),
-            "â": ("aa", ""), "ấ": ("aa", "s"), "ầ": ("aa", "f"), "ẩ": ("aa", "r"), "ẫ": ("aa", "x"), "ậ": ("aa", "j"),
-            "e": ("e", ""), "é": ("e", "s"), "è": ("e", "f"), "ẻ": ("e", "r"), "ẽ": ("e", "x"), "ẹ": ("e", "j"),
-            "ê": ("ee", ""), "ế": ("ee", "s"), "ề": ("ee", "f"), "ể": ("ee", "r"), "ễ": ("ee", "x"), "ệ": ("ee", "j"),
-            "i": ("i", ""), "í": ("i", "s"), "ì": ("i", "f"), "ỉ": ("i", "r"), "ĩ": ("i", "x"), "ị": ("i", "j"),
-            "o": ("o", ""), "ó": ("o", "s"), "ò": ("o", "f"), "ỏ": ("o", "r"), "õ": ("o", "x"), "ọ": ("o", "j"),
-            "ô": ("oo", ""), "ố": ("oo", "s"), "ồ": ("oo", "f"), "ổ": ("oo", "r"), "ỗ": ("oo", "x"), "ộ": ("oo", "j"),
-            "ơ": ("ow", ""), "ớ": ("ow", "s"), "ờ": ("ow", "f"), "ở": ("ow", "r"), "ỡ": ("ow", "x"), "ợ": ("ow", "j"),
-            "u": ("u", ""), "ú": ("u", "s"), "ù": ("u", "f"), "ủ": ("u", "r"), "ũ": ("u", "x"), "ụ": ("u", "j"),
-            "ư": ("uw", ""), "ứ": ("uw", "s"), "ừ": ("uw", "f"), "ử": ("uw", "r"), "ữ": ("uw", "x"), "ự": ("uw", "j"),
-            "y": ("y", ""), "ý": ("y", "s"), "ỳ": ("y", "f"), "ỷ": ("y", "r"), "ỹ": ("y", "x"), "ỵ": ("y", "j"),
-            "đ": ("d", "")
-        ]
+        let baseAndMod = Self.telexBaseModMap
         let uHornChars: Set<Character> = ["ư", "ứ", "ừ", "ử", "ữ", "ự"]
         let oHornChars: Set<Character> = ["ơ", "ớ", "ờ", "ở", "ỡ", "ợ"]
         for i in 0..<lower.count {
@@ -624,6 +756,303 @@ public final class VietnameseDictionary: @unchecked Sendable {
         }
         out.append(toneSuffix)
         return out
+    }
+    
+    public static func extractToneKey(_ word: String) -> String {
+        for ch in word.lowercased() {
+            if "áắấéếíóốớúứý".contains(ch) { return "s" }
+            if "àằầèềìòồờùừỳ".contains(ch) { return "f" }
+            if "ảẳẩẻểỉỏổởủửỷ".contains(ch) { return "r" }
+            if "ãẵẫẽễĩõỗỡũữỹ".contains(ch) { return "x" }
+            if "ạặậẹệịọộợụựỵ".contains(ch) { return "j" }
+        }
+        return ""
+    }
+
+    public static func endModifierTelexKeys(_ word: String) -> [String] {
+        let asciiBase = stripVietnameseDiacritics(word)
+        let toneKey = extractToneKey(word)
+        var mod: String? = nil
+        let lower = word.lowercased()
+        
+        if lower.contains("ă") {
+            mod = "w"
+        } else if lower.contains("â") {
+            mod = "a"
+        } else if lower.contains("ê") {
+            mod = "e"
+        } else if lower.contains("ô") {
+            mod = "o"
+        } else if lower.contains("ơ") || lower.contains("ư") {
+            mod = "w"
+        }
+        
+        var variants: [String] = []
+        if let m = mod {
+            variants.append(asciiBase + m + toneKey)
+            if !toneKey.isEmpty {
+                variants.append(asciiBase + toneKey + m)
+            }
+            if lower.hasPrefix("đ") {
+                variants.append("d" + asciiBase + m + toneKey)
+                if !toneKey.isEmpty {
+                    variants.append("d" + asciiBase + toneKey + m)
+                }
+            }
+        }
+        return variants
+    }
+
+    public static func endModifierTelexKey(_ word: String) -> String? {
+        endModifierTelexKeys(word).first
+    }
+
+    public static func inlineToneTelexKeys(_ word: String) -> [String] {
+        let canon = canonicalTelexKey(for: word)
+        guard let toneChar = canon.last, "sfrxj".contains(toneChar) else {
+            return []
+        }
+        let tone = String(toneChar)
+        let body = String(canon.dropLast())
+        let chars = Array(body)
+        let vowels: Set<Character> = ["a", "e", "i", "o", "u", "y", "w"]
+        
+        var variants: [String] = []
+        for i in 0..<chars.count {
+            if vowels.contains(chars[i]) {
+                if i + 1 < chars.count {
+                    var v1 = chars
+                    v1.insert(toneChar, at: i + 1)
+                    let cand = String(v1)
+                    if !variants.contains(cand) { variants.append(cand) }
+                }
+            }
+        }
+        if word == "những" {
+            let withoutN = "nhuw" + tone + "g"
+            if !variants.contains(withoutN) { variants.append(withoutN) }
+        }
+        return variants
+    }
+
+    public static func canonicalizeTelexKeystrokes(_ raw: String) -> String {
+        let lower = raw.lowercased()
+        let chars = Array(lower)
+        let vowels: Set<Character> = ["a", "e", "i", "o", "u", "y"]
+        let tones: Set<Character> = ["s", "f", "r", "x", "j"]
+        
+        guard chars.count >= 3,
+              let firstVowelIdx = chars.firstIndex(where: { vowels.contains($0) }),
+              firstVowelIdx + 1 < chars.count - 1 else {
+            return lower
+        }
+        
+        for i in (firstVowelIdx + 1)..<(chars.count - 1) {
+            let ch = chars[i]
+            if tones.contains(ch) {
+                var newChars = chars
+                newChars.remove(at: i)
+                newChars.append(ch)
+                return String(newChars)
+            }
+        }
+        return lower
+    }
+
+    public func hasValidVietnameseOnset(_ rawLower: String) -> Bool {
+        let vowels: Set<Character> = ["a", "e", "i", "o", "u", "y"]
+        let onset = String(rawLower.prefix(while: { !vowels.contains($0) }))
+        let validOnsets: Set<String> = [
+            "", "b", "c", "ch", "d", "dd", "g", "gh", "gi", "h", "k", "kh",
+            "l", "m", "n", "ng", "ngh", "nh", "p", "ph", "qu", "r", "s", "t", "th", "tr", "v", "x"
+        ]
+        return validOnsets.contains(onset)
+    }
+
+    public func findVietnameseSpatialMatch(
+        _ rawLower: String,
+        composedLower: String,
+        previousWord: String? = nil
+    ) -> String? {
+        findVietnameseSpatialCandidates(rawLower, composedLower: composedLower, previousWord: previousWord, limit: 1).first
+    }
+    
+    public func findVietnameseSpatialCandidates(
+        _ rawLower: String,
+        composedLower: String,
+        previousWord: String? = nil,
+        limit: Int = 3
+    ) -> [String] {
+        guard rawLower.count >= 3,
+              !isValidVietnameseSyllable(composedLower),
+              !isEnglishWord(rawLower),
+              !isEnglishWord(composedLower),
+              !keepWords.contains(rawLower) else {
+            return []
+        }
+        
+        struct CandidateMatch {
+            let syllable: String
+            let isFullTelex: Bool
+            let isExactMatch: Bool
+            let isOnsetRepaired: Bool
+            let isDirectZeroEdit: Bool
+            let isDeletion: Bool
+        }
+        
+        let priorityMap = VietnameseDictionaryCorpus.priorityMap
+        var candidateMap: [String: CandidateMatch] = [:]
+        
+        func lookupTelexCandidate(_ candKey: String) -> (String, Bool)? {
+            if let w = telexKeyToSyllable[candKey] {
+                return (w, true)
+            }
+            let canonKey = Self.canonicalizeTelexKeystrokes(candKey)
+            if canonKey != candKey, let w = telexKeyToSyllable[canonKey] {
+                return (w, true)
+            }
+            if let w = stemToneToSyllable[candKey] {
+                return (w, false)
+            }
+            if canonKey != candKey, let w = stemToneToSyllable[canonKey] {
+                return (w, false)
+            }
+            return nil
+        }
+        
+        func addCandidate(candKey: String, isExact: Bool, isOnsetRepaired: Bool, isDirectZeroEdit: Bool = false, isDeletion: Bool = false) {
+            if let (syllable, isFull) = lookupTelexCandidate(candKey) {
+                guard syllable.unicodeScalars.contains(where: { $0.value > 127 }) else { return }
+                
+                let prevClean = previousWord?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+                let hasBigram = !prevClean.isEmpty && (compoundBigrams[prevClean]?.contains(syllable) == true)
+                let hasInvalidOnset = !hasValidVietnameseOnset(rawLower)
+                let hasToneMod = rawLower.contains(where: { "sfrxjw".contains($0) })
+                let isHighPrio = (priorityMap[syllable] ?? 50) >= 90
+                
+                let hasEvidence = isDirectZeroEdit || hasBigram || hasInvalidOnset || hasToneMod || isHighPrio
+                guard hasEvidence else { return }
+                
+                if let existing = candidateMap[syllable] {
+                    candidateMap[syllable] = CandidateMatch(
+                        syllable: syllable,
+                        isFullTelex: existing.isFullTelex || isFull,
+                        isExactMatch: existing.isExactMatch || isExact,
+                        isOnsetRepaired: existing.isOnsetRepaired || isOnsetRepaired,
+                        isDirectZeroEdit: existing.isDirectZeroEdit || isDirectZeroEdit,
+                        isDeletion: existing.isDeletion && isDeletion
+                    )
+                } else {
+                    candidateMap[syllable] = CandidateMatch(
+                        syllable: syllable,
+                        isFullTelex: isFull,
+                        isExactMatch: isExact,
+                        isOnsetRepaired: isOnsetRepaired,
+                        isDirectZeroEdit: isDirectZeroEdit,
+                        isDeletion: isDeletion
+                    )
+                }
+            }
+        }
+        
+        let canonRaw = Self.canonicalizeTelexKeystrokes(rawLower)
+        let hadInvalidOnset = !hasValidVietnameseOnset(rawLower)
+        
+        // Class 1: Exact Omitted Modifier / Fast Telex & Stored Typo
+        addCandidate(candKey: rawLower, isExact: true, isOnsetRepaired: false, isDirectZeroEdit: true, isDeletion: false)
+        if canonRaw != rawLower {
+            addCandidate(candKey: canonRaw, isExact: true, isOnsetRepaired: false, isDirectZeroEdit: true, isDeletion: false)
+        }
+        if let typo = vietnameseTypoCorrections[composedLower] ?? vietnameseTypoCorrections[rawLower] {
+            candidateMap[typo] = CandidateMatch(syllable: typo, isFullTelex: true, isExactMatch: true, isOnsetRepaired: false, isDirectZeroEdit: true, isDeletion: false)
+        }
+        
+        // Class 2: 1-Edit QWERTY-Neighbor Substitution (Any Position)
+        let keysToMutate = (canonRaw != rawLower) ? [rawLower, canonRaw] : [rawLower]
+        for baseStr in keysToMutate {
+            let chars = Array(baseStr)
+            for i in 0..<chars.count {
+                let origChar = chars[i]
+                guard let neighbors = Self.qwertyNeighbors[origChar] else { continue }
+                for nb in neighbors {
+                    var mutated = chars
+                    mutated[i] = nb
+                    let candKey = String(mutated)
+                    let onsetRepaired = hadInvalidOnset && hasValidVietnameseOnset(candKey)
+                    addCandidate(candKey: candKey, isExact: false, isOnsetRepaired: onsetRepaired, isDirectZeroEdit: false, isDeletion: false)
+                }
+            }
+        }
+        
+        // Class 3: Adjacent Key Transposition (Any Position)
+        for baseStr in keysToMutate {
+            var chars = Array(baseStr)
+            for i in 0..<(chars.count - 1) {
+                chars.swapAt(i, i + 1)
+                let candKey = String(chars)
+                let onsetRepaired = hadInvalidOnset && hasValidVietnameseOnset(candKey)
+                addCandidate(candKey: candKey, isExact: false, isOnsetRepaired: onsetRepaired, isDirectZeroEdit: false, isDeletion: false)
+                chars.swapAt(i, i + 1)
+            }
+        }
+        
+        // Class 4: 1-Extra-Key QWERTY-Neighbor / Duplicate Deletion (for rawLower.count >= 5)
+        if rawLower.count >= 5 {
+            for baseStr in keysToMutate {
+                let chars = Array(baseStr)
+                for i in 1..<chars.count {
+                    if i == 1 && chars[0] == chars[1] && (chars[0] == "d" || chars[0] == "a" || chars[0] == "e" || chars[0] == "o") {
+                        continue
+                    }
+                    let deletedChar = chars[i]
+                    let isDuplicate = (deletedChar == chars[i - 1]) ||
+                                      (i + 1 < chars.count && deletedChar == chars[i + 1])
+                    let isNeighbor = Self.isQwertyAdjacent(deletedChar, chars[i - 1]) ||
+                                     (i + 1 < chars.count && Self.isQwertyAdjacent(deletedChar, chars[i + 1]))
+                    if isDuplicate || isNeighbor {
+                        var candidateChars = chars
+                        candidateChars.remove(at: i)
+                        let candKey = String(candidateChars)
+                        let onsetRepaired = hadInvalidOnset && hasValidVietnameseOnset(candKey)
+                        addCandidate(candKey: candKey, isExact: false, isOnsetRepaired: onsetRepaired, isDirectZeroEdit: false, isDeletion: true)
+                    }
+                }
+            }
+        }
+        
+        let prevClean = previousWord?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        let toneModKeys: Set<Character> = ["s", "f", "r", "x", "j", "w"]
+        let rawHasToneMod = rawLower.contains(where: { toneModKeys.contains($0) })
+        
+        var scoredCandidates: [(syllable: String, score: Int)] = []
+        for (syllable, match) in candidateMap {
+            var score = priorityMap[syllable] ?? 50
+            if !prevClean.isEmpty, let continuations = compoundBigrams[prevClean], continuations.contains(syllable) {
+                score += 1000
+            }
+            if match.isDirectZeroEdit {
+                score += 600
+            }
+            if match.isDeletion {
+                score -= 150
+            }
+            if match.isExactMatch {
+                score += 400
+            }
+            if match.isOnsetRepaired {
+                score += 500
+            }
+            if match.isFullTelex {
+                score += 300
+            }
+            if rawHasToneMod && syllable != Self.stripVietnameseDiacritics(syllable) {
+                score += 200
+            }
+            scoredCandidates.append((syllable, score))
+        }
+        
+        scoredCandidates.sort { $0.score > $1.score }
+        return Array(scoredCandidates.prefix(limit).map(\.syllable))
     }
     
     /// Utility to strip Vietnamese tones and special vowels to unaccented ASCII (d/a/e/o/u/y)
@@ -653,15 +1082,17 @@ public final class VietnameseDictionary: @unchecked Sendable {
 
 public enum VietnameseDictionaryCorpus {
     public static let priorityMap: [String: Int] = [
-        "tiếng": 100, "việt": 100, "viết": 95, "thành": 100, "thánh": 95, "thanh": 90,
-            "thẳng": 85, "thạnh": 80, "được": 100, "dược": 90, "duộc": 80, "người": 100, "ngươi": 90,
-            "nguôi": 85, "không": 100, "trước": 100, "nhưng": 100, "với": 100, "mình": 100,
-            "chính": 100, "chỉnh": 95, "chình": 90, "toàn": 100, "toán": 95, "toan": 90,
-            "nghiêng": 100, "nghiên": 95, "nghiệm": 90, "chào": 100, "cháo": 95, "chao": 90,
-            "chảo": 85, "cảm": 100, "cam": 95, "cầm": 90, "công": 100, "nghệ": 100, "phát": 100,
-            "triển": 100, "cứu": 100, "phố": 100, "viên": 95,
-            "giới": 100, "giỏi": 95, "giời": 90, "giờ": 100, "giữ": 100, "giữa": 98, "giúp": 100,
-            "giải": 98, "giảm": 96, "giá": 100, "gia": 95, "giao": 95, "giàu": 92, "giấy": 95
+        "tiếng": 98, "việt": 98, "viết": 95, "thành": 100, "thánh": 95, "thanh": 90,
+        "thẳng": 85, "thạnh": 80, "được": 100, "dược": 90, "duộc": 80, "người": 100, "ngươi": 90,
+        "nguôi": 85, "không": 100, "trước": 97, "nhưng": 97, "những": 98, "với": 100, "mình": 100,
+        "chính": 100, "chỉnh": 95, "chình": 90, "toàn": 95, "toán": 95, "toan": 90,
+        "nghiêng": 100, "nghiên": 95, "nghiệm": 90, "chào": 100, "cháo": 95, "chao": 90,
+        "chảo": 85, "cảm": 100, "cam": 95, "cầm": 90, "công": 100, "nghệ": 100, "phát": 100,
+        "triển": 100, "cứu": 100, "phố": 100, "viên": 95,
+        "giới": 100, "giỏi": 95, "giời": 90, "giờ": 100, "giữ": 100, "giữa": 98, "giúp": 100,
+        "giải": 98, "giảm": 96, "giá": 100, "gia": 95, "giao": 95, "giàu": 92, "giấy": 95,
+        "nghĩa": 96, "ngày": 98, "thử": 94, "chưa": 96, "phải": 97, "hoàng": 95, "muốn": 97,
+        "buồn": 94, "đường": 96, "trường": 96, "mướn": 70, "bườn": 50
     ]
 
     public static let rawSyllables: [String] = [
@@ -741,7 +1172,7 @@ public enum VietnameseDictionaryCorpus {
         "gặng", "gặp", "gặt", "gọ", "gọc", "gọi", "gọm", "gọn", "gọng", "gọp", "gọt", "gỏ", "gỏi", "gỏm", "gỏn", "gỏng", "gố", "gốc", "gối", "gốm", "gốn", "gống", "gốp", "gốt", "gồ", "gồi", "gồm", "gồn", "gồng", "gổ", "gổi", "gổm", "gổn", "gổng", "gỗ", "gỗi", "gỗm", "gỗn", "gỗng", "gộ", "gộc", "gội", "gộm", "gộn", "gộng", "gộp", "gột", "gớ", "gớc", "gới",
         "gớm", "gớn", "gớng", "gớp", "gớt", "gờ", "gời", "gờm", "gờn", "gờng", "gở", "gởi", "gởm", "gởn", "gởng", "gỡ", "gỡi", "gỡm", "gỡn", "gỡng", "gợ", "gợc", "gợi", "gợm", "gợn", "gợng", "gợp", "gợt", "gụ", "gụa", "gục", "gụi", "gụm", "gụn", "gụng", "gụp", "gụt", "gủ", "gủa", "gủi", "gủm", "gủn", "gủng", "gứ", "gứa", "gức", "gứi", "gứm", "gứn", "gứng",
         "gứt", "gừ", "gừa", "gừi", "gừm", "gừn", "gừng", "gử", "gửa", "gửi", "gửm", "gửn", "gửng", "gữ", "gữa", "gữi", "gữm", "gữn", "gững", "gự", "gựa", "gực", "gựi", "gựm", "gựn", "gựng", "gựt", "ha", "hai", "ham", "han", "hang", "hanh", "hao", "hau", "hay", "he", "hem", "hen", "heng", "heo", "hi", "hia", "him", "hin", "hinh", "hiu", "hiêm", "hiên", "hiêng",
-        "hiếc", "hiếm", "hiến", "hiếng", "hiếp", "hiết", "hiếu", "hiềm", "hiền", "hiềng", "hiểm", "hiển", "hiểng", "hiểu", "hiễm", "hiễn", "hiễng", "hiệc", "hiệm", "hiện", "hiệng", "hiệp", "hiệt", "hiệu", "ho", "hoa", "hoai", "hoan", "hoang", "hoanh", "hoao", "hoay", "hoe", "hoeo", "hoi", "hom", "hon", "hong", "hoài", "hoàn", "hoàng", "hoành", "hoào", "hoày", "hoá", "hoác", "hoách", "hoái", "hoán", "hoáng",
+        "hiếc", "hiếm", "hiến", "hiếng", "hiếp", "hiết", "hiếu", "hiềm", "hiền", "hiềng", "hiểm", "hiển", "hiểng", "hiểu", "hiễm", "hiễn", "hiễng", "hiệc", "hiệm", "hiện", "hiệng", "hiệp", "hiệt", "hiệu", "ho", "hoa", "hoai", "hoan", "hoang", "hoanh", "hoao", "hoay", "hoe", "hoeo", "hoi", "hom", "hon", "hong", "hoà", "hòa", "hoài", "hoàn", "hoàng", "hoành", "hoào", "hoày", "hoá", "hoác", "hoách", "hoái", "hoán", "hoáng",
         "hoánh", "hoáo", "hoáp", "hoát", "hoáy", "hoãi", "hoãn", "hoãng", "hoãnh", "hoão", "hoãy", "hoè", "hoèo", "hoé", "hoéo", "hoăn", "hoăng", "hoạc", "hoạch", "hoại", "hoạn", "hoạng", "hoạnh", "hoạo", "hoạp", "hoạt", "hoạy", "hoải", "hoản", "hoảng", "hoảnh", "hoảo", "hoảy", "hoắc", "hoắn", "hoắng", "hoắt", "hoằn", "hoằng", "hoẳn", "hoẵn", "hoẵng", "hoặc", "hoặn", "hoặng", "hoặt", "hoẹ", "hoẹo", "hoẻ", "hoẻo",
         "hoẽ", "hoẽo", "hu", "hua", "hue", "hui", "hum", "hun", "hung", "huy", "huya", "huynh", "huyu", "huyên", "huyến", "huyết", "huyền", "huyển", "huyễn", "huyện", "huyệt", "huân", "huây", "huè", "hué", "huê", "huôi", "huôm", "huôn", "huông", "huý", "huýa", "huých", "huýnh", "huýu", "huơng", "huấn", "huất", "huấy", "huần", "huầy", "huẩn", "huẩy", "huẫn", "huẫy", "huận", "huật", "huậy", "huẹ", "huẻ",
         "huẽ", "huế", "huề", "huể", "huển", "huễ", "huệ", "huốc", "huối", "huốm", "huốn", "huống", "huốt", "huồi", "huồm", "huồn", "huồng", "huổi", "huổm", "huổng", "huỗi", "huỗm", "huỗn", "huỗng", "huộc", "huội", "huộm", "huộn", "huộng", "huột", "huớng", "huờng", "huởng", "huỡng", "huợng", "huỳ", "huỳa", "huỳnh", "huỳu", "huỵ", "huỵa", "huỵch", "huỵnh", "huỵu", "huỷ", "huỷa", "huỷnh", "huỷu", "huỹ", "huỹa",
@@ -1085,7 +1516,7 @@ public enum VietnameseDictionaryCorpus {
         "xác": ["thực", "nhận", "định", "suất", "chết", "xơ"], "xây": ["dựng", "đắp", "lắp", "dựng"],
         "xã": ["hội", "phường", "đoàn", "giao", "luận"], "xử": ["lý", "phạt", "sự", "trí", "thế"],
         "yêu": ["cầu", "thương", "quý", "chuộng"], "áp": ["dụng", "đặt", "đảo", "lực", "bức", "suất", "tải"],
-        "ý": ["nghĩa", "kiến", "thức", "nguyện", "chí", "định", "tứ", "vị", "tưởng"], "điều": ["khoản", "kiện", "hành", "chỉnh", "tra", "động", "lệ", "tiết", "trị"],
+        "ý": ["nghĩa", "kiến", "định", "thức", "tưởng", "chí", "muốn", "tứ", "vị", "đồ"], "có": ["nghĩa", "thể", "ích", "lẽ", "khi", "tiền", "phải"], "điều": ["khoản", "kiện", "hành", "chỉnh", "tra", "động", "lệ", "tiết", "trị"],
         "điểm": ["số", "danh", "nhìn", "tựa", "cao", "nóng", "chỉ"], "điện": ["thoại", "tử", "lực", "toán", "não", "năng", "cực", "trở", "thế", "từ", "ảnh", "báo", "đài", "hoa", "khí", "tín"],
         "đoàn": ["thể", "kết", "viên", "đội", "người", "xe"], "đào": ["tạo", "bới", "thải", "hoa", "mỏ"],
         "đánh": ["giá", "đập", "bại", "lộn", "thức", "đổi", "dấu", "lừa"], "đóng": ["góp", "cửa", "chặt", "băng"],

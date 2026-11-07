@@ -287,7 +287,8 @@ object BilingualAutoSwitchEngine {
         }
 
         // 5. Typo & Transposition Corrections
-        if (replacementWord == null) {
+        if (replacementWord == null && rawCapitalCount < 2 && !(breakKeyCode == KEY_QUOTE && fullRawLower.endsWith("n"))) {
+            val prevWord = state.previousWords.lastOrNull()?.composedString
             if (priority == LanguagePriority.ENGLISH_FIRST) {
                 val engMatch = if (!dict.isValidVietnameseSyllable(composedLower)) {
                     dict.englishTypoCorrections[fullRawLower] ?: dict.findEnglishTranspositionMatch(fullRawLower)
@@ -299,6 +300,13 @@ object BilingualAutoSwitchEngine {
                 } ?: (dict.vietnameseTypoCorrections[composedLower] ?: dict.vietnameseTypoCorrections[fullRawLower])?.let { vnTypo ->
                     val isCap = composed.firstOrNull()?.isUpperCase() == true || fullRawStr.firstOrNull()?.isUpperCase() == true
                     if (isCap) vnTypo.replaceFirstChar { it.uppercase() } else vnTypo
+                } ?: run {
+                    if (!dict.isValidVietnameseSyllable(composedLower)) {
+                        dict.findVietnameseSpatialMatch(fullRawLower, composedLower, prevWord)?.let { vnSpatial ->
+                            val isCap = composed.firstOrNull()?.isUpperCase() == true || fullRawStr.firstOrNull()?.isUpperCase() == true
+                            if (isCap) vnSpatial.replaceFirstChar { it.uppercase() } else vnSpatial
+                        }
+                    } else null
                 }
             } else {
                 (dict.vietnameseTypoCorrections[composedLower] ?: dict.vietnameseTypoCorrections[fullRawLower])?.let { vnTypo ->
@@ -306,7 +314,10 @@ object BilingualAutoSwitchEngine {
                     replacementWord = if (isCap) vnTypo.replaceFirstChar { it.uppercase() } else vnTypo
                 } ?: run {
                     if (!dict.isValidVietnameseSyllable(composedLower)) {
-                        dict.englishTypoCorrections[fullRawLower]?.let { engTypo ->
+                        dict.findVietnameseSpatialMatch(fullRawLower, composedLower, prevWord)?.let { vnSpatial ->
+                            val isCap = composed.firstOrNull()?.isUpperCase() == true || fullRawStr.firstOrNull()?.isUpperCase() == true
+                            replacementWord = if (isCap) vnSpatial.replaceFirstChar { it.uppercase() } else vnSpatial
+                        } ?: dict.englishTypoCorrections[fullRawLower]?.let { engTypo ->
                             val isCap = fullRawStr.firstOrNull()?.isUpperCase() == true
                             replacementWord = if (isCap) engTypo.replaceFirstChar { it.uppercase() } else engTypo
                         } ?: dict.findEnglishTranspositionMatch(fullRawLower)?.let { engTrans ->
@@ -378,7 +389,8 @@ object BilingualAutoSwitchEngine {
             }
         }
 
-        val currentIsEnglish = shouldRestore || dict.englishPriorityWords.contains(fullRawLower) || (dict.isEnglishWord(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower)) || fullRawLower in setOf("is", "as", "us", "if", "of", "or", "for", "his", "has", "was")
+        val restoredIsEnglish = shouldRestore && (replacementWord == null || dict.isEnglishWord(replacementWord!!.lowercase()) || replacementWord == "I")
+        val currentIsEnglish = restoredIsEnglish || dict.englishPriorityWords.contains(fullRawLower) || (dict.isEnglishWord(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower)) || fullRawLower in setOf("is", "as", "us", "if", "of", "or", "for", "his", "has", "was")
 
         // 1-2 word context look-back
         if (breakKeyCode == KEY_SPACE && currentIsEnglish && state.wordStartOk && state.previousWords.isNotEmpty()) {

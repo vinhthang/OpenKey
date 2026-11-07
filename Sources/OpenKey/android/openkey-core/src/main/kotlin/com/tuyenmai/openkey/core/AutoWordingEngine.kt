@@ -213,7 +213,8 @@ class AutoWordingEngine private constructor() {
             rawStem = rawStem,
             currentSyllable = currentSyllable,
             isWrongSpelling = false,
-            languagePriority = languagePriority
+            languagePriority = languagePriority,
+            previousWord = previousWord
         )
     }
 
@@ -221,7 +222,8 @@ class AutoWordingEngine private constructor() {
         rawStem: String,
         currentSyllable: String,
         isWrongSpelling: Boolean = false,
-        languagePriority: LanguagePriority = LanguagePriority.VIETNAMESE_FIRST
+        languagePriority: LanguagePriority = LanguagePriority.VIETNAMESE_FIRST,
+        previousWord: String? = null
     ): List<WordCandidate> {
         if (!isEnabled || !candidateSuggestionsEnabled) return emptyList()
         if (rawStem.isEmpty() && currentSyllable.isEmpty()) return emptyList()
@@ -308,6 +310,34 @@ class AutoWordingEngine private constructor() {
             exactMatches + distinctAccented
         }
 
+        val formatCase: (String) -> String = { w ->
+            when {
+                rawStem.length >= 2 && rawStem.all { it.isUpperCase() } -> w.uppercase()
+                (rawStem.isNotEmpty() && rawStem.first().isUpperCase()) || (currentSyllable.isNotEmpty() && currentSyllable.first().isUpperCase()) -> w.replaceFirstChar { it.uppercase() }
+                else -> w
+            }
+        }
+
+        val spatialTarget = if (currentLower.isEmpty()) cleanRaw else currentLower
+        val spatialMatches = if (!dict.isValidVietnameseSyllable(spatialTarget) && !dict.isValidVietnameseSyllable(cleanRaw) && cleanRaw.length >= 3) {
+            dict.findVietnameseSpatialCandidates(cleanRaw, currentLower, previousWord, 3)
+        } else {
+            emptyList()
+        }
+        val formattedSpatial = spatialMatches.map { formatCase(it) }
+
+        val vietnameseWithSpatial = mutableListOf<String>()
+        for (sp in formattedSpatial) {
+            if (!vietnameseWithSpatial.contains(sp)) {
+                vietnameseWithSpatial.add(sp)
+            }
+        }
+        for (vn in vietnameseSorted) {
+            if (!vietnameseWithSpatial.contains(vn)) {
+                vietnameseWithSpatial.add(vn)
+            }
+        }
+
         val engCandidates = dict.computeEnglishCandidates(rawStem, 3).toMutableList()
         if (engCandidates.size < 3) {
             val bridge = spellCheckerBridge?.suggest(rawStem, 3 - engCandidates.size) ?: emptyList()
@@ -322,12 +352,12 @@ class AutoWordingEngine private constructor() {
             if (engCandidates.isNotEmpty()) {
                 combinedTexts.add(engCandidates.first())
             }
-            for (vn in vietnameseSorted) if (!combinedTexts.contains(vn)) combinedTexts.add(vn)
+            for (vn in vietnameseWithSpatial) if (!combinedTexts.contains(vn)) combinedTexts.add(vn)
             for (eng in engCandidates.drop(1)) if (!combinedTexts.contains(eng)) combinedTexts.add(eng)
         } else {
-            for (vn in vietnameseSorted.take(2)) if (!combinedTexts.contains(vn)) combinedTexts.add(vn)
+            for (vn in vietnameseWithSpatial.take(2)) if (!combinedTexts.contains(vn)) combinedTexts.add(vn)
             for (eng in engCandidates) if (!combinedTexts.contains(eng)) combinedTexts.add(eng)
-            for (vn in vietnameseSorted.drop(2)) if (!combinedTexts.contains(vn)) combinedTexts.add(vn)
+            for (vn in vietnameseWithSpatial.drop(2)) if (!combinedTexts.contains(vn)) combinedTexts.add(vn)
         }
 
         if (combinedTexts.isEmpty()) return emptyList()
@@ -335,7 +365,9 @@ class AutoWordingEngine private constructor() {
         val replaceLen = if (currentSyllable.isEmpty()) rawStem.length else currentSyllable.length
         return combinedTexts.take(3).mapIndexed { idx, text ->
             val isEng = engCandidates.contains(text)
+            val isSpatial = formattedSpatial.contains(text)
             val kind = when {
+                isSpatial -> CandidateKind.CORRECTION
                 isEng -> CandidateKind.CORRECTION
                 isWrongSpelling -> CandidateKind.CORRECTION
                 stemMatches.contains(text) -> CandidateKind.STEM_COMPLETION
@@ -492,7 +524,8 @@ class AutoWordingEngine private constructor() {
                         rawStem = postContext.rawKeystrokes,
                         currentSyllable = postContext.composedWord,
                         isWrongSpelling = postContext.isWrongSpelling,
-                        languagePriority = VietnameseEngineState.shared.effectiveLanguagePriority()
+                        languagePriority = VietnameseEngineState.shared.effectiveLanguagePriority(),
+                        previousWord = VietnameseEngineState.shared.previousWords.lastOrNull()?.composedString
                     )
                 } else {
                     emptyList()

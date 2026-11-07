@@ -516,3 +516,63 @@ flowchart TD
     - Do not render `LiveCandidateStripHost` (numeric fields have no word candidates).
     - Select `KeyboardLayer.NUMPAD` automatically and render each of the 4 rows at `58.dp` portrait height (`42.dp` landscape height) with `26.sp` (`FontWeight.Medium`) digit labels (`0`–`9`) in `KeyButton.kt`.
 
+---
+
+## 11. Vietnamese Telex Keystroke-Level Spatial Auto-Correct (`"nfhiax"` → `"nghĩa"`) & Full-Cell Voronoi Touch Hit-Boxes (`REQ-026`, `ADR-027`)
+
+### 11.1 Full-Cell Voronoi Touch Hit-Box in `KeyButton.kt` (`Sources/OpenKey/android/app/src/main/java/com/tuyenmai/openkey/android/ui/KeyButton.kt`)
+- Reorder the `Box` modifier chain in `KeyButton.kt` so `.pointerInput(key)` is attached **before** `.padding(horizontal = gapH, vertical = gapV)` (`4dp` horizontal gap, `5dp` vertical gap):
+  ```kotlin
+  Box(
+      modifier = modifier
+          .fillMaxSize()
+          .pointerInput(key) { ... }
+          .padding(horizontal = gapH, vertical = gapV)
+          .drawBehind { ... },
+      contentAlignment = Alignment.Center
+  )
+  ```
+- This makes 100% of each key's allocated row slot an active Voronoi touch target with zero dead-zone seams between adjacent keys (`f` and `g`, `g` and `h`, etc.) while keeping the visual One UI keycap spacing identical.
+
+### 11.2 Precomputed `telexKeyToSyllable` & `stemToneToSyllable` Universal Indexes + Free-Order Telex Canonicalizer (`VietnameseDictionary.kt` & `VietnameseDictionary.swift`)
+- Fix `TELEX_BASE_MOD_MAP['đ']` from `Pair("d", "")` to `Pair("dd", "")` so `canonicalTelexKey("được")` produces `"dduowcj"` instead of `"duowcj"`.
+- Build **two universal indexes** across all `6,700+` valid Vietnamese syllables in `rawSyllables` (zero hardcoded single-word hacks):
+  1. **`telexKeyToSyllable: Map<String, String>`**:
+     - Maps every syllable's canonical end-tone Telex key (`"nghiax"`, `"ngayf"`, `"nguowif"`, `"khoong"`, `"thuwr"`, `"dduowcj"`, `"chuwa"`, `"phair"`, `"vieetj"`, `"tieengs"`, `"nhuwngx"`), double-horn variants (`"nguwowif"`, `"dduwowcj"`), end-modifier variants (`"nguoiwf"`, `"dduocwj"`, `"vietej"`, `"tienges"`, `"khongo"`, `"thurw"`), and inline-tone variants (`"nghixa"`, `"ngafy"`, `"phari"`, `"hoafng"`, `"toafn"`, `"tieesng"`) to the highest-priority syllable in `priorityMap`.
+  2. **`stemToneToSyllable: Map<String, String>` (Fast/Lazy Mobile Telex Index)**:
+     - For every syllable `word` with a tone mark (`s, f, r, x, j`) AND a vowel modifier (`ă, â, ê, ô, ơ, ư`) or `đ`, compute `stemToneKey = stripVietnameseDiacritics(word) + toneKey` (e.g., `"tiếng"` → `"tiengs"`, `"việt"` → `"vietj"`, `"người"` → `"nguoif"`, `"được"` → `"duocj"` and `"dduocj"`, `"muốn"` → `"muons"`, `"buồn"` → `"buonf"`, `"trước"` → `"truocs"`, `"đường"` → `"duongf"`, `"trường"` → `"truongf"`).
+     - Only index `stemToneKey` if `telexKeyToSyllable[stemToneKey]` does **not** already exist as a valid un-modified Vietnamese syllable (so `"tans"` = `"tán"` is never overwritten by `"tấn"`, whereas `"tiengs"`, `"vietj"`, `"nguoif"`, `"duocj"`, `"muons"`, `"buonf"`, `"truocs"` have no valid un-modified syllable and map unambiguously to `"tiếng"`, `"việt"`, `"người"`, `"được"`, `"muốn"`, `"buồn"`, `"trước"`).
+- Add `fun canonicalizeTelexKeystrokes(raw: String): String` which extracts any inline tone key (`s, f, r, x, j`) that appears after the first vowel and moves it to the end of the syllable (`"hoafng"` → `"hoangf"`, `"toafn"` → `"toanf"`, `"tieesng"` → `"tieengs"`).
+
+### 11.3 Universal 6-Class Spatial Search on Raw Keystrokes (`findVietnameseSpatialCandidates` & `findVietnameseSpatialMatch`)
+- In `VietnameseDictionary` (`Kotlin` and `Swift`), implement:
+  - `fun findVietnameseSpatialCandidates(rawLower: String, composedLower: String, previousWord: String? = null, limit: Int = 3): List<String>`
+  - `fun findVietnameseSpatialMatch(rawLower: String, composedLower: String, previousWord: String? = null): String?`
+- **Guardrails**:
+  - Return `emptyList()` / `null` if `rawLower.length < 3` or `isValidVietnameseSyllable(composedLower)` or `isEnglishWord(rawLower)` or `isEnglishWord(composedLower)` or `keepWords.contains(rawLower)`.
+- **Helper `lookupTelexCandidate(candKey: String): Pair<String, Boolean>?`**:
+  - Checks `telexKeyToSyllable[candKey]` or `telexKeyToSyllable[canonicalizeTelexKeystrokes(candKey)]` (`isFullTelex = true`), falling back to `stemToneToSyllable[candKey]` or `stemToneToSyllable[canonicalizeTelexKeystrokes(candKey)]` (`isFullTelex = false`).
+- **6-Class Candidate Generation ($O(L \times 6)$ Hash Lookups)**:
+  1. **Class 1 — Exact Omitted Modifier / Fast Telex (`stemToneToSyllable[rawLower]`)** and `vietnameseTypoCorrections`.
+  2. **Class 2 — 1-Edit QWERTY-Neighbor Substitution (Any Position: Onset, Vowel, Coda, or Tone)**:
+     - For each position `i` in `0 until rawLower.length` and each neighbor `nb` in `qwertyNeighbors[rawLower[i]]`, test `lookupTelexCandidate(rawLower.substring(0, i) + nb + rawLower.substring(i + 1))`.
+     - Repairs onset slips (`"nfhiax"` → `"nghĩa"`, `"kgoong"` → `"không"`, `"tguwr"` → `"thử"`), vowel/modifier slips (`"tiewngs"` / `"tierngs"` → `"tiếng"`, `"nhueng"` → `"nhưng"`), coda slips (`"nhuwnfx"` → `"những"`, `"hoafnf"` → `"hoàng"`), and compound onset+omitted-modifier slips (`"nfuoif"` → `"người"`, `"dsuocj"` → `"được"`).
+  3. **Class 3 — Adjacent Key Transposition (Any Position)**:
+     - Swap `rawLower[i]` and `rawLower[i + 1]` and test `lookupTelexCandidate(...)` (`"gnhiax"` / `"nhgiax"` → `"nghĩa"`, `"hkoong"` → `"không"`, `"tinegs"` → `"tiếng"`, `"ngouif"` → `"người"`).
+  4. **Class 4 — 1-Extra-Key QWERTY-Neighbor / Duplicate Deletion (`rawLower.length >= 5`)**:
+     - If `rawLower[i]` is equal to or QWERTY-adjacent to `rawLower[i - 1]` or `rawLower[i + 1]`, test `lookupTelexCandidate(rawLower.removeRange(i, i + 1))` (`"ngfhiax"` → `"nghĩa"`, `"kghoong"` → `"không"`).
+- **Scoring & Ranking**:
+  - Score each matched syllable `syllable`:
+    - `+1000` if `previousWord` is non-empty and `compoundBigrams[previousWord.lowercase()]?.contains(syllable) == true` (e.g. `"ý"` + `"nfhiax"` → `"nghĩa"`).
+    - `+500` if the edit repairs an invalid initial consonant cluster (`!hasValidVietnameseOnset(rawLower)`).
+    - `+300` if `isFullTelex == true` (exact Telex modifier match preferred over omitted-modifier stem-tone match).
+    - `+200` if `rawLower` contains an un-applied Telex tone/modifier (`s, f, r, x, j, w`) that composed into a diacritic in `syllable`.
+    - `+ (priorityMap[syllable] ?: 50)`.
+
+### 11.4 Live Candidate Strip & Word-Break Auto-Replacement (`AutoWordingEngine` & `BilingualAutoSwitchEngine`)
+- **`AutoWordingEngine.computeCurrentWordCandidates`**:
+  - When `!dict.isValidVietnameseSyllable(currentLower)` and `cleanRaw.length >= 3`, invoke `dict.findVietnameseSpatialCandidates(cleanRaw, currentLower, previousWord, 3)` and prepend those matches at the front of the Vietnamese candidate list (`CandidateKind.CORRECTION`) so `"nfhiax"` immediately surfaces `"nghĩa"` in Slot 1 while typing.
+- **`BilingualAutoSwitchEngine.evaluateWordBreakRestore`**:
+  - In Step 5 (`Typo & Transposition Corrections`), when `!dict.isValidVietnameseSyllable(composedLower)` and `replacementWord == null`, invoke `dict.findVietnameseSpatialMatch(fullRawLower, composedLower, prevWord)` (before falling back to English transposition matches in `VIETNAMESE_FIRST` mode) so pressing `Space`, `,`, `.`, etc. after `"nfhiax"` automatically replaces `"nfhiax"` with `"nghĩa"`.
+
+

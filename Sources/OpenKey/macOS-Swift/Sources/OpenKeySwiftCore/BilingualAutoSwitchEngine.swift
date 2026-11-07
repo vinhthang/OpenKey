@@ -390,8 +390,9 @@ extension VietnameseEngineState {
             }
         }
         
-        // 5. Typo & Transposition Corrections (REQ-024)
-        if replacementWord == nil {
+        // 5. Typo & Transposition Corrections (REQ-024, REQ-026)
+        if replacementWord == nil && rawCapitalCount < 2 && !(breakKeyCode == KEY_QUOTE && fullRawLower.hasSuffix("n")) {
+            let prevWord = previousWords.last?.composedString
             if priority == .englishFirst {
                 if !dict.isValidVietnameseSyllable(composedLower) {
                     if let engTypo = dict.englishTypoCorrections[fullRawLower] {
@@ -406,12 +407,21 @@ extension VietnameseEngineState {
                     let isCap = composed.first?.isUppercase == true || fullRawStr.first?.isUppercase == true
                     replacementWord = isCap ? (vnTypo.prefix(1).uppercased() + vnTypo.dropFirst()) : vnTypo
                 }
+                if replacementWord == nil && !dict.isValidVietnameseSyllable(composedLower) {
+                    if let vnSpatial = dict.findVietnameseSpatialMatch(fullRawLower, composedLower: composedLower, previousWord: prevWord) {
+                        let isCap = composed.first?.isUppercase == true || fullRawStr.first?.isUppercase == true
+                        replacementWord = isCap ? (vnSpatial.prefix(1).uppercased() + vnSpatial.dropFirst()) : vnSpatial
+                    }
+                }
             } else {
                 if let vnTypo = dict.vietnameseTypoCorrections[composedLower] ?? dict.vietnameseTypoCorrections[fullRawLower] {
                     let isCap = composed.first?.isUppercase == true || fullRawStr.first?.isUppercase == true
                     replacementWord = isCap ? (vnTypo.prefix(1).uppercased() + vnTypo.dropFirst()) : vnTypo
                 } else if !dict.isValidVietnameseSyllable(composedLower) {
-                    if let engTypo = dict.englishTypoCorrections[fullRawLower] {
+                    if let vnSpatial = dict.findVietnameseSpatialMatch(fullRawLower, composedLower: composedLower, previousWord: prevWord) {
+                        let isCap = composed.first?.isUppercase == true || fullRawStr.first?.isUppercase == true
+                        replacementWord = isCap ? (vnSpatial.prefix(1).uppercased() + vnSpatial.dropFirst()) : vnSpatial
+                    } else if let engTypo = dict.englishTypoCorrections[fullRawLower] {
                         let isCap = fullRawStr.first?.isUppercase == true
                         replacementWord = isCap ? (engTypo.prefix(1).uppercased() + engTypo.dropFirst()) : engTypo
                     } else if let engTrans = dict.findEnglishTranspositionMatch(fullRawLower) {
@@ -495,7 +505,8 @@ extension VietnameseEngineState {
         }
         
         let LookbackTriggerSet: Set<String> = ["is", "as", "us", "if", "of", "or", "for", "his", "has", "was"]
-        let currentIsEnglish = shouldRestore || dict.englishPriorityWords.contains(fullRawLower) || (dict.isEnglishWord(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower)) || LookbackTriggerSet.contains(fullRawLower)
+        let restoredIsEnglish = shouldRestore && (replacementWord == nil || dict.isEnglishWord(replacementWord!.lowercased()) || replacementWord == "I")
+        let currentIsEnglish = restoredIsEnglish || dict.englishPriorityWords.contains(fullRawLower) || (dict.isEnglishWord(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower)) || LookbackTriggerSet.contains(fullRawLower)
         
         // Check 1-2 word context look-back (REQ-018)
         if breakKeyCode == KEY_SPACE && currentIsEnglish && wordStartOk && !previousWords.isEmpty {

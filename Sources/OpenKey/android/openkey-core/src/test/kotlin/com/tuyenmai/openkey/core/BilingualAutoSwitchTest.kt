@@ -461,4 +461,51 @@ class BilingualAutoSwitchTest {
         typeSession("dont ")
         assertEquals("don't ", committer.committedText)
     }
+
+    // 14. Vietnamese Spatial Typo & Transposition Auto-Correction (REQ-026, ADR-027, AC-026.2)
+    @Test
+    fun testVietnameseSpatialTypoAndTranspositionCorrection() {
+        val testCases = listOf(
+            "nfhiax " to "nghĩa ",
+            "nfhiax, " to "nghĩa, ",
+            "ý nfhiax " to "ý nghĩa ",
+            "ngjiax " to "nghĩa ",
+            "gnhiax " to "nghĩa ",
+            "ngfhiax " to "nghĩa ",
+            "nfayf " to "ngày ",
+            "nfuowif " to "người ",
+            "nfuoif " to "người ",
+            "kgoong " to "không ",
+            "tguwr " to "thử ",
+            "dsuwowcj " to "được ",
+            "dsuocj " to "được ",
+            "cguwa " to "chưa ",
+            "pjair " to "phải ",
+            "tiewngs " to "tiếng ",
+            "nhueng " to "nhưng ",
+            "nhuwnfx " to "những ",
+            "hoafnf " to "hoàng ",
+            "tiengs " to "tiếng ",
+            "vietj " to "việt ",
+            "nguoif " to "người ",
+            "duocj " to "được ",
+            "muons " to "muốn ",
+            "buonf " to "buồn ",
+            "truocs " to "trước "
+        )
+
+        for ((input, expected) in testCases) {
+            val screen = VirtualScreen()
+            screen.typeASCII(input)
+            assertEquals(expected, screen.text, "Typing '$input' must auto-correct to '$expected'")
+        }
+
+        // Non-regression verification: genuine English words must remain untouched
+        val nonRegressions = listOf("test ", "feature ", "more ", "need ")
+        for (w in nonRegressions) {
+            val screen = VirtualScreen()
+            screen.typeASCII(w)
+            assertEquals(w, screen.text, "English word '$w' must not be corrupted")
+        }
+    }
 }

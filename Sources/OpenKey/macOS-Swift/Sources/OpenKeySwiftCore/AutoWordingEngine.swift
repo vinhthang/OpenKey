@@ -201,6 +201,7 @@ public final class AutoWordingEngine: @unchecked Sendable {
         shared.computeCurrentWordCandidates(
             rawStem: rawStem,
             currentSyllable: currentSyllable,
+            previousWord: previousWord,
             isWrongSpelling: false,
             languagePriority: languagePriority,
             bypassEnabledCheck: true
@@ -211,6 +212,7 @@ public final class AutoWordingEngine: @unchecked Sendable {
     public func computeCurrentWordCandidates(
         rawStem: String,
         currentSyllable: String,
+        previousWord: String? = nil,
         isWrongSpelling: Bool = false,
         languagePriority: LanguagePriority = .vietnameseFirst,
         bypassEnabledCheck: Bool = false
@@ -224,6 +226,16 @@ public final class AutoWordingEngine: @unchecked Sendable {
         }
         var results: [String] = []
         
+        let currentLower = currentSyllable.lowercased()
+        let cleanRaw = rawStem.lowercased()
+        
+        // Spatial auto-correct candidates (REQ-026, ADR-027)
+        var spatialMatches: [String] = []
+        let composedToCheck = currentLower.isEmpty ? cleanRaw : currentLower
+        if !dict.isValidVietnameseSyllable(composedToCheck) && !dict.isValidVietnameseSyllable(cleanRaw) && cleanRaw.count >= 3 {
+            spatialMatches = dict.findVietnameseSpatialCandidates(cleanRaw, composedLower: currentLower, previousWord: previousWord, limit: 3)
+        }
+        
         // 1. Check unaccented stem lookup FIRST (REQ-008, REQ-010)
         let stemSource = currentSyllable.isEmpty ? rawStem : currentSyllable
         let cleanStem = VietnameseDictionary.stripVietnameseDiacritics(stemSource).lowercased()
@@ -234,7 +246,6 @@ public final class AutoWordingEngine: @unchecked Sendable {
         
         // 2. Check sorted signature (O(1) transposition lookup) SECOND (REQ-008, REQ-030)
         let stemOnset = VietnameseDictionary.extractVietnameseOnset(cleanStem)
-        let cleanRaw = rawStem.lowercased()
         let rawSig = String(cleanRaw.sorted())
         if results.count < 8, let matches = dict.telexSignatureToWords[rawSig] {
             for m in matches where !results.contains(m) && VietnameseDictionary.extractVietnameseOnset(VietnameseDictionary.stripVietnameseDiacritics(m)) == stemOnset {
@@ -274,7 +285,6 @@ public final class AutoWordingEngine: @unchecked Sendable {
         }
         
         // Place candidates strictly equal to currentSyllable.lowercased() after distinct accented candidates (REQ-008)
-        let currentLower = currentSyllable.lowercased()
         var distinctAccented: [String] = []
         var exactMatches: [String] = []
         for word in modifierRanked {
@@ -285,7 +295,16 @@ public final class AutoWordingEngine: @unchecked Sendable {
             }
         }
         let vietnameseSorted: [String]
-        if currentSyllable.count < rawStem.count && !distinctAccented.isEmpty && !hasToneMark(currentSyllable) {
+        if !spatialMatches.isEmpty {
+            var frontList: [String] = []
+            for sm in spatialMatches {
+                if !frontList.contains(sm) { frontList.append(sm) }
+            }
+            for w in (distinctAccented + exactMatches) {
+                if !frontList.contains(w) { frontList.append(w) }
+            }
+            vietnameseSorted = frontList
+        } else if currentSyllable.count < rawStem.count && !distinctAccented.isEmpty && !hasToneMark(currentSyllable) {
             vietnameseSorted = distinctAccented + exactMatches
         } else if !distinctAccented.isEmpty && !hasToneMark(currentSyllable) {
             vietnameseSorted = distinctAccented + exactMatches
@@ -321,10 +340,13 @@ public final class AutoWordingEngine: @unchecked Sendable {
         guard !combinedTexts.isEmpty else { return [] }
         
         let replaceLen = currentSyllable.isEmpty ? rawStem.count : currentSyllable.count
+        let isCap = rawStem.first?.isUppercase == true || currentSyllable.first?.isUppercase == true
         let candidates = Array(combinedTexts.prefix(3).enumerated().map { index, text in
             let isEng = engCandidates.contains(text)
-            let kind: CandidateKind = isEng ? .correction : (isWrongSpelling ? .correction : (stemMatches.contains(text) ? .stemCompletion : .correction))
-            return WordCandidate(id: index, text: text, kind: kind, replaceLength: replaceLen)
+            let isSpatial = spatialMatches.contains(text)
+            let kind: CandidateKind = (isEng || isSpatial || isWrongSpelling) ? .correction : (stemMatches.contains(text) ? .stemCompletion : .correction)
+            let formattedText = isCap ? (text.prefix(1).uppercased() + text.dropFirst()) : text
+            return WordCandidate(id: index, text: formattedText, kind: kind, replaceLength: replaceLen)
         })
         if !candidates.isEmpty {
             OpenKeyLogger.shared.log(.autoWording, "Stem '\(rawStem)' candidates: \(candidates.map(\.text))")

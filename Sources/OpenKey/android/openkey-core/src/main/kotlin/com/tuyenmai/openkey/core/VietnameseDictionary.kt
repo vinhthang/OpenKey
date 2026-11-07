@@ -35,7 +35,7 @@ class VietnameseDictionary private constructor() {
             'u' to Pair("u", ""), 'ú' to Pair("u", "s"), 'ù' to Pair("u", "f"), 'ủ' to Pair("u", "r"), 'ũ' to Pair("u", "x"), 'ụ' to Pair("u", "j"),
             'ư' to Pair("uw", ""), 'ứ' to Pair("uw", "s"), 'ừ' to Pair("uw", "f"), 'ử' to Pair("uw", "r"), 'ữ' to Pair("uw", "x"), 'ự' to Pair("uw", "j"),
             'y' to Pair("y", ""), 'ý' to Pair("y", "s"), 'ỳ' to Pair("y", "f"), 'ỷ' to Pair("y", "r"), 'ỹ' to Pair("y", "x"), 'ỵ' to Pair("y", "j"),
-            'đ' to Pair("d", "")
+            'đ' to Pair("dd", "")
         )
 
         private val U_HORN_CHARS = setOf('ư', 'ứ', 'ừ', 'ử', 'ữ', 'ự')
@@ -110,8 +110,113 @@ class VietnameseDictionary private constructor() {
         }
 
         private val invalidSyllables: Set<String> = setOf(
-            "uẻ", "uè", "ué", "uẹ", "uẽ", "mỏe", "cỏe", "trúe", "cáe", "báe", "pủe", "sủe"
+            "uẻ", "uè", "ué", "uẹ", "uẽ", "mỏe", "cỏe", "trúe", "cáe", "báe", "pủe", "sủe",
+            "nhưn", "nhứn", "nhừn", "nhửn", "nhữn", "nhựn"
         )
+
+        val QWERTY_NEIGHBORS: Map<Char, String> = mapOf(
+            'q' to "wa", 'w' to "qase", 'e' to "wsdr", 'r' to "edft", 't' to "rfgy",
+            'y' to "tghu", 'u' to "yhji", 'i' to "ujko", 'o' to "iklp", 'p' to "ol",
+            'a' to "qwsz", 's' to "weadzx", 'd' to "erfcxs", 'f' to "rtgvcd", 'g' to "tyhbvf",
+            'h' to "yujnbg", 'j' to "uikmnh", 'k' to "iojlm", 'l' to "opk",
+            'z' to "asx", 'x' to "sdzc", 'c' to "dfxv", 'v' to "fgcb", 'b' to "ghvn",
+            'n' to "hjbm", 'm' to "jkn"
+        )
+
+        fun isQwertyAdjacent(c1: Char, c2: Char): Boolean =
+            QWERTY_NEIGHBORS[c1]?.contains(c2) == true
+
+        fun extractToneKey(word: String): String {
+            for (ch in word.lowercase()) {
+                if ("áắấéếíóốớúứý".contains(ch)) return "s"
+                if ("àằầèềìòồờùừỳ".contains(ch)) return "f"
+                if ("ảẳẩẻểỉỏổởủửỷ".contains(ch)) return "r"
+                if ("ãẵẫẽễĩõỗỡũữỹ".contains(ch)) return "x"
+                if ("ạặậẹệịọộợụựỵ".contains(ch)) return "j"
+            }
+            return ""
+        }
+
+        fun endModifierTelexKeys(word: String): List<String> {
+            val asciiBase = stripVietnameseDiacritics(word)
+            val toneKey = extractToneKey(word)
+            var mod: String? = null
+            val lower = word.lowercase()
+            if (lower.contains("ă")) {
+                mod = "w"
+            } else if (lower.contains("â")) {
+                mod = "a"
+            } else if (lower.contains("ê")) {
+                mod = "e"
+            } else if (lower.contains("ô")) {
+                mod = "o"
+            } else if (lower.contains("ơ") || lower.contains("ư")) {
+                mod = "w"
+            }
+            val variants = mutableListOf<String>()
+            if (mod != null) {
+                variants.add(asciiBase + mod + toneKey)
+                if (toneKey.isNotEmpty()) {
+                    variants.add(asciiBase + toneKey + mod)
+                }
+                if (lower.startsWith("đ")) {
+                    variants.add("d" + asciiBase + mod + toneKey)
+                    if (toneKey.isNotEmpty()) {
+                        variants.add("d" + asciiBase + toneKey + mod)
+                    }
+                }
+            }
+            return variants
+        }
+
+        fun inlineToneTelexKeys(word: String): List<String> {
+            val canon = canonicalTelexKey(word)
+            val toneChar = canon.lastOrNull() ?: return emptyList()
+            if (!"sfrxj".contains(toneChar)) return emptyList()
+            val tone = toneChar.toString()
+            val body = canon.dropLast(1)
+            val vowels = setOf('a', 'e', 'i', 'o', 'u', 'y', 'w')
+            val variants = mutableListOf<String>()
+            for (i in body.indices) {
+                if (vowels.contains(body[i])) {
+                    if (i + 1 < body.length) {
+                        val cand = body.substring(0, i + 1) + tone + body.substring(i + 1)
+                        if (!variants.contains(cand)) variants.add(cand)
+                    }
+                }
+            }
+            if (body.endsWith("ng")) {
+                val withoutN = body.dropLast(2) + tone + "g"
+                if (!variants.contains(withoutN)) variants.add(withoutN)
+            }
+            return variants
+        }
+
+        fun canonicalizeTelexKeystrokes(raw: String): String {
+            val lower = raw.lowercase()
+            val vowels = setOf('a', 'e', 'i', 'o', 'u', 'y')
+            val tones = setOf('s', 'f', 'r', 'x', 'j')
+            if (lower.length < 3) return lower
+            val firstVowelIdx = lower.indexOfFirst { vowels.contains(it) }
+            if (firstVowelIdx < 0 || firstVowelIdx + 1 >= lower.length - 1) return lower
+            for (i in (firstVowelIdx + 1) until (lower.length - 1)) {
+                val ch = lower[i]
+                if (tones.contains(ch)) {
+                    return lower.removeRange(i, i + 1) + ch
+                }
+            }
+            return lower
+        }
+
+        fun hasValidVietnameseOnset(rawLower: String): Boolean {
+            val vowels = setOf('a', 'e', 'i', 'o', 'u', 'y')
+            val onset = rawLower.takeWhile { !vowels.contains(it) }
+            val validOnsets = setOf(
+                "", "b", "c", "ch", "d", "dd", "g", "gh", "gi", "h", "k", "kh",
+                "l", "m", "n", "ng", "ngh", "nh", "p", "ph", "qu", "r", "s", "t", "th", "tr", "v", "x"
+            )
+            return validOnsets.contains(onset)
+        }
 
         private val validOeOnsets: Set<String> = setOf("", "ch", "h", "kh", "l", "ng", "nh", "t", "x", "gi", "qu")
         private fun isValidOeSyllable(word: String): Boolean {
@@ -129,6 +234,8 @@ class VietnameseDictionary private constructor() {
     val stemToWords: Map<String, List<String>>
     val telexSignatureToWords: Map<String, List<String>>
     val compoundBigrams: Map<String, List<String>>
+    val telexKeyToSyllable: Map<String, String>
+    val stemToneToSyllable: Map<String, String>
 
     val englishWords: Set<String>
     val englishPriorityWords: Set<String>
@@ -187,6 +294,54 @@ class VietnameseDictionary private constructor() {
 
         this.stemToWords = stems
         this.telexSignatureToWords = signatures
+
+        val telexMap = mutableMapOf<String, String>()
+        fun putCandidate(map: MutableMap<String, String>, key: String, word: String) {
+            if (key.length < 2) return
+            val wordPrio = priorityMap[word] ?: 50
+            val existingPrio = priorityMap[map[key]] ?: -1
+            if (wordPrio > existingPrio) {
+                map[key] = word
+            }
+        }
+
+        for (word in rawSyllables) {
+            val canon = canonicalTelexKey(word)
+            putCandidate(telexMap, canon, word)
+            if (canon.contains("uow")) {
+                putCandidate(telexMap, canon.replaceFirst("uow", "uwow"), word)
+            }
+            for (endMod in endModifierTelexKeys(word)) {
+                putCandidate(telexMap, endMod, word)
+            }
+            for (inlineTone in inlineToneTelexKeys(word)) {
+                putCandidate(telexMap, inlineTone, word)
+            }
+        }
+        this.telexKeyToSyllable = telexMap
+
+        val stemMap = mutableMapOf<String, String>()
+        for (word in rawSyllables) {
+            val hasTone = word.any { it in "áắấéếíóốớúứýàằầèềìòồờùừỳảẳẩẻểỉỏổởủửỷãẵẫẽễĩõỗỡũữỹạặậẹệịọộợụựỵ" }
+            val hasHatOrHorn = word.any { it in "ăắằẳẵặâấầẩẫậêếềểễệôốồổỗộơớờởỡợưứừửữựđ" }
+            if (hasTone && hasHatOrHorn) {
+                val toneKey = extractToneKey(word)
+                if (toneKey.isNotEmpty()) {
+                    val asciiBase = stripVietnameseDiacritics(word)
+                    val stemKey1 = asciiBase + toneKey
+                    if (telexMap[stemKey1] == null) {
+                        putCandidate(stemMap, stemKey1, word)
+                    }
+                    if (word.startsWith("đ")) {
+                        val stemKey2 = "d" + asciiBase + toneKey
+                        if (telexMap[stemKey2] == null) {
+                            putCandidate(stemMap, stemKey2, word)
+                        }
+                    }
+                }
+            }
+        }
+        this.stemToneToSyllable = stemMap
 
         val prioRaw = "test tests testing tested tester list lists this best rest west nest fest jest pest vest zest host hosts post posts most cost costs lost fast last past cast vast mast east just must rust dust gust bust lust trust first next text texts context view views review new news few knew crew drew grew flew blew chew skew stew more core cores store stores score scores shore bore fore lore pore sore tore wore swore ignore restore explore before care cares share shares ware wares bare dare fare hare mare pare rare tare aware spare square stare compare prepare declare fire fires wire wires hire hires tire tires dire mire sire spire desire require inspire acquire entire retire pure sure cure lure obscure secure ensure insure mature nature future feature picture structure culture capture lecture measure pleasure treasure pressure closure exposure failure figure architecture true blue clue glue due cue sue issue issues value values continue statue venue rescue argue queue user users use uses used using useful useless abuse accuse excuse refuse confuse peruse fuse muse ruse case cases base bases based basic phase phases chase erase phrase lease please release increase decrease cease grease tease disease close closes closed closing choose chose chosen lose loses loose loosen goose moose noose pose poses rose nose hose dose prose those whose purpose suppose propose expose impose compose dispose oppose vars chars cors nums docs args opts props refs errs logs bugs tags tabs urls apis sdks cli gui tree trees free three agree degree see sees seed seeds seek seeks seems seemed need needs needed feed feeds feel feels feet keep deep deepseek sleep sweep weep beep jeep peep seep steep creep cheese breeze freeze squeeze sneeze wheeze week weeks weekend geek geeks cheek creek sleek meek peek reek leek leaf deaf meet street sweet sheet fleet greet tweet beet too tool tools tooth boot root shoot foot loot soot hoot moot food foods good goods wood woods hood mood stood blood flood book books look looks took cook hook shook brook crook nook cool pool fool wool stool spool school rooms zoom bloom broom groom spoon loop poop hoop scoop troop stoop droop snoop poor doors floor add adds added did odd odds boss loss moss toss cross floss gloss pass passed class glass mass bass grass brass less mess ness press dress stress express address process success access assess possess obsess confess profess recess excess princess unless bless chess guess miss kiss bliss hiss swiss abyss mix fix box fox wax fax flex apex index complex vertex vortex cortex mutex regex telex unix linux nginx prefix suffix matrix phoenix helix remix unmix affix infix hotfix bugfix off iff buff cuff puff ruff stuff bluff fluff scuff snuff staff cliff skiff sniff stiff whiff diff diffs tarp carp harp sharp warp scarp corp corps we with what when where which while who why will would want work world word well way went water watch wait walk think here mere were goes does toes foes woes hoes shoes heroes zeroes echoes her hers hero errors cars bars wars stars chairs hairs pairs airs arms hours years ours yours tours pours fours floors ears fears tears bears wears hears gears pears appears clears nears beers furs occurs worst worse burst thirst horse course nurse purse curse verse parse sense theme chest born burn turn term down town own low now row lots its dad"
         val lookbackRaw = "is as os us if of or for nor far car bar jar tar war par mar scar star char ban can dan fan man pan ran tan van wan plan scan span clan tran his has was gas bus plus thus on in an at it to do go no so up by my we he me be sex vex max six tax lax hex moon noon soon seen seem beef reef room boom doom loom boots roots loops meets keeps moor door there these"
@@ -452,6 +607,208 @@ class VietnameseDictionary private constructor() {
         return null
     }
 
+    fun findVietnameseSpatialMatch(
+        rawLower: String,
+        composedLower: String,
+        previousWord: String? = null
+    ): String? {
+        return findVietnameseSpatialCandidates(rawLower, composedLower, previousWord, 1).firstOrNull()
+    }
+
+    fun findVietnameseSpatialCandidates(
+        rawLower: String,
+        composedLower: String,
+        previousWord: String? = null,
+        limit: Int = 3
+    ): List<String> {
+        if (rawLower.length < 3 ||
+            isValidVietnameseSyllable(composedLower) ||
+            isEnglishWord(rawLower) ||
+            isEnglishWord(composedLower) ||
+            keepWords.contains(rawLower)
+        ) {
+            return emptyList()
+        }
+
+        data class CandidateMatch(
+            val syllable: String,
+            val isFullTelex: Boolean,
+            val isExactMatch: Boolean,
+            val isOnsetRepaired: Boolean,
+            val isDirectZeroEdit: Boolean,
+            val isDeletion: Boolean
+        )
+
+        val candidateMap = mutableMapOf<String, CandidateMatch>()
+
+        fun lookupTelexCandidate(candKey: String): Pair<String, Boolean>? {
+            telexKeyToSyllable[candKey]?.let { return Pair(it, true) }
+            val canonKey = canonicalizeTelexKeystrokes(candKey)
+            if (canonKey != candKey) {
+                telexKeyToSyllable[canonKey]?.let { return Pair(it, true) }
+            }
+            stemToneToSyllable[candKey]?.let { return Pair(it, false) }
+            if (canonKey != candKey) {
+                stemToneToSyllable[canonKey]?.let { return Pair(it, false) }
+            }
+            return null
+        }
+
+        fun addCandidate(
+            candKey: String,
+            isExact: Boolean,
+            isOnsetRepaired: Boolean,
+            isDirectZeroEdit: Boolean = false,
+            isDeletion: Boolean = false
+        ) {
+            val res = lookupTelexCandidate(candKey) ?: return
+            val syllable = res.first
+            val isFull = res.second
+            if (syllable.none { it.code > 127 }) return
+
+            val existing = candidateMap[syllable]
+            if (existing != null) {
+                candidateMap[syllable] = CandidateMatch(
+                    syllable = syllable,
+                    isFullTelex = existing.isFullTelex || isFull,
+                    isExactMatch = existing.isExactMatch || isExact,
+                    isOnsetRepaired = existing.isOnsetRepaired || isOnsetRepaired,
+                    isDirectZeroEdit = existing.isDirectZeroEdit || isDirectZeroEdit,
+                    isDeletion = existing.isDeletion && isDeletion
+                )
+            } else {
+                candidateMap[syllable] = CandidateMatch(
+                    syllable = syllable,
+                    isFullTelex = isFull,
+                    isExactMatch = isExact,
+                    isOnsetRepaired = isOnsetRepaired,
+                    isDirectZeroEdit = isDirectZeroEdit,
+                    isDeletion = isDeletion
+                )
+            }
+        }
+
+        val canonRaw = canonicalizeTelexKeystrokes(rawLower)
+        val hadInvalidOnset = !hasValidVietnameseOnset(rawLower)
+
+        // Class 1: Exact Omitted Modifier / Fast Telex & Stored Typo
+        addCandidate(rawLower, isExact = true, isOnsetRepaired = false, isDirectZeroEdit = true, isDeletion = false)
+        if (canonRaw != rawLower) {
+            addCandidate(canonRaw, isExact = true, isOnsetRepaired = false, isDirectZeroEdit = true, isDeletion = false)
+        }
+        val typo = vietnameseTypoCorrections[composedLower] ?: vietnameseTypoCorrections[rawLower]
+        if (typo != null) {
+            candidateMap[typo] = CandidateMatch(
+                syllable = typo,
+                isFullTelex = true,
+                isExactMatch = true,
+                isOnsetRepaired = false,
+                isDirectZeroEdit = true,
+                isDeletion = false
+            )
+        }
+
+        // Class 2: 1-Edit QWERTY-Neighbor Substitution (Any Position)
+        val keysToMutate = if (canonRaw != rawLower) listOf(rawLower, canonRaw) else listOf(rawLower)
+        for (baseStr in keysToMutate) {
+            val chars = baseStr.toCharArray()
+            for (i in chars.indices) {
+                val origChar = chars[i]
+                val neighbors = QWERTY_NEIGHBORS[origChar] ?: continue
+                for (nb in neighbors) {
+                    val mutated = chars.clone()
+                    mutated[i] = nb
+                    val candKey = String(mutated)
+                    val onsetRepaired = hadInvalidOnset && hasValidVietnameseOnset(candKey)
+                    addCandidate(candKey, isExact = false, isOnsetRepaired = onsetRepaired, isDirectZeroEdit = false, isDeletion = false)
+                }
+            }
+        }
+
+        // Class 3: Adjacent Key Transposition (Any Position)
+        for (baseStr in keysToMutate) {
+            val chars = baseStr.toCharArray()
+            for (i in 0 until (chars.size - 1)) {
+                val tmp = chars[i]
+                chars[i] = chars[i + 1]
+                chars[i + 1] = tmp
+                val candKey = String(chars)
+                val onsetRepaired = hadInvalidOnset && hasValidVietnameseOnset(candKey)
+                addCandidate(candKey, isExact = false, isOnsetRepaired = onsetRepaired, isDirectZeroEdit = false, isDeletion = false)
+                val tmp2 = chars[i]
+                chars[i] = chars[i + 1]
+                chars[i + 1] = tmp2
+            }
+        }
+
+        // Class 4: 1-Extra-Key QWERTY-Neighbor / Duplicate Deletion (for rawLower.length >= 5)
+        if (rawLower.length >= 5) {
+            for (baseStr in keysToMutate) {
+                val chars = baseStr.toCharArray()
+                for (i in 1 until chars.size) {
+                    if (i == 1 && chars[0] == chars[1] && (chars[0] == 'd' || chars[0] == 'a' || chars[0] == 'e' || chars[0] == 'o')) {
+                        continue
+                    }
+                    val deletedChar = chars[i]
+                    val isDuplicate = (deletedChar == chars[i - 1]) ||
+                            (i + 1 < chars.size && deletedChar == chars[i + 1])
+                    val isNeighbor = isQwertyAdjacent(deletedChar, chars[i - 1]) ||
+                            (i + 1 < chars.size && isQwertyAdjacent(deletedChar, chars[i + 1]))
+                    if (isDuplicate || isNeighbor) {
+                        val sb = StringBuilder(baseStr)
+                        sb.deleteCharAt(i)
+                        val candKey = sb.toString()
+                        val onsetRepaired = hadInvalidOnset && hasValidVietnameseOnset(candKey)
+                        addCandidate(candKey, isExact = false, isOnsetRepaired = onsetRepaired, isDirectZeroEdit = false, isDeletion = true)
+                    }
+                }
+            }
+        }
+
+        val prevClean = previousWord?.trim()?.lowercase() ?: ""
+        val priorityMap = VietnameseDictionaryCorpus.priorityMap
+        val toneModKeys = setOf('s', 'f', 'r', 'x', 'j', 'w')
+        val rawHasToneMod = rawLower.any { it in toneModKeys }
+
+        val scoredCandidates = mutableListOf<Pair<String, Int>>()
+        for ((syllable, match) in candidateMap) {
+            val hasEvidence = match.isDirectZeroEdit ||
+                    match.isExactMatch ||
+                    match.isOnsetRepaired ||
+                    (prevClean.isNotEmpty() && compoundBigrams[prevClean]?.contains(syllable) == true) ||
+                    rawHasToneMod ||
+                    (priorityMap[syllable] ?: 50) >= 95
+            if (!hasEvidence) continue
+
+            var score = priorityMap[syllable] ?: 50
+            if (prevClean.isNotEmpty() && compoundBigrams[prevClean]?.contains(syllable) == true) {
+                score += 1000
+            }
+            if (match.isDirectZeroEdit) {
+                score += 600
+            }
+            if (match.isDeletion) {
+                score -= 150
+            }
+            if (match.isExactMatch) {
+                score += 400
+            }
+            if (match.isOnsetRepaired) {
+                score += 500
+            }
+            if (match.isFullTelex) {
+                score += 300
+            }
+            if (rawHasToneMod && syllable != stripVietnameseDiacritics(syllable)) {
+                score += 200
+            }
+            scoredCandidates.add(Pair(syllable, score))
+        }
+
+        scoredCandidates.sortWith(compareByDescending { it.second })
+        return scoredCandidates.take(limit).map { it.first }
+    }
+
     fun computeEnglishCandidates(rawStem: String, limit: Int = 3): List<String> {
         val clean = rawStem.lowercase().trim()
         if (clean.isEmpty()) return emptyList()
@@ -646,6 +1003,17 @@ object VietnameseDictionaryCorpus {
         "giao" to 95,
         "giàu" to 92,
         "giấy" to 95,
+        "nghĩa" to 96,
+        "ngày" to 98,
+        "thử" to 94,
+        "chưa" to 96,
+        "phải" to 97,
+        "những" to 98,
+        "hoàng" to 95,
+        "muốn" to 97,
+        "buồn" to 94,
+        "đường" to 96,
+        "trường" to 96,
     )
 
     private const val SYLLABLES_0 = "a ai am an ang anh ao au ay ba bai bam ban bang banh bao bau bay be bem ben beng beo bi bia bim bin binh biu biêm biên biêng biếc biếm biến biếng biếp biết biềm biền biềng biểm biển biểng biểu biễm biễn biễng biệc biệm biện biệng biệp biệt bo boai boan boang boanh boao boay boe boeo boi bom bon bong boài boàn boàng boành boào boày boác boách boái boán boáng boánh boáo boáp boát boáy boãi boãn boãng boãnh boão boãy boè boèo boé boéo boăn boăng boạc boạch boại boạn boạng boạnh boạo boạp boạt boạy boải boản boảng boảnh boảo boảy boắc boắn boắng boắt boằn boằng boẳn boẵn boẵng boặc boặn boặng boặt boẹ boẹo boẻ boẻo boẽ boẽo bu bua bue bui bum bun bung buy buya buynh buyu buyên buyến buyết buyền buyển buyễn buyện buyệt buân buây buè bué buê buôi buôm buôn buông buý buýa buých buýnh buýu buơng buấn buất buấy buần buầy buẩn buẩy buẫn buẫy buận buật buậy buẹ buẻ buẽ buế buề buể buển buễ buệ buốc buối buốm buốn buống buốt buồi buồm buồn buồng buổi buổm buổng buỗi buỗm buỗn buỗng buộc buội buộm buộn buộng buột buớng buờng buởng buỡng buợng buỳ buỳa buỳnh buỳu buỵ buỵa buỵch buỵnh buỵu buỷ buỷa buỷnh buỷu buỹ buỹa buỹnh buỹu by byên byến byền byển byễn byện bà bài bàm bàn bàng bành bào bàu bày bá bác bách bái bám bán báng bánh báo báp bát báu báy bâm bân bâng bâu bây bã bãi bãm bãn bãng bãnh bão bãy bè bèm bèn bèng bèo bé béc bém bén béng béo bép bét bê bêm bên bêng bênh bêu bì bìa bìm bìn bình bìu bí bía bíc bích bím bín bính bíp bít bíu bò bòi bòm bòn bòng bó bóc bói bóm bón bóng bóp bót bô bôi bôm bôn bông bõ bõi bõm bõn bõng bù bùa bùi bùm bùn bùng bú búa búc búi búm bún búng búp bút bý băm băn băng bĩ bĩa bĩm bĩn bĩnh bĩu bũ bũa bũi bũm bũn bũng bơ bơi bơm bơn bơng bư bưa bưi bưm bưn bưng bươi bươm bươn bương bươu bước bưới bướm bướn bướng bướp bướt bướu bười bườm bườn bường bườu bưởi bưởm bưởn bưởng bưởu bưỡi bưỡm bưỡn bưỡng bưỡu bược bượi bượm bượn bượng bượp bượt bượu bạ bạc bạch bại bạm bạn bạng bạnh bạo bạp bạt bạu bạy bả bải bảm bản bảng bảnh bảo bảu bảy bấc bấm bấn bấng bấp bất bấu bấy bầm bần bầng bầu bầy bẩm bẩn bẩng bẩu bẩy bẫm bẫn bẫng bẫu bẫy bậc bậm bận bậng bập bật bậu bậy bắc bắm bắn bắng bắp bắt bằm bằn bằng bẳm bẳn bẳng bẵm bẵn bẵng bặc bặm bặn bặng bặp bặt bẹ bẹc bẹm bẹn bẹng bẹo bẹp bẹt bẻ bẻm bẻn bẻng bẻo bẽ bẽm bẽn bẽng bẽo"
@@ -923,7 +1291,8 @@ object VietnameseDictionaryCorpus {
         "xử" to listOf("lý", "phạt", "sự", "trí", "thế"),
         "yêu" to listOf("cầu", "thương", "quý", "chuộng"),
         "áp" to listOf("dụng", "đặt", "đảo", "lực", "bức", "suất", "tải"),
-        "ý" to listOf("nghĩa", "kiến", "thức", "nguyện", "chí", "định", "tứ", "vị", "tưởng"),
+        "có" to listOf("thể", "nghĩa", "ích", "lẽ", "hạn", "mặt", "tiền"),
+        "ý" to listOf("nghĩa", "kiến", "định", "thức", "tưởng", "chí", "muốn", "tứ", "vị", "đồ"),
         "điều" to listOf("khoản", "kiện", "hành", "chỉnh", "tra", "động", "lệ", "tiết", "trị"),
         "điểm" to listOf("số", "danh", "nhìn", "tựa", "cao", "nóng", "chỉ"),
         "điện" to listOf("thoại", "tử", "lực", "toán", "não", "năng", "cực", "trở", "thế", "từ", "ảnh", "báo", "đài", "hoa", "khí", "tín"),

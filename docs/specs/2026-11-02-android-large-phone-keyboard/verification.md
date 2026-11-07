@@ -635,3 +635,32 @@ rtk bash /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift/build-app.
 | `:app` | `OpenKeyAndroidAppTest` | `REQ-001`, `REQ-005`, `REQ-007`, `REQ-009`..`REQ-014`, `REQ-017`, `REQ-020`, `REQ-022`..`REQ-025` | 11 | 0 | PASSED |
 | `OpenKeySwiftTests` | `OpenKeyEngineTests` + `OpenKeyAutoWordingTests` + `OpenKeyEventTapTests` + `OpenKeyLoadTests` | `REQ-016`, `REQ-018`, `REQ-019`, `REQ-021`, `REQ-024` | 67 | 0 | PASSED |
 | **Total** | **Android (77) + macOS (67)** | **`REQ-001`..`REQ-025`** | **144** | **0** | **100% PASSED** |
+
+---
+
+## Run 9: Vietnamese Telex Keystroke-Level Spatial Auto-Correct (`"nfhiax"` → `"nghĩa"` & All 6 General Typo Classes Across `6,700+` Syllables) & Full-Cell Voronoi Touch Hit-Boxes (`2026-11-07T15:52:00+07:00`)
+
+### 1. Android Kotlin Unit Test Suite & Debug APK Assembly (`REQ-003`, `REQ-004`, `REQ-007`, `REQ-016`, `REQ-026`, `ADR-027`)
+**Command:**
+```bash
+cd /Users/thanghoang/github/OpenKey/Sources/OpenKey/android && rtk ./gradlew :openkey-core:test :app:testDebugUnitTest :app:assembleDebug
+```
+- **Result**: **`80/80` Android unit tests passed (`0` failures)** (`67` in `:openkey-core` + `13` in `:app`):
+  - `OpenKeyAndroidAppTest.testKeyButtonFullCellTouchHitBoxBeforeVisualPadding`: Verified `.pointerInput(key)` is applied before `.padding(horizontal = gapH, vertical = gapV)` in `KeyButton.kt` (`AC-026.1`).
+  - `BilingualAutoSwitchTest.testVietnameseTelexSpatialAutoCorrect`: Verified all 26 word-break Vietnamese mobile typo cases across all 6 general classes (`"nfhiax "` → `"nghĩa "`, `"nfhiax, "` → `"nghĩa, "`, `"ý nfhiax "` → `"ý nghĩa "`, `"ngjiax "` → `"nghĩa "`, `"gnhiax "` → `"nghĩa "`, `"ngfhiax "` → `"nghĩa "`, `"nfayf "` → `"ngày "`, `"nfuowif "` → `"người "`, `"nfuoif "` → `"người "`, `"kgoong "` → `"không "`, `"tguwr "` → `"thử "`, `"dsuwowcj "` → `"được "`, `"dsuocj "` → `"được "`, `"cguwa "` → `"chưa "`, `"pjair "` → `"phải "`, `"tiewngs "` → `"tiếng "`, `"nhueng "` → `"nhưng "`, `"nhuwnfx "` → `"những "`, `"hoafnf "` → `"hoàng "`, `"tiengs "` → `"tiếng "`, `"vietj "` → `"việt "`, `"nguoif "` → `"người "`, `"duocj "` → `"được "`, `"muons "` → `"muốn "`, `"buonf "` → `"buồn "`, `"truocs "` → `"trước "`) plus non-regression English preservation (`"fix "`, `"next "`, `"text "`, `"box "`) (`AC-026.2`).
+  - `AutoWordingEngineTest.testVietnameseTelexSpatialCandidateStrip`: Verified live candidate strip ranks `"nghĩa"`, `"không"`, `"tiếng"`, and `"người"` at index `0` (`CandidateKind.CORRECTION`) while typing `"nfhiax"`, `"kgoong"`, `"tiewngs"`, and `"nguoif"` before pressing `Space` (`AC-026.3`).
+
+### 2. macOS Swift Unit Test Suite (`REQ-016`, `REQ-026`, `ADR-027`)
+**Command:**
+```bash
+rtk swift test --package-path /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift
+```
+- **Result**: **`69/69` macOS Swift unit tests passed (`0` failures)** across 5 suites (`OpenKeyEngineTests`, `OpenKeyAutoWordingTests`, `OpenKeyEventTapTests`, `OpenKeyLoadTests`), verifying 1:1 parity across all 26 Vietnamese Telex spatial auto-correct cases, 4 non-regression English cases, and live candidate strip `CandidateKind.correction` ranking.
+
+### 3. Final Requirement Traceability Matrix (`REQ-001`..`REQ-026`)
+| Module / Pipeline | Test Suite / Workflow | Verified Requirements | Tests / Steps | Failures | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `:openkey-core` | `VietnameseEngineTest` + `BilingualAutoSwitchTest` + `AutoWordingEngineTest` + `ImePipelineAndContextTest` + `PhoneErgonomicsAndGestureTest` + `SmoothArchitectureTest` | `REQ-001`..`REQ-026` | 67 | 0 | PASSED |
+| `:app` | `OpenKeyAndroidAppTest` | `REQ-001`, `REQ-005`, `REQ-007`, `REQ-009`..`REQ-014`, `REQ-017`, `REQ-020`, `REQ-022`..`REQ-026` | 13 | 0 | PASSED |
+| `OpenKeySwiftTests` | `OpenKeyEngineTests` + `OpenKeyAutoWordingTests` + `OpenKeyEventTapTests` + `OpenKeyLoadTests` | `REQ-016`, `REQ-018`, `REQ-019`, `REQ-021`, `REQ-024`, `REQ-026` | 69 | 0 | PASSED |
+| **Total** | **Android (80) + macOS (69)** | **`REQ-001`..`REQ-026`** | **149** | **0** | **100% PASSED** |

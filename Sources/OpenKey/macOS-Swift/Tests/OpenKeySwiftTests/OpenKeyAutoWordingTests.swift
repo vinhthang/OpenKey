@@ -559,5 +559,38 @@ struct OpenKeyAutoWordingTests {
         #expect(dict.bigramRepairs["tiếng"]?.contains("việt") == true, "dict.bigramRepairs['tiếng'] must contain 'việt'")
     }
 
+    // MARK: - REQ-026, ADR-027: Live Spatial Candidate Generation (AC-026.3)
+    @Test("REQ-026, ADR-027: Live spatial auto-correct candidate ranking for nfhiax, kgoong, tiewngs, nguoif")
+    func testReq026LiveSpatialCandidateRanking() {
+        let engine = AutoWordingEngine.shared
+        let wasEnabled = engine.isEnabled
+        let wasSuggestions = engine.candidateSuggestionsEnabled
+        engine.isEnabled = true
+        engine.candidateSuggestionsEnabled = true
+        defer {
+            engine.isEnabled = wasEnabled
+            engine.candidateSuggestionsEnabled = wasSuggestions
+        }
+
+        let testCases: [(rawStem: String, currentSyllable: String, expected: String)] = [
+            ("nfhiax", "nfhiax", "nghĩa"),
+            ("kgoong", "kgoong", "không"),
+            ("tiewngs", "tiewngs", "tiếng"),
+            ("nguoif", "nguoif", "người")
+        ]
+
+        for (rawStem, currentSyllable, expected) in testCases {
+            let cands = engine.computeCurrentWordCandidates(
+                rawStem: rawStem,
+                currentSyllable: currentSyllable,
+                languagePriority: .vietnameseFirst,
+                bypassEnabledCheck: true
+            )
+            #expect(!cands.isEmpty, "Candidates for '\(rawStem)' must not be empty")
+            #expect(cands[0].text == expected, "Slot 0 candidate for '\(rawStem)' must be '\(expected)', got '\(cands[0].text)'")
+            #expect(cands[0].kind == .correction, "Slot 0 candidate kind for '\(rawStem)' must be .correction, got '\(cands[0].kind)'")
+        }
+    }
+
 }
 }

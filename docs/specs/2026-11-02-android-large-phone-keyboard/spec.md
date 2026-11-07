@@ -2,7 +2,7 @@
 
 - **Feature ID**: `2026-11-02-android-large-phone-keyboard`
 - **Type**: `enhancement`
-- **Version**: `1.6.0`
+- **Version**: `1.7.0`
 - **Status**: `In-Testing`
 - **Date**: `2026-11-07`
 - **Lineage**:
@@ -311,6 +311,30 @@ The goal of **OpenKey Android** (`Sources/OpenKey/android/`) is to keep the **vi
   1. **(`AC-025.1`)**: `InputContextEvaluator.evaluate` sets `isNumericField = true` for `TYPE_CLASS_NUMBER`, `TYPE_CLASS_PHONE`, and `TYPE_CLASS_DATETIME`, and `isNumericField = false` for `TYPE_CLASS_TEXT`.
   2. **(`AC-025.2`)**: `KeyboardLayoutDefinition.getLayer(KeyboardLayer.NUMPAD, ...)` returns 4 rows of 4 keys (`1 2 3 -`, `4 5 6 Space`, `7 8 9 ⌫`, `, 0 . Enter`) whose weights sum to `1.00f` per row, and `KeyboardScreen` automatically switches to `KeyboardLayer.NUMPAD` (and hides the top candidate strip) whenever `editorUiState.isNumericField == true`.
 
+### `REQ-026` — Vietnamese Telex Keystroke-Level Spatial Auto-Correct (`"nfhiax"` → `"nghĩa"`) & Full-Cell Voronoi Touch Hit-Boxes (`KeyButton.kt`, `VietnameseDictionary.kt`, `BilingualAutoSwitchEngine.kt`, `AutoWordingEngine.kt`, `VietnameseDictionary.swift`, `BilingualAutoSwitchEngine.swift`, `AutoWordingEngine.swift`)
+- **Source Intent**: Verbatim user prompt (`2026-11-07`): *"do a research about this, on android it is very easy to input a wrong word, like this, nfhiax, it should be nghĩa, how can we resolve the issue"* / *"yes"*.
+- **Description**:
+  1. **Root-Cause Defect**:
+     - **Dead-Zone Seam in `KeyButton.kt`**: `.padding(horizontal = gapH, vertical = gapV)` (`4dp × 5dp`) was applied *before* `.pointerInput(key)` in `KeyButton.kt`, shrinking each key's active touch target and leaving dead seams between adjacent keys (`f` and `g`).
+     - **Telex State-Machine Cascade on Consonant Fat-Finger (`"nfhiax"`)**: When a user intends to type `"nghĩa"` (`n-g-h-i-a-x`) and grazes `'f'` (directly left of `'g'` on QWERTY Row 3) instead of `'g'`, `'f'` has no preceding vowel and is inserted as a raw consonant (`"nfh"`). Because `"nfh"` is not a valid Vietnamese initial consonant in `_consonantTable`, subsequent Telex vowel/tone modifiers (`'x'` for *dấu ngã*) are rejected by phonotactic validation, producing `"nfhiax"` (surface Unicode Edit Distance = 3 from `"nghĩa"`, but raw Telex Keystroke Edit Distance = 1 where `'f'` and `'g'` are direct QWERTY neighbors).
+  2. **Normative EARS Requirements**:
+     - `WHEN` rendering a key in `KeyButton.kt` (`Sources/OpenKey/android/app/src/main/java/com/tuyenmai/openkey/android/ui/KeyButton.kt`), `THE` `Box` modifier chain `SHALL` attach `.pointerInput(key)` **before** `.padding(horizontal = gapH, vertical = gapV)` so that 100% of the key's layout cell acts as a continuous Voronoi touch target with zero dead-zone seams between adjacent keys while preserving the visual One UI keycap gap.
+     - `WHEN` initializing `VietnameseDictionary` (both Kotlin `:openkey-core` and Swift `OpenKeySwiftCore`), `THE` dictionary `SHALL` fix `TELEX_BASE_MOD_MAP['đ']` to `Pair("dd", "")` and build two precomputed universal indexes across all `6,700+` valid Vietnamese syllables:
+       1. `telexKeyToSyllable: Map<String, String>` mapping canonical and free-order Telex keystroke strings (end-tone, inline-tone, and end-modifier permutations across all `6,700+` syllables) to their composed Vietnamese syllables, and
+       2. `stemToneToSyllable: Map<String, String>` mapping `(unaccentedASCIIStem + toneKey)` (e.g. `"tiengs"` → `"tiếng"`, `"vietj"` → `"việt"`, `"nguoif"` → `"người"`, `"duocj"` / `"dduocj"` → `"được"`, `"muons"` → `"muốn"`, `"buonf"` → `"buồn"`, `"truocs"` → `"trước"`, `"duongf"` → `"đường"`, `"truongf"` → `"trường"`) whenever the un-modified vowel cluster with that tone is phonotactically invalid in Vietnamese (`!isValidVietnameseSyllable(composedLower)`).
+     - `WHEN` a typed token in Vietnamese mode (`language == 1`) is neither a valid Vietnamese syllable (`!isValidVietnameseSyllable(composedLower)`) nor a valid English word (`!isEnglishWord(rawLower)` and `!isEnglishWord(composedLower)` and `!keepWords.contains(rawLower)`), `THE` `VietnameseDictionary.findVietnameseSpatialCandidates(rawLower, composedLower, previousWord, limit)` and `findVietnameseSpatialMatch(rawLower, composedLower, previousWord)` functions `SHALL` normalize free-order Telex keystrokes (`canonicalizeTelexKeystrokes`) and search `telexKeyToSyllable` and `stemToneToSyllable` across all 6 general classes of mobile typos:
+       1. **Class 1 — Exact Omitted Vowel-Hat/Horn/Stroke Repair (`stemToneToSyllable[rawLower]`)**: Repairing fast mobile Telex where a required `^`, `ơ/ư`, or `đ` modifier was omitted (`"tiengs"` → `"tiếng"`, `"vietj"` → `"việt"`, `"nguoif"` → `"người"`, `"duocj"` / `"dduocj"` → `"được"`, `"muons"` → `"muốn"`, `"buonf"` → `"buồn"`, `"truocs"` → `"trước"`),
+       2. **Class 2 — 1-Edit QWERTY-Adjacent Key Substitution** at any position (onset, vowel, coda, or tone key) across all `6,700+` syllables (e.g., `"nfhiax"` / `"ngjiax"` → `"nghĩa"`, `"nfayf"` → `"ngày"`, `"nfuowif"` / `"nfuoif"` → `"người"`, `"kgoong"` / `"kjoong"` → `"không"`, `"tguwr"` → `"thử"`, `"dsuwowcj"` / `"dfuwowcj"` / `"dsuocj"` → `"được"`, `"cguwa"` → `"chưa"`, `"pjair"` → `"phải"`, `"nhuwnfx"` → `"những"`, `"tiewngs"` / `"tierngs"` → `"tiếng"`, `"nhueng"` → `"nhưng"`),
+       3. **Class 3 — Adjacent Key Transposition** at any position (`"gnhiax"` / `"nhgiax"` → `"nghĩa"`, `"hkoong"` → `"không"`, `"tinegs"` → `"tiếng"`, `"ngouif"` → `"người"`),
+       4. **Class 4 — 1-Extra-Key QWERTY-Neighbor / Duplicate Deletion** for `rawLower.length >= 5` (`"ngfhiax"` → `"nghĩa"`, `"kghoong"` → `"không"`, `"nhuwngfx"` → `"những"`),
+       5. **Class 5 — Free-Order Inline-Tone + Spatial Edit** (`"hoafnf"` → `"hoafng"` → `"hoàng"`, `"toafm"` → `"toafn"` → `"toàn"`), and
+       6. **Class 6 — Context Bigram & Frequency Disambiguation**: Ranking all candidate syllables by `compoundBigrams[previousWord]` (`+1000`), onset/coda phonotactic repair priority (`+500`), full Telex match over stem-tone match (`+300`), and `priorityMap` frequency.
+     - `WHEN` typing a Vietnamese Telex word with any of the 6 typo classes, `THE` `AutoWordingEngine.computeCurrentWordCandidates` `SHALL` surface the top spatial repair candidates in Slot 1 of the live candidate strip (`CandidateKind.CORRECTION`), and `WHEN` a word-break key (`KEY_SPACE`, `KEY_COMMA`, `KEY_DOT`, `KEY_SLASH`, `KEY_SEMICOLON`, `KEY_QUOTE`) is pressed in `BilingualAutoSwitchEngine.evaluateWordBreakRestore`, `THE` engine `SHALL` automatically replace the corrupted word with the top match (preserving capitalization and single-backspace undo).
+- **Acceptance Criteria**:
+  1. **(`AC-026.1`)**: In `KeyButton.kt`, `.pointerInput(key)` is placed before `.padding(horizontal = gapH, vertical = gapV)` so touch targets cover the full key slot with zero dead-zone gaps.
+  2. **(`AC-026.2`)**: Typing `"nfhiax "`, `"nfhiax, "`, `"ý nfhiax "`, `"ngjiax "`, `"gnhiax "`, `"ngfhiax "`, `"nfayf "`, `"nfuowif "`, `"nfuoif "`, `"kgoong "`, `"tguwr "`, `"dsuwowcj "`, `"dsuocj "`, `"cguwa "`, `"pjair "`, `"tiewngs "`, `"nhueng "`, `"nhuwnfx "`, `"hoafnf "`, `"tiengs "`, `"vietj "`, `"nguoif "`, `"duocj "`, `"muons "`, `"buonf "`, and `"truocs "` in Vietnamese mode (`language == 1`) automatically produces `"nghĩa "`, `"nghĩa, "`, `"ý nghĩa "`, `"nghĩa "`, `"nghĩa "`, `"nghĩa "`, `"ngày "`, `"người "`, `"người "`, `"không "`, `"thử "`, `"được "`, `"được "`, `"chưa "`, `"phải "`, `"tiếng "`, `"nhưng "`, `"những "`, `"hoàng "`, `"tiếng "`, `"việt "`, `"người "`, `"được "`, `"muốn "`, `"buồn "`, and `"trước "` on both Android (`:openkey-core`) and macOS (`OpenKeySwiftCore`), while valid English words (`"test "`, `"feature "`, `"more "`, `"need "`) and valid Vietnamese syllables remain 100% untouched.
+  3. **(`AC-026.3`)**: While typing `"nfhiax"`, `"kgoong"`, `"tiewngs"`, or `"nguoif"` (before pressing `Space`), `AutoWordingEngine.computeCurrentWordCandidates` places `"nghĩa"`, `"không"`, `"tiếng"`, or `"người"` at index `0` (`CandidateKind.CORRECTION`) of the candidate strip.
+
 ---
 
 ## 3. Non-Goals
@@ -322,5 +346,6 @@ The goal of **OpenKey Android** (`Sources/OpenKey/android/`) is to keep the **vi
 
 ## 4. Sign-off
 - **Planning & Gate 1 + Gate 2 Approval (`v1.6.0` — `REQ-022`..`REQ-025`)**: Approved by user (`"proceed"`, `2026-11-07T09:54:37+07:00`).
+- **Planning & Gate 1 + Gate 2 Approval (`v1.7.0` — `REQ-026`, `ADR-027`)**: Approved by user (`"proceed"`, `2026-11-07T14:24:31+07:00`).
 
 

@@ -455,7 +455,7 @@ struct OpenKeyEngineTests {
     func canonicalTelexAndBilingualDictionary() {
         #expect(VietnameseDictionary.canonicalTelexKey(for: "việt") == "vieetj")
         #expect(VietnameseDictionary.canonicalTelexKey(for: "người") == "nguowif")
-        #expect(VietnameseDictionary.canonicalTelexKey(for: "được") == "duowcj")
+        #expect(VietnameseDictionary.canonicalTelexKey(for: "được") == "dduowcj")
         #expect(VietnameseDictionary.canonicalTelexKey(for: "toàn") == "toanf")
         #expect(VietnameseDictionary.canonicalTelexKey(for: "tiếng") == "tieengs")
         #expect(VietnameseDictionary.canonicalTelexKey(for: "cỏe") == "coer")
@@ -1450,6 +1450,71 @@ struct OpenKeyEngineTests {
         var sEng = VirtualScreen()
         sEng.typeASCII("auto correct featuere,")
         #expect(sEng.text == "auto correct feature,", "Typing 'auto correct featuere,' must auto-correct to 'auto correct feature,', got '\(sEng.text)'")
+    }
+
+    // MARK: - REQ-026, ADR-027: Vietnamese Telex Spatial Auto-Correct (AC-026.2)
+    @Test("REQ-026, ADR-027: Vietnamese Telex keystroke-level spatial auto-correct across all 6 typo classes")
+    func testReq026VietnameseTelexSpatialAutoCorrect() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        AutoWordingEngine.shared.isEnabled = true
+        AutoWordingEngine.shared.grammarRepairEnabled = true
+        defer {
+            OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+        }
+
+        let cases: [(String, String)] = [
+            ("nfhiax ", "nghĩa "),
+            ("nfhiax, ", "nghĩa, "),
+            ("ý nfhiax ", "ý nghĩa "),
+            ("ngjiax ", "nghĩa "),
+            ("gnhiax ", "nghĩa "),
+            ("ngfhiax ", "nghĩa "),
+            ("nfayf ", "ngày "),
+            ("nfuowif ", "người "),
+            ("nfuoif ", "người "),
+            ("kgoong ", "không "),
+            ("tguwr ", "thử "),
+            ("dsuwowcj ", "được "),
+            ("dsuocj ", "được "),
+            ("cguwa ", "chưa "),
+            ("pjair ", "phải "),
+            ("tiewngs ", "tiếng "),
+            ("nhueng ", "nhưng "),
+            ("nhuwnfx ", "những "),
+            ("hoafnf ", "hoàng "),
+            ("tiengs ", "tiếng "),
+            ("vietj ", "việt "),
+            ("nguoif ", "người "),
+            ("duocj ", "được "),
+            ("muons ", "muốn "),
+            ("buonf ", "buồn "),
+            ("truocs ", "trước ")
+        ]
+
+        for (input, expected) in cases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Typo '\(input)' must auto-correct to '\(expected)', got '\(s.text)'")
+        }
+
+        // English words and valid Vietnamese syllables must remain 100% untouched
+        let untouchedCases: [(String, String)] = [
+            ("test ", "test "),
+            ("feature ", "feature "),
+            ("more ", "more "),
+            ("need ", "need "),
+            ("anh ", "anh "),
+            ("sẽ ", "sẽ ")
+        ]
+        for (input, expected) in untouchedCases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Input '\(input)' must remain untouched as '\(expected)', got '\(s.text)'")
+        }
     }
 
 }

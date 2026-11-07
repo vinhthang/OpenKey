@@ -559,4 +559,23 @@ class OpenKeyAndroidAppTest {
         assertFalse("AndroidManifest.xml must not declare INTERNET permission", manifestContent.contains("android.permission.INTERNET"))
         assertFalse("AndroidManifest.xml must not declare ACCESS_NETWORK_STATE permission", manifestContent.contains("android.permission.ACCESS_NETWORK_STATE"))
     }
+
+    // 14. Voronoi Touch Hit-Box Seam Elimination (REQ-026, ADR-027, AC-026.1)
+    @Test
+    fun testKeyButtonPointerInputBeforePadding() {
+        val possiblePaths = listOf(
+            File("src/main/java/com/tuyenmai/openkey/android/ui/KeyButton.kt"),
+            File("app/src/main/java/com/tuyenmai/openkey/android/ui/KeyButton.kt"),
+            File("../app/src/main/java/com/tuyenmai/openkey/android/ui/KeyButton.kt"),
+            File("Sources/OpenKey/android/app/src/main/java/com/tuyenmai/openkey/android/ui/KeyButton.kt")
+        )
+        val file = possiblePaths.firstOrNull { it.exists() }
+        assertNotNull("KeyButton.kt must exist", file)
+        val content = file!!.readText()
+        val pointerIndex = content.indexOf(".pointerInput(key)")
+        val paddingIndex = content.indexOf(".padding(horizontal = gapH, vertical = gapV)")
+        assertTrue("pointerInput must exist in KeyButton.kt", pointerIndex != -1)
+        assertTrue("padding must exist in KeyButton.kt", paddingIndex != -1)
+        assertTrue("pointerInput must appear before padding in KeyButton.kt", pointerIndex < paddingIndex)
+    }
 }

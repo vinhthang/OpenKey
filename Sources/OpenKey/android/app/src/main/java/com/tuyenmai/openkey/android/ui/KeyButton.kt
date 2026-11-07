@@ -395,33 +395,6 @@ fun KeyButton(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = gapH, vertical = gapV)
-            .drawBehind {
-                val r = CornerRadius(cornerRadiusPx, cornerRadiusPx)
-                if (!isPressed) {
-                    drawRoundRect(
-                        color = Color(theme.keyBorderColor).copy(alpha = 0.45f),
-                        topLeft = Offset(0f, bevelHeightPx),
-                        size = size,
-                        cornerRadius = r
-                    )
-                }
-                drawRoundRect(
-                    color = bgFillColor,
-                    topLeft = Offset.Zero,
-                    size = size,
-                    cornerRadius = r
-                )
-                if (!isEnterKey) {
-                    drawRoundRect(
-                        color = Color(theme.keyBorderColor).copy(alpha = 0.35f),
-                        topLeft = Offset.Zero,
-                        size = size,
-                        cornerRadius = r,
-                        style = Stroke(width = strokeWidthPx)
-                    )
-                }
-            }
             .pointerInput(key) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -542,6 +515,33 @@ fun KeyButton(
                             }
                         }
                     }
+                }
+            }
+            .padding(horizontal = gapH, vertical = gapV)
+            .drawBehind {
+                val r = CornerRadius(cornerRadiusPx, cornerRadiusPx)
+                if (!isPressed) {
+                    drawRoundRect(
+                        color = Color(theme.keyBorderColor).copy(alpha = 0.45f),
+                        topLeft = Offset(0f, bevelHeightPx),
+                        size = size,
+                        cornerRadius = r
+                    )
+                }
+                drawRoundRect(
+                    color = bgFillColor,
+                    topLeft = Offset.Zero,
+                    size = size,
+                    cornerRadius = r
+                )
+                if (!isEnterKey) {
+                    drawRoundRect(
+                        color = Color(theme.keyBorderColor).copy(alpha = 0.35f),
+                        topLeft = Offset.Zero,
+                        size = size,
+                        cornerRadius = r,
+                        style = Stroke(width = strokeWidthPx)
+                    )
                 }
             },
         contentAlignment = Alignment.Center

@@ -361,4 +361,34 @@ class AutoWordingEngineTest {
 
         engine.spellCheckerBridge = null
     }
+
+    // 9. REQ-026, AC-026.3: Live spatial typo candidate ranking
+    @Test
+    fun testLiveVietnameseSpatialTypoCandidates() {
+        val engine = AutoWordingEngine.shared
+
+        // nfhiax -> nghĩa
+        val nfhiaxCands = engine.computeCurrentWordCandidates("nfhiax", "nfhĩa", false, LanguagePriority.VIETNAMESE_FIRST)
+        assertTrue(nfhiaxCands.isNotEmpty(), "Candidates for 'nfhiax' must not be empty")
+        assertEquals("nghĩa", nfhiaxCands[0].text, "Slot 1 candidate for 'nfhiax' must be 'nghĩa'")
+        assertEquals(CandidateKind.CORRECTION, nfhiaxCands[0].kind)
+
+        // kgoong -> không
+        val kgoongCands = engine.computeCurrentWordCandidates("kgoong", "kgoong", false, LanguagePriority.VIETNAMESE_FIRST)
+        assertTrue(kgoongCands.isNotEmpty(), "Candidates for 'kgoong' must not be empty")
+        assertEquals("không", kgoongCands[0].text, "Slot 1 candidate for 'kgoong' must be 'không'")
+        assertEquals(CandidateKind.CORRECTION, kgoongCands[0].kind)
+
+        // tiewngs -> tiếng
+        val tiewngsCands = engine.computeCurrentWordCandidates("tiewngs", "tiewngs", false, LanguagePriority.VIETNAMESE_FIRST)
+        assertTrue(tiewngsCands.isNotEmpty(), "Candidates for 'tiewngs' must not be empty")
+        assertEquals("tiếng", tiewngsCands[0].text, "Slot 1 candidate for 'tiewngs' must be 'tiếng'")
+        assertEquals(CandidateKind.CORRECTION, tiewngsCands[0].kind)
+
+        // nguoif -> người
+        val nguoifCands = engine.computeCurrentWordCandidates("nguoif", "nguòi", false, LanguagePriority.VIETNAMESE_FIRST)
+        assertTrue(nguoifCands.isNotEmpty(), "Candidates for 'nguoif' must not be empty")
+        assertEquals("người", nguoifCands[0].text, "Slot 1 candidate for 'nguoif' must be 'người'")
+        assertEquals(CandidateKind.CORRECTION, nguoifCands[0].kind)
+    }
 }
