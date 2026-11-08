@@ -1508,5 +1508,64 @@ struct OpenKeyEngineTests {
         }
     }
 
+    @Test("Regression: xoá, kiểu, nguyệt, nguyễn, thuở, gì, cừu, and disabled Auto Wording on macOS")
+    func testRegressionCorpusAndDisabledAutoWording() {
+        #expect(VietnameseDictionary.shared.isValidVietnameseSyllable("xoá") == true)
+        #expect(VietnameseDictionary.shared.isValidVietnameseSyllable("kiểu") == true)
+        #expect(VietnameseDictionary.shared.isValidVietnameseSyllable("kểu") == false)
+
+        let words: [(String, String)] = [
+            ("xoas ", "xoá "),
+            ("kieeur ", "kiểu "),
+            ("kieuer ", "kiểu "),
+            ("nguyeetj ", "nguyệt "),
+            ("nguyeenx ", "nguyễn "),
+            ("thuowr ", "thuở "),
+            ("gif ", "gì "),
+            ("hoaf ", "hoà "),
+            ("khoas ", "khoá "),
+            ("thoar ", "thoả "),
+            ("ddoas ", "đoá "),
+            ("cuwuf ", "cừu "),
+            ("huwou ", "hươu ")
+        ]
+
+        // 1. macOS default: Auto Wording disabled
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+        AutoWordingEngine.shared.isEnabled = false
+        AutoWordingEngine.shared.grammarRepairEnabled = false
+        for (input, expected) in words {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "AutoWording OFF: Typing '\(input)' must produce '\(expected)', got '\(s.text)'")
+        }
+
+        // 2. Auto Wording enabled
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        AutoWordingEngine.shared.isEnabled = true
+        AutoWordingEngine.shared.grammarRepairEnabled = true
+        defer {
+            OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+            AutoWordingEngine.shared.isEnabled = false
+            AutoWordingEngine.shared.grammarRepairEnabled = false
+        }
+        for (input, expected) in words {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "AutoWording ON: Typing '\(input)' must produce '\(expected)', got '\(s.text)'")
+        }
+
+        // 3. Grammar repair: "kieur " -> "kiểu "
+        OKEngineResetSession()
+        var s = VirtualScreen()
+        s.typeASCII("kieur ")
+        #expect(s.text == "kiểu ", "Typing 'kieur ' with grammarRepairEnabled=1 must produce 'kiểu ', got '\(s.text)'")
+    }
+
 }
 }

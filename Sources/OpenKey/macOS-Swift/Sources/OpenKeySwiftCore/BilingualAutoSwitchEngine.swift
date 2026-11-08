@@ -192,13 +192,17 @@ extension VietnameseEngineState {
             return false
         }
 
-        if tryCollapseDuplicateEnglishWord(breakKeyCode: breakKeyCode, handleCode: handleCode, fullRawLower: fullRawLower, dict: dict) {
-            return true
-        }
+        var bigramWord: String? = nil
+        if AutoWordingEngine.shared.isEnabled && AutoWordingEngine.shared.grammarRepairEnabled {
+            if tryCollapseDuplicateEnglishWord(breakKeyCode: breakKeyCode, handleCode: handleCode, fullRawLower: fullRawLower, dict: dict) {
+                return true
+            }
 
-        let isWordBreakKey = isWordBreakKey(breakKeyCode)
-        let (bigramWord, rewroteBigram) = tryApplyBigramGrammar(breakKeyCode: breakKeyCode, handleCode: handleCode, fullRawLower: fullRawLower, composedLower: composedLower, fullRawStr: fullRawStr, isWordBreakKey: isWordBreakKey, dict: dict)
-        if rewroteBigram { return true }
+            let isWordBreakKey = isWordBreakKey(breakKeyCode)
+            let (bgWord, rewroteBigram) = tryApplyBigramGrammar(breakKeyCode: breakKeyCode, handleCode: handleCode, fullRawLower: fullRawLower, composedLower: composedLower, fullRawStr: fullRawStr, isWordBreakKey: isWordBreakKey, dict: dict)
+            if rewroteBigram { return true }
+            bigramWord = bgWord
+        }
 
         let priority = effectiveLanguagePriority()
         let replacementWord = resolveWordReplacement(breakKeyCode: breakKeyCode, priority: priority, fullRawStr: fullRawStr, fullRawLower: fullRawLower, stdRawLower: stdRawLower, composed: composed, composedLower: composedLower, fullKeys: fullKeys, hasAnyDiacritic: hasAnyDiacritic, bigramWord: bigramWord, dict: dict)
@@ -372,6 +376,7 @@ extension VietnameseEngineState {
         bigramWord: String?,
         dict: VietnameseDictionary
     ) -> String? {
+        guard AutoWordingEngine.shared.isEnabled && AutoWordingEngine.shared.grammarRepairEnabled else { return nil }
         var rw = bigramWord
         if rw == nil, let contraction = dict.englishContractionGrammar[fullRawLower] {
             if fullRawLower != "im" || priority == .englishFirst {
@@ -419,6 +424,20 @@ extension VietnameseEngineState {
                 }
             }
         }
+        applySentenceCapitalization(rw: &rw, breakKeyCode: breakKeyCode, composed: composed, composedLower: composedLower, fullRawStr: fullRawStr, hasAnyDiacritic: hasAnyDiacritic, priority: priority, dict: dict)
+        return (rw == composed) ? nil : rw
+    }
+
+    private func applySentenceCapitalization(
+        rw: inout String?,
+        breakKeyCode: UInt16,
+        composed: String,
+        composedLower: String,
+        fullRawStr: String,
+        hasAnyDiacritic: Bool,
+        priority: LanguagePriority,
+        dict: VietnameseDictionary
+    ) {
         let shouldCapSentence = sentenceEndedWithPunctuation && AutoWordingEngine.shared.isEnabled &&
             AutoWordingEngine.shared.grammarRepairEnabled && wordStartOk
         if breakKeyCode == KEY_SPACE { sentenceEndedWithPunctuation = false }
@@ -432,7 +451,6 @@ extension VietnameseEngineState {
                 }
             }
         }
-        return (rw == composed) ? nil : rw
     }
 
     private func shouldRestoreCurrentWord(

@@ -172,7 +172,7 @@ extension VietnameseEngineState {
         if index >= 3 {
             for i in stride(from: Int(index) - 1, through: 0, by: -1) {
                 let ch = CHR(i)
-                if ch == KEY_N || ch == KEY_C || ch == KEY_I || ch == KEY_M || ch == KEY_P || ch == KEY_T {
+                if ch == KEY_N || ch == KEY_C || ch == KEY_I || ch == KEY_M || ch == KEY_P || ch == KEY_T || ch == KEY_U {
                     if i - 2 >= 0 && CHR(i - 1) == KEY_O && CHR(i - 2) == KEY_U {
                         let mask1 = typingWord[i - 1].hasHornOrBreve
                         let mask2 = typingWord[i - 2].hasHornOrBreve

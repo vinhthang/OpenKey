@@ -40,14 +40,14 @@ public final class VietnameseDictionary: @unchecked Sendable {
     private static let FAKE_D_SHADOWS: Set<String> = ["dất", "dến", "diểm", "dồng", "dứng", "dể", "dữa"]
 
     private static let HALF_HORN_UO_REGEX = try! NSRegularExpression(pattern: "u[ơớờởỡợ](ng|nh|ch|[cmnptui])")
-    private static let UNHORNED_UO_REGEX = try! NSRegularExpression(pattern: "^(?!(?:qu|th|h)u[ơớờởỡợ]$).*?u[ơớờởỡợ]")
+    private static let UNHORNED_UO_REGEX = try! NSRegularExpression(pattern: "^(?!(?:q|qu|th|h|kh)u[ơớờởỡợ]$).*?u[ơớờởỡợ]")
     private static let GH_NGH_INVALID = try! NSRegularExpression(pattern: "^(gh|ngh)[aăâoôơuưyáắấóốớúứýàằầòồờùừỳảẳẩỏổởủửỷãẵẫõỗỡũữỹạặậọộợụựỵ]")
-    private static let G_NG_INVALID = try! NSRegularExpression(pattern: "^(g(?!h|i)|ng(?!h))[eêièềìéếíẻểỉẽễĩẹệị]")
+    private static let G_NG_INVALID = try! NSRegularExpression(pattern: "^(g(?!h|[iíìỉĩị])|ng(?!h))[eêièềìéếíẻểỉẽễĩẹệị]")
     private static let K_INVALID = try! NSRegularExpression(pattern: "^k[aăâoôơuưáắấóốớúứýàằầòồờùừỳảẳẩỏổởủửỷãẵẫõỗỡũữỹạặậọộợụựỵ]|^ky[a-zà-ỹ]")
     private static let C_INVALID = try! NSRegularExpression(pattern: "^c(?!h)[eêiyèềìỳéếíýẻểỉỷẽễĩỹẹệịỵ]|^chy[a-zà-ỹ]")
     private static let YE_INVALID = try! NSRegularExpression(pattern: "^(?:b|ch|d|đ|g|gh|gi|h|k|kh|l|m|n|ng|ngh|nh|p|ph|r|s|t|th|tr|v|x)y[êếềểễệ]")
     private static let INVALID_RHYMES = try! NSRegularExpression(pattern: "(?<![ưứừửữự])[ơớờởỡợ]ng$|[ưứừửữự][nm]$|[iíìỉĩị]c$|[eéèẻẽẹ]c$|^(?:b|ch|c|d|đ|l|m|n|t|v)u[ểễềếệ]n$")
-    private static let LABIAL_MEDIALS = try! NSRegularExpression(pattern: "^(?:b|m|p|ph|v)(?:oa|oă|oe|uê|uy|uâ)|^giu[ôâêy]")
+    private static let LABIAL_MEDIALS = try! NSRegularExpression(pattern: "^(?:b|m|p|ph|v)(?:oa|oă|oe|uê|uy|uâ)|^giu[ôốồổỗộâấầẩẫậêếềểễệyýỳỷỹỵ]", options: [])
     private static let NHIA_CHECK = try! NSRegularExpression(pattern: "^nh[iíìỉĩị][aáàảãạ]$|^nhĩa$")
 
     public static let QWERTY_NEIGHBORS: [Character: String] = [
@@ -216,7 +216,6 @@ public final class VietnameseDictionary: @unchecked Sendable {
     public static func isEnglishWord(_ lower: String) -> Bool { shared.isEnglishWord(lower) }
 
     private static let testWords = Set("wrongly feature android samsung keyboard windows drown bellow willow elbow rainbow swallow fellow pillow drool springtime hello foo bars series views speed feed weed need free agree sleep sheet fleet greet steel wheel feel heel peel brief chief grief thief friend field yield diesel tower flower power crowd clown brown crown gloom bloom broom groom room boom doom loom moon noon soon spoon gland stand brand grand trend blend great break speak track black block clock shock check quick thick brick trick truck structure crust drift frost blast clasp flask grasp".split(separator: " ").map(String.init))
-    private static let extraSyllables = Set("hoà hòa toà tòa xoà xòa loà lòa choà chòa khoà khòa ngoà ngòa đoà đòa".split(separator: " ").map(String.init))
 
     public let syllableSet: Set<String>, validTelexKeys: Set<String>
     public let telexKeyToSyllable: [String: String], stemToneToSyllable: [String: String]
@@ -242,7 +241,7 @@ public final class VietnameseDictionary: @unchecked Sendable {
     public var totalEntries: Int { syllableCount + compoundCount }
 
     private init() {
-        let rawSyllables = Array(Set(VietnameseDictionaryCorpus.rawSyllables + Self.extraSyllables)
+        let rawSyllables = Array(Set(VietnameseDictionaryCorpus.rawSyllables)
             .filter { Self.isValidOeSyllable($0) && Self.isPhonotacticallyValidVietnameseSyllable($0) })
         self.syllableSet = Set(rawSyllables)
         self.validTelexKeys = Set(rawSyllables.map { Self.canonicalTelexKey($0) })

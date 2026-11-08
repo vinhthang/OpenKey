@@ -265,23 +265,16 @@ import AppKit
         self.otherLanguage = defaults.bool(forKey: Keys.otherLanguage)
         self.switchKeyStatus = defaults.integer(forKey: Keys.switchKeyStatus)
         self.beepOnSwitch = defaults.bool(forKey: Keys.beepOnSwitch)
-        let autoWording = defaults.bool(forKey: Keys.autoWordingEnabled)
-        var gr = defaults.bool(forKey: Keys.grammarRepairEnabled)
-        var se = defaults.bool(forKey: Keys.shorthandExpansionEnabled)
-        var cs = defaults.bool(forKey: Keys.candidateSuggestionsEnabled)
-        if autoWording && !gr && !se && !cs {
-            gr = true
-            se = true
-            cs = true
-            defaults.set(true, forKey: Keys.grammarRepairEnabled)
-            defaults.set(true, forKey: Keys.shorthandExpansionEnabled)
-            defaults.set(true, forKey: Keys.candidateSuggestionsEnabled)
-        }
-        self.autoWordingEnabled = autoWording
-        self.grammarRepairEnabled = gr
-        self.doubleSpacePeriodEnabled = defaults.bool(forKey: Keys.doubleSpacePeriodEnabled)
-        self.shorthandExpansionEnabled = se
-        self.candidateSuggestionsEnabled = cs
+        defaults.set(false, forKey: Keys.autoWordingEnabled)
+        defaults.set(false, forKey: Keys.grammarRepairEnabled)
+        defaults.set(false, forKey: Keys.doubleSpacePeriodEnabled)
+        defaults.set(false, forKey: Keys.shorthandExpansionEnabled)
+        defaults.set(false, forKey: Keys.candidateSuggestionsEnabled)
+        self.autoWordingEnabled = false
+        self.grammarRepairEnabled = false
+        self.doubleSpacePeriodEnabled = false
+        self.shorthandExpansionEnabled = false
+        self.candidateSuggestionsEnabled = false
         let debugMode = defaults.bool(forKey: Keys.debugModeEnabled)
         self.debugModeEnabled = debugMode
         self.customShorthands = defaults.dictionary(forKey: Keys.customShorthands) as? [String: String] ?? [:]

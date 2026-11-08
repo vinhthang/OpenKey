@@ -416,22 +416,36 @@ public final class AutoWordingEngine: @unchecked Sendable {
             UInt16(typingWord[idx] & 0xFFFF)
         }
         
-        // Final consonant present after vowel span
+        // Final consonant present after vowel span or ieu/yeu cluster
         let hasFinalConsonant = (Int(index) - 1 > vei) && isConsonant(charAt(vei + 1))
-        guard hasFinalConsonant else { return false }
+        let isIeuYeu = vei >= vsi + 2 && (charAt(vsi) == KEY_I || charAt(vsi) == KEY_Y) && charAt(vsi + 1) == KEY_E && charAt(vsi + 2) == KEY_U
+        guard hasFinalConsonant || isIeuYeu else { return false }
+        
+        if isIeuYeu {
+            let hasToneOrInserting = isInsertingMark ||
+                (typingWord[vsi] & MARK_MASK) != 0 ||
+                (typingWord[vsi + 1] & MARK_MASK) != 0 ||
+                (typingWord[vsi + 2] & MARK_MASK) != 0
+            if hasToneOrInserting && (typingWord[vsi + 1] & TONE_MASK) == 0 {
+                typingWord[vsi + 1] |= (TONE_MASK | AUTO_TONE_MASK)
+                repaired = true
+            }
+        }
         
         // Rule 1: ie/ye + final consonant -> iê/yê
-        let prev = charAt(vei - 1)
-        let curr = charAt(vei)
-        if (prev == KEY_I || prev == KEY_Y) && curr == KEY_E {
-            let prevIdx = vei - 1
-            let currIdx = vei
-            let hasToneOrInserting = isInsertingMark ||
-                (typingWord[prevIdx] & MARK_MASK) != 0 ||
-                (typingWord[currIdx] & MARK_MASK) != 0
-            if hasToneOrInserting && (typingWord[vei] & TONE_MASK) == 0 {
-                typingWord[vei] |= (TONE_MASK | AUTO_TONE_MASK)
-                repaired = true
+        if hasFinalConsonant {
+            let prev = charAt(vei - 1)
+            let curr = charAt(vei)
+            if (prev == KEY_I || prev == KEY_Y) && curr == KEY_E {
+                let prevIdx = vei - 1
+                let currIdx = vei
+                let hasToneOrInserting = isInsertingMark ||
+                    (typingWord[prevIdx] & MARK_MASK) != 0 ||
+                    (typingWord[currIdx] & MARK_MASK) != 0
+                if hasToneOrInserting && (typingWord[vei] & TONE_MASK) == 0 {
+                    typingWord[vei] |= (TONE_MASK | AUTO_TONE_MASK)
+                    repaired = true
+                }
             }
         }
         

@@ -21,7 +21,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         OpenKeyLogger.shared.checkVersionRetention()
         setupStatusItem()
         coordinator.start()
-        CandidateBarController.shared.start()
     }
     
     private func setupStatusItem() {
@@ -113,11 +112,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         smartSwitchItem.state = settings.useSmartSwitchKey ? .on : .off
         menu.addItem(smartSwitchItem)
         
-        let autoWordingItem = NSMenuItem(title: l10n.menuAutoWording, action: #selector(toggleAutoWording), keyEquivalent: "")
-        autoWordingItem.target = self
-        autoWordingItem.state = settings.autoWordingEnabled ? .on : .off
-        menu.addItem(autoWordingItem)
-        
         let debugModeItem = NSMenuItem(title: l10n.menuDebugMode, action: #selector(toggleDebugMode), keyEquivalent: "")
         debugModeItem.target = self
         debugModeItem.state = settings.debugModeEnabled ? .on : .off
@@ -167,10 +161,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     
     @objc private func toggleSmartSwitch() {
         settings.useSmartSwitchKey.toggle()
-    }
-    
-    @objc private func toggleAutoWording() {
-        settings.autoWordingEnabled.toggle()
     }
     
     @objc private func toggleDebugMode() {
