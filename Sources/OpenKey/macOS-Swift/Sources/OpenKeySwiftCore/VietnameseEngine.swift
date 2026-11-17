@@ -41,13 +41,20 @@ final class VietnameseEngineState: @unchecked Sendable {
     var vRestoreIfWrongSpelling: Int = 1
     var vFixRecommendBrowser: Int = 1
     var vUseSmartSwitchKey: Int = 1
+    var vQuickTelex: Int = 0
     
     // Optional Hook for Phonotactic Syllable Repair (ADR-007)
     var phonotacticRepairHook: ((inout [UInt32], UInt8, UInt8, UInt8, UInt8, Bool) -> Bool)?
     
     // Break & special character key sets
     let charKeyCode: [UInt16] = [KEY_BACKQUOTE, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUALS, KEY_LEFT_BRACKET, KEY_RIGHT_BRACKET, KEY_BACK_SLASH, KEY_SEMICOLON, KEY_QUOTE, KEY_COMMA, KEY_DOT, KEY_SLASH]
-    let breakCode: [UInt16] = [KEY_ESC, KEY_TAB, KEY_ENTER, KEY_RETURN, KEY_LEFT, KEY_RIGHT, KEY_DOWN, KEY_UP, KEY_COMMA, KEY_DOT, KEY_SLASH, KEY_SEMICOLON, KEY_QUOTE, KEY_BACK_SLASH, KEY_MINUS, KEY_EQUALS, KEY_BACKQUOTE, KEY_TAB]
+    let breakCode: [UInt16] = [
+        KEY_ESC, KEY_TAB, KEY_ENTER, KEY_RETURN, KEY_LEFT, KEY_RIGHT, KEY_DOWN, KEY_UP,
+        KEY_HOME, KEY_PAGE_UP, KEY_FORWARD_DELETE, KEY_END, KEY_PAGE_DOWN,
+        KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9, KEY_F10,
+        KEY_F11, KEY_F12, KEY_F13, KEY_F14, KEY_F15, KEY_F16, KEY_F17, KEY_F18, KEY_F19, KEY_F20,
+        KEY_COMMA, KEY_DOT, KEY_SLASH, KEY_SEMICOLON, KEY_QUOTE, KEY_BACK_SLASH, KEY_MINUS, KEY_EQUALS, KEY_BACKQUOTE
+    ]
     let processingChar: [[UInt16]] = [
         [KEY_S, KEY_F, KEY_R, KEY_X, KEY_J, KEY_A, KEY_O, KEY_E, KEY_W, KEY_D, KEY_Z],
         [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0]
@@ -79,6 +86,13 @@ final class VietnameseEngineState: @unchecked Sendable {
     var hasDigitPrefix: Bool = false
     var wordStartOk: Bool = true
     var lastSpaceUptime: TimeInterval = 0
+    struct CompoundSegmentRecord {
+        var screenLength: Int
+        var rawKeys: [UInt32]
+        var separatorKey: UInt32
+        var wasTransformed: Bool
+    }
+    var compoundSegments: [CompoundSegmentRecord] = []
     
     // Transient flags
     var tempDisableKey: Bool = false
@@ -184,6 +198,7 @@ final class VietnameseEngineState: @unchecked Sendable {
         hasDigitPrefix = false; wordStartOk = true
         sentenceEndedWithPunctuation = false
         lastSpaceUptime = 0
+        compoundSegments.removeAll()
     }
     
     func getWordContext(forKeyCode keyCode: UInt16? = nil) -> OKWordContext {
@@ -250,6 +265,7 @@ final class VietnameseEngineState: @unchecked Sendable {
         hasDigitPrefix = false
         wordStartOk = true
         sentenceEndedWithPunctuation = false
+        compoundSegments.removeAll()
         return wasDirty
     }
     
@@ -361,7 +377,8 @@ final class VietnameseEngineState: @unchecked Sendable {
     func syncConfig(
         language: Int? = nil, inputType: Int? = nil, checkSpelling: Int? = nil,
         useModernOrthography: Int? = nil, restoreIfWrongSpelling: Int? = nil,
-        fixRecommendBrowser: Int? = nil, useSmartSwitchKey: Int? = nil
+        fixRecommendBrowser: Int? = nil, useSmartSwitchKey: Int? = nil,
+        quickTelex: Int? = nil
     ) {
         lock.lock()
         defer { lock.unlock() }
@@ -372,6 +389,7 @@ final class VietnameseEngineState: @unchecked Sendable {
         if let restoreIfWrongSpelling { vRestoreIfWrongSpelling = restoreIfWrongSpelling }
         if let fixRecommendBrowser { vFixRecommendBrowser = fixRecommendBrowser }
         if let useSmartSwitchKey { vUseSmartSwitchKey = useSmartSwitchKey }
+        if let quickTelex { vQuickTelex = quickTelex }
     }
 }
 
@@ -393,12 +411,14 @@ public func OKEngineSyncConfig(
     _ grammarRepairEnabled: Int32 = 0,
     _ shorthandExpansionEnabled: Int32 = 0,
     _ candidateSuggestionsEnabled: Int32 = 0,
-    _ doubleSpacePeriodEnabled: Int32 = 0
+    _ doubleSpacePeriodEnabled: Int32 = 0,
+    _ quickTelexEnabled: Int32 = 0
 ) {
     VietnameseEngineState.shared.syncConfig(
         language: Int(language), inputType: Int(inputType), checkSpelling: Int(checkSpelling),
         useModernOrthography: Int(useModernOrthography), restoreIfWrongSpelling: Int(restoreIfWrongSpelling),
-        fixRecommendBrowser: Int(fixRecommendBrowser), useSmartSwitchKey: Int(useSmartSwitchKey)
+        fixRecommendBrowser: Int(fixRecommendBrowser), useSmartSwitchKey: Int(useSmartSwitchKey),
+        quickTelex: Int(quickTelexEnabled)
     )
     AutoWordingEngine.shared.syncConfig(
         isEnabled: autoWordingEnabled != 0,
@@ -494,7 +514,7 @@ extension VietnameseEngineState {
             autoRestoreUndoState = nil
         }
         
-        let isAlphaKey = !isNumberKey(keyCode) && !charKeyCode.contains(keyCode)
+        let isAlphaKey = !isNumberKey(keyCode) && !charKeyCode.contains(keyCode) && keyCode != KEY_SPACE
         isCaps = (capsStatus == 1) || (capsStatus == 2 && isAlphaKey)
         
         let isWordBreakCondition = (isNumberKey(keyCode) && capsStatus == 1) ||
@@ -537,7 +557,14 @@ extension VietnameseEngineState {
             return
         }
         
-        let isCompoundSeparator = (keyCode == KEY_DOT || (keyCode == KEY_MINUS && capsStatus == 1) || keyCode == KEY_SLASH || (keyCode == KEY_2 && capsStatus == 1) || (keyCode == KEY_SEMICOLON && capsStatus == 1))
+        let isCompoundSeparator = (keyCode == KEY_DOT && capsStatus != 1) ||
+            (keyCode == KEY_MINUS) ||
+            (keyCode == KEY_EQUALS && capsStatus != 1) ||
+            (keyCode == KEY_SLASH && capsStatus != 1) ||
+            (keyCode == KEY_BACK_SLASH && capsStatus != 1) ||
+            (keyCode == KEY_7 && capsStatus == 1) ||
+            (keyCode == KEY_2 && capsStatus == 1) ||
+            (keyCode == KEY_SEMICOLON && capsStatus == 1)
         
         if vRestoreIfWrongSpelling != 0 && isWordBreak(isMouse: false, data: keyCode) {
             if !tempDisableKey && vCheckSpelling != 0 {
@@ -553,20 +580,34 @@ extension VietnameseEngineState {
             specialChar.removeAll()
             typingStates.removeAll()
             previousWords.removeAll()
+            compoundSegments.removeAll()
             wordStartOk = true
         } else {
+            let preSaveScreenLen = Int(index)
+            let preSaveRawKeys = Array(rawKeyStates[0..<Int(rawStateIndex)])
+            let preSaveTransformed = (0..<preSaveScreenLen).contains { typingWord[$0].hasAnyDiacritic }
             if spaceCount > 0 {
                 saveWord(keyCode: UInt32(KEY_SPACE), count: spaceCount)
                 spaceCount = 0
             } else {
                 saveWord()
             }
-            specialChar.append(UInt32(keyCode) | (isCaps ? CAPS_MASK : 0))
+            let sepEntry = UInt32(keyCode) | (isCaps ? CAPS_MASK : 0)
+            specialChar.append(sepEntry)
             hookOutput.extCode = 3
             if isCompoundSeparator {
+                if preSaveScreenLen > 0 {
+                    compoundSegments.append(CompoundSegmentRecord(
+                        screenLength: preSaveScreenLen,
+                        rawKeys: preSaveRawKeys,
+                        separatorKey: sepEntry,
+                        wasTransformed: preSaveTransformed
+                    ))
+                }
                 wordStartOk = false
                 previousWords.removeAll()
             } else {
+                compoundSegments.removeAll()
                 wordStartOk = true
             }
         }
@@ -618,6 +659,7 @@ extension VietnameseEngineState {
         }
         wordStartOk = true
         hasDigitPrefix = false
+        compoundSegments.removeAll()
         vCheckSpelling = useSpellCheckingBefore
         willTempOffEngine = false
     }
@@ -659,22 +701,7 @@ extension VietnameseEngineState {
                 if vCheckSpelling != 0 {
                     checkSpelling()
                 }
-                let anyRemainingModified = (0..<Int(index)).contains { (typingWord[$0] & (MARK_MASK | TONE_MASK | TONEW_MASK)) != 0 }
-                if !anyRemainingModified {
-                    stateIndex = index
-                    rawStateIndex = index
-                    droppedKeys.removeAll()
-                    for i in 0..<Int(index) {
-                        keyStates[i] = typingWord[i]
-                        rawKeyStates[i] = typingWord[i]
-                    }
-                    for i in Int(index)..<maxBuff {
-                        keyStates[i] = UInt32(KEY_EMPTY)
-                    }
-                    for i in Int(index)..<rawKeyStates.count {
-                        rawKeyStates[i] = UInt32(KEY_EMPTY)
-                    }
-                }
+                syncKeyStatesFromTypingWord()
             }
             
             hookOutput.backspaceCount = 0
@@ -692,6 +719,70 @@ extension VietnameseEngineState {
             } else {
                 checkGrammar(deltaBackSpace: 1)
             }
+        }
+    }
+
+    private func syncKeyStatesFromTypingWord() {
+        var rebuilt: [UInt32] = []
+        let count = Int(index)
+        for i in 0..<count {
+            let w = typingWord[i]
+            let base = UInt16(w & CHAR_MASK)
+            let capsFlag: UInt32 = w.isCaps ? CAPS_MASK : 0
+            if w.isStandaloneW {
+                if base == KEY_U {
+                    rebuilt.append(UInt32(vInputType == 0 ? KEY_W : KEY_RIGHT_BRACKET) | capsFlag)
+                } else if base == KEY_O {
+                    rebuilt.append(UInt32(vInputType == 0 ? KEY_LEFT_BRACKET : KEY_LEFT_BRACKET) | capsFlag)
+                } else {
+                    rebuilt.append(UInt32(base) | capsFlag)
+                }
+                continue
+            }
+            rebuilt.append(UInt32(base) | capsFlag)
+            if w.hasCircumflexOrStroke {
+                if base == KEY_D {
+                    rebuilt.append(UInt32(vInputType == 0 ? KEY_D : KEY_9))
+                } else {
+                    rebuilt.append(UInt32(vInputType == 0 ? base : KEY_6))
+                }
+            }
+            if w.hasHornOrBreve {
+                let isUOFirst = (base == KEY_U && i + 1 < count && CHR(i + 1) == KEY_O && typingWord[i + 1].hasHornOrBreve)
+                if !isUOFirst {
+                    rebuilt.append(UInt32(vInputType == 0 ? KEY_W : ((base == KEY_A) ? KEY_8 : KEY_7)))
+                }
+            }
+            let mark = w & MARK_MASK
+            if mark != 0 {
+                let markKey: UInt16 = {
+                    if vInputType == 0 {
+                        if mark == MARK1_MASK { return KEY_S }
+                        if mark == MARK2_MASK { return KEY_F }
+                        if mark == MARK3_MASK { return KEY_R }
+                        if mark == MARK4_MASK { return KEY_X }
+                        return KEY_J
+                    } else {
+                        if mark == MARK1_MASK { return KEY_1 }
+                        if mark == MARK2_MASK { return KEY_2 }
+                        if mark == MARK3_MASK { return KEY_3 }
+                        if mark == MARK4_MASK { return KEY_4 }
+                        return KEY_5
+                    }
+                }()
+                rebuilt.append(UInt32(markKey))
+            }
+        }
+        droppedKeys.removeAll()
+        let stateCount = min(rebuilt.count, maxBuff)
+        stateIndex = UInt8(stateCount)
+        for i in 0..<maxBuff {
+            keyStates[i] = (i < stateCount) ? rebuilt[i] : UInt32(KEY_EMPTY)
+        }
+        let rawCount = min(rebuilt.count, rawKeyStates.count)
+        rawStateIndex = UInt8(rawCount)
+        for i in 0..<rawKeyStates.count {
+            rawKeyStates[i] = (i < rawCount) ? rebuilt[i] : UInt32(KEY_EMPTY)
         }
     }
     
@@ -864,7 +955,45 @@ extension VietnameseEngineState {
             hasDigitPrefix = preserveDigitPrefix
         }
         
+        // REQ-027, ADR-027: Escape Keystroke Consumption
+        // Consume redundant trailing 'i' only on an accented diphthong ending in off-glide 'i'
+        // (must check before insertState so keyStates/rawKeyStates remain synchronized with screen).
+        if vInputType == 0 && index >= 2 && keyCode == KEY_I && CHR(Int(index) - 1) == KEY_I && !isConsonant(CHR(Int(index) - 2)) {
+            let hasDiacritic = (0..<Int(index)).contains { typingWord[$0].hasAnyDiacritic }
+            if hasDiacritic && VietnameseDictionary.shared.isValidVietnameseSyllable(getComposedWordInternal().lowercased()) {
+                hookOutput.code = HookCodeState.willProcess
+                hookOutput.backspaceCount = 0
+                hookOutput.newCharCount = 0
+                hookOutput.extCode = 3
+                return
+            }
+        }
+        
         insertState(keyCode: keyCode, caps: isCaps)
+        
+        // Quick Telex: cc->ch, gg->gi, kk->kh, nn->ng, pp->ph, qq->qu, tt->tr
+        if vQuickTelex != 0 && vInputType == 0 && !tempDisableKey && index == 1 && CHR(0) == keyCode {
+            let quickSecond: UInt16? = {
+                switch keyCode {
+                case KEY_C, KEY_K, KEY_P: return KEY_H
+                case KEY_G: return KEY_I
+                case KEY_N: return KEY_G
+                case KEY_Q: return KEY_U
+                case KEY_T: return KEY_R
+                default: return nil
+                }
+            }()
+            if let second = quickSecond {
+                insertKey(keyCode: second, caps: isCaps)
+                if Int(stateIndex) > 0 { keyStates[Int(stateIndex) - 1] = UInt32(second) | (isCaps ? CAPS_MASK : 0) }
+                hookOutput.code = HookCodeState.willProcess
+                hookOutput.backspaceCount = 0
+                hookOutput.newCharCount = 1
+                hookOutput.extCode = 3
+                hookOutput.charData[0] = GET(typingWord[Int(index) - 1])
+                return
+            }
+        }
         
         // D33: Check for hex prefix 0x or technical digit-inside-word (Telex mode only)
         if hasDigitPrefix && index == 0 && keyCode == KEY_X {
@@ -896,18 +1025,25 @@ extension VietnameseEngineState {
             return
         }
         
-        // REQ-027, ADR-027: Escape Keystroke Consumption
-        // If the current composed word is already a valid Vietnamese syllable ending in off-glide 'i',
-        // consume the redundant trailing 'i' vowel without modifying the composed word.
-        if vInputType == 0 && index > 0 && keyCode == KEY_I && CHR(Int(index) - 1) == KEY_I {
-            let curComposed = getComposedWordInternal().lowercased()
-            if VietnameseDictionary.shared.isValidVietnameseSyllable(curComposed) {
-                hookOutput.code = HookCodeState.willProcess
-                hookOutput.backspaceCount = 0
-                hookOutput.newCharCount = 0
-                hookOutput.extCode = 3
-                return
-            }
+        // Re-upgrade restored "wow" -> "ươ" + coda when continued with a Vietnamese coda (e.g. "wowns" -> "ướn")
+        if vInputType == 0 && isRestoredW && index == 3 && CHR(0) == KEY_W && CHR(1) == KEY_O && CHR(2) == KEY_W &&
+           [KEY_N, KEY_M, KEY_C, KEY_P, KEY_T].contains(keyCode) {
+            let w0Caps = typingWord[0].isCaps
+            let oCaps = typingWord[1].isCaps
+            typingWord[0] = UInt32(KEY_U) | TONEW_MASK | STANDALONE_MASK | (w0Caps ? CAPS_MASK : 0)
+            typingWord[1] = UInt32(KEY_O) | TONEW_MASK | (oCaps ? CAPS_MASK : 0)
+            typingWord[2] = UInt32(keyCode) | (isCaps ? CAPS_MASK : 0)
+            isRestoredW = false
+            tempDisableKey = false
+            if vCheckSpelling != 0 { checkSpelling() }
+            hookOutput.code = HookCodeState.willProcess
+            hookOutput.backspaceCount = 3
+            hookOutput.newCharCount = 3
+            hookOutput.extCode = 3
+            hookOutput.charData[2] = GET(typingWord[0])
+            hookOutput.charData[1] = GET(typingWord[1])
+            hookOutput.charData[0] = GET(typingWord[2])
+            return
         }
         
         if !isSpecialKey(keyCode) || tempDisableKey {
@@ -984,9 +1120,10 @@ extension VietnameseEngineState {
         
         var shouldSendControl = false
         if hookOutput.code == HookCodeState.restore || hookOutput.code == HookCodeState.restoreAndStartNewSession {
-            if keyCodeToCharacter(UInt32(keyCode)) != 0 {
+            let baseChar = keyCodeToCharacter(UInt32(keyCode))
+            if baseChar != 0 {
                 let c = keyCodeToCharacter(UInt32(keyCode) | (isCaps ? CAPS_MASK : 0))
-                chars.append(c)
+                chars.append(c != 0 ? c : baseChar)
             } else {
                 shouldSendControl = true
             }

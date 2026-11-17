@@ -154,38 +154,7 @@ struct OpenKeyAutoWordingTests {
     
 
 
-    // MARK: - REQ-005: Candidate Selection Keyboard Routing
-    @Test("REQ-005: Candidate selection keyboard routing Tab, Ctrl+1..3, Esc")
-    func candidateKeyboardRouting() {
-        let coordinator = EventTapCoordinator.shared
-        let candidates = [
-            WordCandidate(id: 0, text: "tiếng", kind: .correction, replaceLength: 5),
-            WordCandidate(id: 1, text: "tiêng", kind: .correction, replaceLength: 5),
-            WordCandidate(id: 2, text: "tiện", kind: .correction, replaceLength: 5)
-        ]
-        
-        // 1. Tab (keyCode: 48) accepts candidate #1
-        let ctxTab = KeyEventContext(eventType: .keyDown, keyCode: 48, language: 1, autoWordingEnabled: true, candidateSuggestionsEnabled: true, activeCandidates: candidates)
-        #expect(coordinator.evaluateKeyEvent(ctxTab) == .acceptCandidate(candidates[0]), "Tab must accept candidate #1")
-        
-        // 2. Control + 2 (keyCode: 19) accepts candidate #2
-        let ctxCtrl2 = KeyEventContext(eventType: .keyDown, keyCode: 19, flags: [.maskControl], language: 1, autoWordingEnabled: true, candidateSuggestionsEnabled: true, activeCandidates: candidates)
-        #expect(coordinator.evaluateKeyEvent(ctxCtrl2) == .acceptCandidate(candidates[1]), "Control+2 must accept candidate #2")
-        
-        // 3. Control + 3 (keyCode: 20) accepts candidate #3
-        let ctxCtrl3 = KeyEventContext(eventType: .keyDown, keyCode: 20, flags: [.maskControl], language: 1, autoWordingEnabled: true, candidateSuggestionsEnabled: true, activeCandidates: candidates)
-        #expect(coordinator.evaluateKeyEvent(ctxCtrl3) == .acceptCandidate(candidates[2]), "Control+3 must accept candidate #3")
-        
-        // 4. Esc (keyCode: 53) dismisses active candidates
-        let ctxEsc = KeyEventContext(eventType: .keyDown, keyCode: 53, language: 1, autoWordingEnabled: true, candidateSuggestionsEnabled: true, activeCandidates: candidates)
-        #expect(coordinator.evaluateKeyEvent(ctxEsc) == .dismissCandidates, "Esc must return .dismissCandidates when active candidates exist")
-        
-        // 5. Esc when candidates list is empty passes through to application
-        let ctxEscEmpty = KeyEventContext(eventType: .keyDown, keyCode: 53, language: 1, autoWordingEnabled: true, candidateSuggestionsEnabled: true, activeCandidates: [])
-        #expect(coordinator.evaluateKeyEvent(ctxEscEmpty) != .dismissCandidates, "Esc must not be swallowed when candidates are empty")
-    }
-
-    // REQ-005: Adaptive Candidate Frequency Learning
+    // MARK: - REQ-005: Adaptive Candidate Frequency Learning
     @Test("REQ-005: Adaptive candidate frequency learning and ranking boost")
     func adaptiveCandidateFrequencyLearning() {
         let engine = AutoWordingEngine.shared
@@ -411,39 +380,9 @@ struct OpenKeyAutoWordingTests {
         typeKeys([17, 4, 0, 45, 4]) // "thanh"
         let activeCandsThanh = AutoWordingEngine.shared.activeCandidates
         #expect(!activeCandsThanh.isEmpty && activeCandsThanh[0].kind == .stemCompletion)
-        
-        let tabStemContext = KeyEventContext(
-            eventType: .keyDown, keyCode: 48, language: 1, fixRecommendBrowser: true,
-            activeAppBundleId: "com.apple.Notes", autoWordingEnabled: true, candidateSuggestionsEnabled: true, activeCandidates: activeCandsThanh
-        )
-        let tabStemAction = EventTapCoordinator.shared.evaluateKeyEvent(tabStemContext)
-        switch tabStemAction {
-        case .passThrough: #expect(true)
-        default: #expect(Bool(false), "Tab on .stemCompletion must pass through, got \(tabStemAction)")
-        }
-        
-        let ctrl1Context = KeyEventContext(
-            eventType: .keyDown, keyCode: 18, flags: [.maskControl], language: 1, fixRecommendBrowser: true,
-            activeAppBundleId: "com.apple.Notes", autoWordingEnabled: true, candidateSuggestionsEnabled: true, activeCandidates: activeCandsThanh
-        )
-        let ctrl1Action = EventTapCoordinator.shared.evaluateKeyEvent(ctrl1Context)
-        switch ctrl1Action {
-        case .acceptCandidate(let cand): #expect(cand.text == activeCandsThanh[0].text)
-        default: #expect(Bool(false), "Ctrl+1 must accept candidate, got \(ctrl1Action)")
-        }
-        
+
         let misspellCands = AutoWordingEngine.shared.computeCurrentWordCandidates(rawStem: "tineg", currentSyllable: "", isWrongSpelling: true)
         #expect(!misspellCands.isEmpty && misspellCands[0].kind == .correction)
-        
-        let tabCorrectionContext = KeyEventContext(
-            eventType: .keyDown, keyCode: 48, language: 1, fixRecommendBrowser: true,
-            activeAppBundleId: "com.apple.Notes", autoWordingEnabled: true, candidateSuggestionsEnabled: true, activeCandidates: misspellCands
-        )
-        let tabCorrectionAction = EventTapCoordinator.shared.evaluateKeyEvent(tabCorrectionContext)
-        switch tabCorrectionAction {
-        case .acceptCandidate(let cand): #expect(cand.text == misspellCands[0].text)
-        default: #expect(Bool(false), "Tab on .correction must accept candidate, got \(tabCorrectionAction)")
-        }
         
         #expect(CaretPositionResolver.isValidCaretBounds(CGRect(x: 120, y: 340, width: 0, height: 18)) == true)
         #expect(CaretPositionResolver.isValidCaretBounds(CGRect(x: 0, y: 0, width: 0, height: 18)) == false)

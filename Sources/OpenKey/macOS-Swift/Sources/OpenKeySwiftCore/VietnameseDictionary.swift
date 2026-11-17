@@ -37,18 +37,6 @@ public final class VietnameseDictionary: @unchecked Sendable {
 
     private static let U_HORN_CHARS: Set<Character> = ["ư", "ứ", "ừ", "ử", "ữ", "ự"]
     private static let O_HORN_CHARS: Set<Character> = ["ơ", "ớ", "ờ", "ở", "ỡ", "ợ"]
-    private static let FAKE_D_SHADOWS: Set<String> = ["dất", "dến", "diểm", "dồng", "dứng", "dể", "dữa"]
-
-    private static let HALF_HORN_UO_REGEX = try! NSRegularExpression(pattern: "u[ơớờởỡợ](ng|nh|ch|[cmnptui])")
-    private static let UNHORNED_UO_REGEX = try! NSRegularExpression(pattern: "^(?!(?:q|qu|th|h|kh)u[ơớờởỡợ]$).*?u[ơớờởỡợ]")
-    private static let GH_NGH_INVALID = try! NSRegularExpression(pattern: "^(gh|ngh)[aăâoôơuưyáắấóốớúứýàằầòồờùừỳảẳẩỏổởủửỷãẵẫõỗỡũữỹạặậọộợụựỵ]")
-    private static let G_NG_INVALID = try! NSRegularExpression(pattern: "^(g(?!h|[iíìỉĩị])|ng(?!h))[eêièềìéếíẻểỉẽễĩẹệị]")
-    private static let K_INVALID = try! NSRegularExpression(pattern: "^k[aăâoôơuưáắấóốớúứýàằầòồờùừỳảẳẩỏổởủửỷãẵẫõỗỡũữỹạặậọộợụựỵ]|^ky[a-zà-ỹ]")
-    private static let C_INVALID = try! NSRegularExpression(pattern: "^c(?!h)[eêiyèềìỳéếíýẻểỉỷẽễĩỹẹệịỵ]|^chy[a-zà-ỹ]")
-    private static let YE_INVALID = try! NSRegularExpression(pattern: "^(?:b|ch|d|đ|g|gh|gi|h|k|kh|l|m|n|ng|ngh|nh|p|ph|r|s|t|th|tr|v|x)y[êếềểễệ]")
-    private static let INVALID_RHYMES = try! NSRegularExpression(pattern: "(?<![ưứừửữự])[ơớờởỡợ]ng$|[ưứừửữự][nm]$|[iíìỉĩị]c$|[eéèẻẽẹ]c$|^(?:b|ch|c|d|đ|l|m|n|t|v)u[ểễềếệ]n$")
-    private static let LABIAL_MEDIALS = try! NSRegularExpression(pattern: "^(?:b|m|p|ph|v)(?:oa|oă|oe|uê|uy|uâ)|^giu[ôốồổỗộâấầẩẫậêếềểễệyýỳỷỹỵ]", options: [])
-    private static let NHIA_CHECK = try! NSRegularExpression(pattern: "^nh[iíìỉĩị][aáàảãạ]$|^nhĩa$")
 
     public static let QWERTY_NEIGHBORS: [Character: String] = [
         "q": "wa", "w": "qase", "e": "wsdr", "r": "edft", "t": "rfgy", "y": "tghu", "u": "yhji", "i": "ujko", "o": "iklp", "p": "ol",
@@ -60,53 +48,6 @@ public final class VietnameseDictionary: @unchecked Sendable {
 
     public static func isQwertyAdjacent(_ a: Character, _ b: Character) -> Bool {
         QWERTY_NEIGHBORS[a]?.contains(b) == true
-    }
-
-    private static func matchesRegex(_ regex: NSRegularExpression, _ text: String) -> Bool {
-        let range = NSRange(text.startIndex..., in: text)
-        return regex.firstMatch(in: text, options: [], range: range) != nil
-    }
-
-    public static func isPhonotacticallyValidVietnameseSyllable(_ word: String) -> Bool {
-        let lower = word.lowercased()
-        if lower.isEmpty || FAKE_D_SHADOWS.contains(lower) { return false }
-        if matchesRegex(HALF_HORN_UO_REGEX, lower) || matchesRegex(UNHORNED_UO_REGEX, lower) { return false }
-        if matchesRegex(GH_NGH_INVALID, lower) || matchesRegex(G_NG_INVALID, lower) { return false }
-        if matchesRegex(K_INVALID, lower) || matchesRegex(C_INVALID, lower) { return false }
-        if matchesRegex(YE_INVALID, lower) || matchesRegex(INVALID_RHYMES, lower) || matchesRegex(LABIAL_MEDIALS, lower) { return false }
-        if matchesRegex(NHIA_CHECK, lower) { return false }
-        if let lastCoda = lower.last, lastCoda == "c" || lastCoda == "p" || lastCoda == "t" || lower.hasSuffix("ch") {
-            if !lower.contains(where: { "áắấéếíóốớúứýạặậẹệịọộợụựỵ".contains($0) }) { return false }
-        }
-        return true
-    }
-
-    public static let VALID_VIETNAMESE_ONSETS: Set<String> = [
-        "", "b", "c", "ch", "d", "dd", "g", "gh", "gi", "h", "k", "kh", "l", "m", "n",
-        "ng", "ngh", "nh", "p", "ph", "qu", "r", "s", "t", "th", "tr", "v", "x"
-    ]
-    public static let ORTHO_ONSET_PAIRS: [String: String] = [
-        "ng": "ngh", "g": "gh", "gh": "g", "ngh": "ng", "c": "k", "k": "c"
-    ]
-
-    public static func hasValidVietnameseOnset(_ rawLower: String) -> Bool {
-        let vowels: Set<Character> = ["a", "e", "i", "o", "u", "y"]
-        let onset = String(rawLower.prefix(while: { !vowels.contains($0) }))
-        let rest = String(rawLower.dropFirst(onset.count))
-        if onset == "ng" && (rest.hasPrefix("i") || rest.hasPrefix("e")) { return false }
-        if onset == "g" && (rest.hasPrefix("i") || rest.hasPrefix("e")) { return false }
-        if (onset == "gh" || onset == "ngh") && (rest.hasPrefix("a") || rest.hasPrefix("o") || rest.hasPrefix("u")) { return false }
-        if onset == "c" && (rest.hasPrefix("i") || rest.hasPrefix("e") || rest.hasPrefix("y")) { return false }
-        if onset == "k" && (rest.hasPrefix("a") || rest.hasPrefix("o") || rest.hasPrefix("u")) { return false }
-        return VALID_VIETNAMESE_ONSETS.contains(onset)
-    }
-
-    private static let validOeOnsets: Set<String> = ["", "ch", "h", "kh", "l", "ng", "nh", "t", "x", "gi", "qu"]
-    private static func isValidOeSyllable(_ word: String) -> Bool {
-        let stem = stripVietnameseDiacritics(word)
-        guard stem.contains("oe") else { return true }
-        let onset = String(stem.prefix(while: { !"aeiouy".contains($0) }))
-        return validOeOnsets.contains(onset)
     }
 
     public static func stripVietnameseDiacritics(_ text: String) -> String {

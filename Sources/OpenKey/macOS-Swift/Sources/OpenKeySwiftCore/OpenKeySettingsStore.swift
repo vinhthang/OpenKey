@@ -28,6 +28,7 @@ import AppKit
         public static let customShorthands = "CustomShorthandsData"
         public static let uiLanguage = "UILanguage" // 1: Vietnamese, 0: English
         public static let debugModeEnabled = "DebugModeEnabled"
+        public static let quickTelexEnabled = "QuickTelexEnabled"
     }
     
     // Default switch key: Option + Z (0x7A000206)
@@ -229,6 +230,28 @@ import AppKit
     
     public var launchAtLogin: Bool = false
     public var isAccessibilityTrusted: Bool = false
+    public var quickTelexEnabled: Bool = false {
+        didSet {
+            UserDefaults.standard.set(quickTelexEnabled, forKey: Keys.quickTelexEnabled)
+            syncToEngine()
+        }
+    }
+    public var excludedBundleIds: Set<String> = []
+    
+    public func isAppExcluded(_ bundleId: String?) -> Bool {
+        guard let bundleId = bundleId, !bundleId.isEmpty else { return false }
+        return excludedBundleIds.contains(bundleId) || SmartSwitchStore.shared.isExcluded(bundleId: bundleId)
+    }
+    
+    public func toggleAppExclusion(_ bundleId: String) {
+        let next = !isAppExcluded(bundleId)
+        SmartSwitchStore.shared.setExcluded(next, bundleId: bundleId)
+        excludedBundleIds = SmartSwitchStore.shared.excludedBundleIds
+    }
+    
+    public func resetSmartSwitchData() {
+        SmartSwitchStore.shared.resetSmartSwitchData()
+    }
     
     public init() {
         let defaults = UserDefaults.standard
@@ -244,6 +267,7 @@ import AppKit
             Keys.otherLanguage: true,
             Keys.switchKeyStatus: Self.defaultSwitchKey,
             Keys.beepOnSwitch: false,
+            Keys.quickTelexEnabled: false,
             Keys.autoWordingEnabled: false,
             Keys.grammarRepairEnabled: false,
             Keys.doubleSpacePeriodEnabled: false,
@@ -265,6 +289,8 @@ import AppKit
         self.otherLanguage = defaults.bool(forKey: Keys.otherLanguage)
         self.switchKeyStatus = defaults.integer(forKey: Keys.switchKeyStatus)
         self.beepOnSwitch = defaults.bool(forKey: Keys.beepOnSwitch)
+        self.quickTelexEnabled = defaults.bool(forKey: Keys.quickTelexEnabled)
+        self.excludedBundleIds = SmartSwitchStore.shared.excludedBundleIds
         defaults.set(false, forKey: Keys.autoWordingEnabled)
         defaults.set(false, forKey: Keys.grammarRepairEnabled)
         defaults.set(false, forKey: Keys.doubleSpacePeriodEnabled)
@@ -320,7 +346,8 @@ import AppKit
             grammarRepairEnabled ? 1 : 0,
             shorthandExpansionEnabled ? 1 : 0,
             candidateSuggestionsEnabled ? 1 : 0,
-            doubleSpacePeriodEnabled ? 1 : 0
+            doubleSpacePeriodEnabled ? 1 : 0,
+            quickTelexEnabled ? 1 : 0
         )
         AutoWordingEngine.shared.customShorthands = customShorthands
     }

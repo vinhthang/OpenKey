@@ -111,8 +111,12 @@ public final class EventTapCoordinator: @unchecked Sendable {
         return true
     }
     
-    public nonisolated(unsafe) static var candidatePanelFrame: NSRect = .zero
-    
+    public static func isBypassedApp(bundleId: String?) -> Bool {
+        return isTerminalApp(bundleId: bundleId) ||
+            isLauncherApp(bundleId: bundleId) ||
+            SmartSwitchStore.shared.isExcluded(bundleId: bundleId)
+    }
+
     private func setupAppSwitchObserver() {
         let token = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
@@ -135,7 +139,7 @@ public final class EventTapCoordinator: @unchecked Sendable {
             queue: .main
         ) { [weak self] _ in
             guard let self = self else { return }
-            OKEngineResetSession()
+            self.resetTapInteractionState()
             if let tap = self.eventTap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             } else {
@@ -149,7 +153,7 @@ public final class EventTapCoordinator: @unchecked Sendable {
         OKEngineResetSession()
         if bundleId == "com.tuyenmai.openkey.swift" { return }
         settings.activeAppBundleId = bundleId
-        guard settings.useSmartSwitchKey && !EventTapCoordinator.isTerminalApp(bundleId: bundleId) else { return }
+        guard settings.useSmartSwitchKey && !EventTapCoordinator.isTerminalApp(bundleId: bundleId) && !SmartSwitchStore.shared.isExcluded(bundleId: bundleId) else { return }
         let currentLang = settings.language
         let appLang = OKGetAppInputMethodStatus(bundleId, Int32(currentLang))
         if appLang >= 0 && appLang != currentLang {
@@ -162,6 +166,27 @@ public final class EventTapCoordinator: @unchecked Sendable {
     public func saveLanguageForApp(bundleId: String, language: Int) {
         OKSetAppInputMethodStatus(bundleId, Int32(language))
         settings.saveSmartSwitchData()
+    }
+
+    public func resetTapInteractionState() {
+        pendingModifierTap = false
+        modifierTapCancelled = false
+        swallowNextKeyUp = false
+        OKEngineResetSession()
+    }
+
+    public func handleToggleLanguage(_ newLang: Int) {
+        OKEngineResetSession()
+        settings.language = newLang
+        if settings.beepOnSwitch {
+            #if canImport(AppKit)
+            if Thread.isMainThread {
+                NSSound.beep()
+            } else {
+                DispatchQueue.main.async { NSSound.beep() }
+            }
+            #endif
+        }
     }
     
     // MARK: - Pure Testable Event Evaluation Pipeline
@@ -181,22 +206,27 @@ public final class EventTapCoordinator: @unchecked Sendable {
         }
         
         let isModifierOnly = HotKeyMatcher.isModifierOnlyTap(config: context.switchKeyStatus)
+        let modifierMask: CGEventFlags = [.maskControl, .maskAlternate, .maskCommand, .maskShift]
+        let activeModifiers = context.flags.intersection(modifierMask)
         
         // 3. Modifier-Only HotKey (0xFE)
         if isModifierOnly {
             if context.eventType == .flagsChanged {
                 let matchesModifier = HotKeyMatcher.matches(keyCode: 0xFE, flags: context.flags, config: context.switchKeyStatus)
                 if matchesModifier {
-                    // Modifier pressed down: arm pending tap
-                    pendingModifierTap = true
-                    modifierTapCancelled = false
-                } else if pendingModifierTap {
-                    // Modifier released
-                    pendingModifierTap = false
                     if !modifierTapCancelled {
+                        pendingModifierTap = true
+                    }
+                } else if activeModifiers.isEmpty {
+                    let shouldToggle = pendingModifierTap && !modifierTapCancelled
+                    pendingModifierTap = false
+                    modifierTapCancelled = false
+                    if shouldToggle {
                         let newLang = (context.language == 1) ? 0 : 1
                         return .toggleLanguage(newLanguage: newLang)
                     }
+                } else {
+                    modifierTapCancelled = true
                 }
                 return .passThrough(resetSession: false)
             } else if context.eventType == .keyDown {
@@ -208,6 +238,10 @@ public final class EventTapCoordinator: @unchecked Sendable {
         }
         
         // 4. Regular HotKey (e.g. Option + Z)
+        if !isModifierOnly && context.eventType == .flagsChanged && swallowNextKeyUp &&
+           !HotKeyMatcher.modifiersMatch(flags: context.flags, config: context.switchKeyStatus) {
+            swallowNextKeyUp = false
+        }
         let matchesHotKey = HotKeyMatcher.matches(keyCode: UInt16(context.keyCode), flags: context.flags, config: context.switchKeyStatus)
         if !isModifierOnly && matchesHotKey {
             if context.eventType == .keyDown {
@@ -238,44 +272,6 @@ public final class EventTapCoordinator: @unchecked Sendable {
         
         OpenKeyLogger.shared.log(.eventTap, "evaluateKeyEvent: type=\(context.eventType), keyCode=\(context.keyCode), app=\(context.activeAppBundleId ?? "none")")
         
-        // 4.5. Candidate Selection / Dismissal (REQ-005)
-        if context.language == 1 &&
-           context.autoWordingEnabled &&
-           context.candidateSuggestionsEnabled &&
-           !context.activeCandidates.isEmpty &&
-           context.eventType == .keyDown {
-            
-            // Tab (KEY_TAB = 48) accepts candidate #1 ONLY when it is a correction (REQ-008)
-            if context.keyCode == 48 &&
-               !context.flags.contains(.maskCommand) &&
-               !context.flags.contains(.maskAlternate) &&
-               !context.flags.contains(.maskControl) {
-                if context.activeCandidates[0].kind == .correction {
-                    return .acceptCandidate(context.activeCandidates[0])
-                } else {
-                    AutoWordingEngine.shared.clearCandidates()
-                }
-            }
-            
-            // Control + 1..3 accepts candidate #1..#3
-            if context.flags.contains(.maskControl) &&
-               !context.flags.contains(.maskCommand) &&
-               !context.flags.contains(.maskAlternate) {
-                let targetIdx = (context.keyCode == 18) ? 0 : ((context.keyCode == 19) ? 1 : ((context.keyCode == 20) ? 2 : nil))
-                if let idx = targetIdx, idx < context.activeCandidates.count {
-                    return .acceptCandidate(context.activeCandidates[idx])
-                }
-            }
-            
-            // Esc (KEY_ESC = 53) dismisses candidates
-            if context.keyCode == 53 &&
-               !context.flags.contains(.maskCommand) &&
-               !context.flags.contains(.maskAlternate) &&
-               !context.flags.contains(.maskControl) {
-                return .dismissCandidates
-            }
-        }
-        
         // 5. Bypass on Command/Control/Option shortcuts
         if context.flags.contains(.maskCommand) || context.flags.contains(.maskControl) || context.flags.contains(.maskAlternate) {
             return .passThrough(resetSession: true)
@@ -283,6 +279,10 @@ public final class EventTapCoordinator: @unchecked Sendable {
         
         // 6-9. Fast bypass checks
         if EventTapCoordinator.isTerminalApp(bundleId: context.activeAppBundleId) { return .passThrough(resetSession: true) }
+        let isExcluded = context.excludedBundleIds.map { idSet in
+            context.activeAppBundleId.map { idSet.contains($0) } ?? false
+        } ?? SmartSwitchStore.shared.isExcluded(bundleId: context.activeAppBundleId)
+        if isExcluded { return .passThrough(resetSession: true) }
         if context.isSpotlightVisible || EventTapCoordinator.isLauncherApp(bundleId: context.activeAppBundleId) { return .passThrough(resetSession: true) }
         if context.otherLanguage && !context.isCompatibleInputSource { return .passThrough(resetSession: true) }
         
@@ -319,7 +319,7 @@ public final class EventTapCoordinator: @unchecked Sendable {
         // 1. Timeout / Disabled Recovery
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap = eventTap { CGEvent.tapEnable(tap: tap, enable: true) }
-            OKEngineResetSession()
+            resetTapInteractionState()
             return Unmanaged.passUnretained(event)
         }
         
@@ -381,29 +381,12 @@ public final class EventTapCoordinator: @unchecked Sendable {
             
         case .passThrough(let resetSession):
             if resetSession {
-                #if canImport(AppKit)
-                let mouseInPanel = (eventType == .leftMouseDown) &&
-                    !EventTapCoordinator.candidatePanelFrame.isEmpty &&
-                    EventTapCoordinator.candidatePanelFrame.contains(NSEvent.mouseLocation) &&
-                    !AutoWordingEngine.shared.activeCandidates.isEmpty
-                if !mouseInPanel {
-                    OKEngineResetSession()
-                }
-                #else
                 OKEngineResetSession()
-                #endif
             }
             return Unmanaged.passUnretained(event)
             
         case .toggleLanguage(let newLang):
-            OKEngineResetSession()
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                self.settings.language = newLang
-                if self.settings.beepOnSwitch {
-                    NSSound.beep()
-                }
-            }
+            handleToggleLanguage(newLang)
             return nil // Swallow hotkey
             
         case .replaceKeystroke(let backspaces, let chars, let strategy, let passThroughTrailingKey):
@@ -417,25 +400,6 @@ public final class EventTapCoordinator: @unchecked Sendable {
                 injector.postKeyCode(UInt16(context.keyCode), flags: context.flags, proxy: proxy)
             }
             return nil // Swallow original keystroke
-            
-        case .acceptCandidate(let candidate):
-            AutoWordingEngine.shared.recordCandidateAcceptance(text: candidate.text)
-            let fullText = candidate.text + " "
-            let chars = Array(fullText.utf16)
-            injector.executeReplacement(
-                strategy: .standardBackspace,
-                backspaceCount: candidate.replaceLength,
-                newChars: chars,
-                proxy: proxy
-            )
-            OKEngineResetSession()
-            let nextCands = AutoWordingEngine.shared.computeNextWordCandidates(previousWord: candidate.text)
-            AutoWordingEngine.shared.updateCandidates(nextCands)
-            return nil
-            
-        case .dismissCandidates:
-            AutoWordingEngine.shared.clearCandidates()
-            return nil
         }
     }
 }
@@ -481,6 +445,7 @@ public struct KeyEventContext: Sendable {
     public var candidateSuggestionsEnabled: Bool
     public var activeCandidates: [WordCandidate]
     public var isSecureInput: Bool
+    public var excludedBundleIds: Set<String>?
     
     public init(
         eventType: EventTapEventType,
@@ -499,7 +464,8 @@ public struct KeyEventContext: Sendable {
         autoWordingEnabled: Bool = false,
         candidateSuggestionsEnabled: Bool = false,
         activeCandidates: [WordCandidate] = [],
-        isSecureInput: Bool = false
+        isSecureInput: Bool = false,
+        excludedBundleIds: Set<String>? = nil
     ) {
         self.eventType = eventType
         self.keyCode = keyCode
@@ -518,6 +484,7 @@ public struct KeyEventContext: Sendable {
         self.candidateSuggestionsEnabled = candidateSuggestionsEnabled
         self.activeCandidates = activeCandidates
         self.isSecureInput = isSecureInput
+        self.excludedBundleIds = excludedBundleIds
     }
 }
 
@@ -526,8 +493,6 @@ public enum EventTapAction: Sendable, Equatable {
     case passThrough(resetSession: Bool)
     case toggleLanguage(newLanguage: Int)
     case replaceKeystroke(backspaces: Int, chars: [UInt16], strategy: ReplacementStrategy, passThroughTrailingKey: Bool = false)
-    case acceptCandidate(WordCandidate)
-    case dismissCandidates
 }
 
 public enum SystemEnvironmentDetector {
@@ -602,7 +567,7 @@ public enum SystemEnvironmentDetector {
         }
         
         let now = ProcessInfo.processInfo.systemUptime
-        if cachedSpotlightResult && (now - lastSpotlightCheckTime) < 0.5 {
+        if !needsSpotlightRecheck && cachedSpotlightResult && (now - lastSpotlightCheckTime) < 0.5 {
             spotlightLock.unlock()
             return true
         }

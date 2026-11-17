@@ -123,7 +123,7 @@ extension VietnameseEngineState {
                         if hasMark && !is1 && !is5 {
                             spellingOK = false
                         }
-                    } else if index >= 2 && CHR(Int(index) - 1) == KEY_T {
+                    } else if index >= 2 && (CHR(Int(index) - 1) == KEY_T || CHR(Int(index) - 1) == KEY_C || CHR(Int(index) - 1) == KEY_P) {
                         let wordTone = typingWord[Int(index) - 2]
                         let hasMark = (wordTone & MARK_MASK) != 0
                         let is1 = (wordTone & MARK1_MASK) != 0
@@ -173,7 +173,7 @@ extension VietnameseEngineState {
             for i in stride(from: Int(index) - 1, through: 0, by: -1) {
                 let ch = CHR(i)
                 if ch == KEY_N || ch == KEY_C || ch == KEY_I || ch == KEY_M || ch == KEY_P || ch == KEY_T || ch == KEY_U {
-                    if i - 2 >= 0 && CHR(i - 1) == KEY_O && CHR(i - 2) == KEY_U {
+                    if i - 2 >= 0 && CHR(i - 1) == KEY_O && CHR(i - 2) == KEY_U && !(i - 3 >= 0 && CHR(i - 3) == KEY_Q) {
                         let mask1 = typingWord[i - 1].hasHornOrBreve
                         let mask2 = typingWord[i - 2].hasHornOrBreve
                         if mask1 != mask2 {
@@ -213,7 +213,9 @@ extension VietnameseEngineState {
             }
             hookOutput.newCharCount = hookOutput.backspaceCount
             hookOutput.backspaceCount = UInt8(Int(hookOutput.backspaceCount) + deltaBackSpace)
-            hookOutput.extCode = 4
+            if hookOutput.backspaceCount == 0 {
+                hookOutput.extCode = 4
+            }
         }
     }
     
@@ -237,11 +239,11 @@ extension VietnameseEngineState {
             if k < 0 { break }
         }
         
-        // limit mark for end consonant: "C", "T"
+        // limit mark for end consonant: "C", "P", "T"
         if isCorrect && charset[i].count > 1 && (isKeyF(markKey) || isKeyX(markKey) || isKeyR(markKey)) {
-            if charset[i][1] == KEY_C || charset[i][1] == KEY_T {
+            if charset[i][1] == KEY_C || charset[i][1] == KEY_T || charset[i][1] == KEY_P {
                 isCorrect = false
-            } else if charset[i].count > 2 && charset[i][2] == KEY_T {
+            } else if charset[i].count > 2 && (charset[i][2] == KEY_T || charset[i][2] == KEY_P) {
                 isCorrect = false
             }
         }
@@ -521,13 +523,19 @@ extension VietnameseEngineState {
             let hasW0 = typingWord[vsi].hasHornOrBreve
             let hasW1 = vsi + 1 < maxBuff && typingWord[vsi + 1].hasHornOrBreve
             let ch1 = vsi + 1 < maxBuff ? CHR(vsi + 1) : 0
+            let isStandaloneW0 = typingWord[vsi].isStandaloneW
             
-            if (hasW0 && hasW1) || (hasW0 && (ch1 == KEY_I || ch1 == KEY_A)) || (hasW1 && (CHR(vsi) == KEY_I || CHR(vsi) == KEY_U || CHR(vsi) == KEY_O)) {
+            if (hasW0 && hasW1) || (hasW0 && (ch1 == KEY_I || ch1 == KEY_A || isStandaloneW0)) || (hasW1 && (CHR(vsi) == KEY_I || CHR(vsi) == KEY_U || CHR(vsi) == KEY_O)) {
                 let autoTone = typingWord[vsi].isAutoTone || (vsi + 1 < maxBuff && typingWord[vsi + 1].isAutoTone)
                 hookOutput.code = autoTone ? HookCodeState.willProcess : HookCodeState.restore
                 for ii in vsi..<Int(index) {
-                    if autoTone { typingWord[ii] &= ~AUTO_TONE_MASK }
-                    else { typingWord[ii] &= ~TONEW_MASK }
+                    if autoTone {
+                        typingWord[ii] &= ~AUTO_TONE_MASK
+                    } else if typingWord[ii].isStandaloneW && CHR(ii) == KEY_U {
+                        typingWord[ii] = UInt32(KEY_W) | (typingWord[ii].isCaps ? CAPS_MASK : 0)
+                    } else {
+                        typingWord[ii] &= ~TONEW_MASK
+                    }
                     let mask = autoTone ? ~UInt32(0) : ~STANDALONE_MASK
                     hookOutput.charData[Int(index) - 1 - ii] = GET(typingWord[ii]) & mask
                 }
@@ -626,6 +634,7 @@ extension VietnameseEngineState {
             return
         }
         let shouldReverse: Bool = {
+            if hasDigitPrefix { return false }
             if index == 0 { return true }
             if index == 1 { return !_standaloneWbad.contains(CHR(0)) }
             if index == 2 { return _doubleWAllowed.contains(where: { $0[0] == CHR(0) && $0[1] == CHR(1) }) }
@@ -679,14 +688,20 @@ extension VietnameseEngineState {
             return
         }
         
-        if vInputType == 1 {
+        var foundVei = false
+        if vInputType == 1 && index > 0 {
+            vowelEndIndex = 0
             for i in stride(from: Int(index) - 1, through: 0, by: -1) {
                 let ch = CHR(i)
-                if ch == KEY_O || ch == KEY_A || ch == KEY_E { vowelEndIndex = UInt8(i); break }
+                if ch == KEY_O || ch == KEY_A || ch == KEY_E {
+                    vowelEndIndex = UInt8(i)
+                    foundVei = true
+                    break
+                }
             }
         }
         
-        keyForAEO = (vInputType != 1) ? data : ((data == KEY_7 || data == KEY_8) ? KEY_W : ((data == KEY_6) ? CHR(Int(vowelEndIndex)) : data))
+        keyForAEO = (vInputType != 1) ? data : ((data == KEY_7 || data == KEY_8) ? KEY_W : ((data == KEY_6) ? (foundVei ? CHR(Int(vowelEndIndex)) : KEY_EMPTY) : data))
         
         if let charset = _vowel[keyForAEO] {
             isCorrect = false; isChanged = false

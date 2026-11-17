@@ -259,7 +259,6 @@ priority	seed
 priority	seeds
 priority	seek
 priority	seeks
-priority	seems
 priority	seemed
 priority	need
 priority	needs
@@ -350,7 +349,6 @@ priority	wool
 priority	stool
 priority	spool
 priority	school
-priority	rooms
 priority	zoom
 priority	bloom
 priority	broom
@@ -565,12 +563,6 @@ priority	turn
 priority	term
 priority	down
 priority	town
-priority	own
-priority	low
-priority	now
-priority	row
-priority	lots
-priority	its
 priority	dad
 lookback	is
 lookback	as
@@ -627,7 +619,6 @@ lookback	so
 lookback	up
 lookback	by
 lookback	my
-lookback	we
 lookback	he
 lookback	me
 lookback	be
@@ -658,6 +649,14 @@ lookback	moor
 lookback	door
 lookback	there
 lookback	these
+lookback	own
+lookback	its
+lookback	lots
+lookback	low
+lookback	now
+lookback	row
+lookback	seems
+lookback	rooms
 extra	the
 extra	and
 extra	that

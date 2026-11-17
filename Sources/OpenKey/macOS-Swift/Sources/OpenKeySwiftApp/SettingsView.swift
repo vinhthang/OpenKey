@@ -8,13 +8,18 @@ import OpenKeySwiftCore
     var localEventMonitor: Any? = nil
     var escapeEventMonitor: Any? = nil
     var launchAtLoginError: String? = nil
-    var newTrigger: String = ""
-    var newExpansion: String = ""
+    var shortcutError: String? = nil
+    var recordedModifierFlags: NSEvent.ModifierFlags = []
+    var isSyncingLaunchAtLogin: Bool = false
 }
 
 public struct SettingsView: View {
     @Bindable var settings: OpenKeySettingsStore = OpenKeySettingsStore.shared
     private var ui = SettingsUIModel()
+    
+    private static let functionKeyCodes: Set<UInt16> = [
+        122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111, 105, 107, 113, 106, 64, 79, 80, 90
+    ]
     
     private var l10n: OpenKeyL10n {
         OpenKeyL10n(isVietnamese: settings.uiLanguage == 1)
@@ -24,7 +29,6 @@ public struct SettingsView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Header / Accessibility Status Banner with Segmented VI | EN Language Picker
             HStack(spacing: 12) {
                 accessibilityBanner
                 VStack(alignment: .trailing, spacing: 4) {
@@ -60,7 +64,18 @@ public struct SettingsView: View {
                         Text("VNI").tag(1)
                     }
                     
-                    Toggle(l10n.smartSwitch, isOn: $settings.useSmartSwitchKey)
+                    if settings.inputType == 0 {
+                        Toggle(l10n.quickTelex, isOn: $settings.quickTelexEnabled)
+                    }
+                    
+                    HStack {
+                        Toggle(l10n.smartSwitch, isOn: $settings.useSmartSwitchKey)
+                        Spacer()
+                        Button(l10n.resetSmartSwitch) {
+                            settings.resetSmartSwitchData()
+                        }
+                        .controlSize(.small)
+                    }
                 }
                 
                 // 2. Shortcut Section with Interactive Recorder
@@ -87,6 +102,7 @@ public struct SettingsView: View {
                         
                         Button(l10n.defaultShortcut) {
                             stopRecordingShortcut()
+                            ui.shortcutError = nil
                             settings.switchKeyStatus = OpenKeySettingsStore.defaultSwitchKey
                         }
                     }
@@ -95,6 +111,11 @@ public struct SettingsView: View {
                         Text(l10n.recordingHint)
                             .font(.caption)
                             .foregroundColor(.accentColor)
+                    }
+                    if let shortcutErr = ui.shortcutError {
+                        Text(shortcutErr)
+                            .font(.caption)
+                            .foregroundColor(.red)
                     }
                     
                     Toggle(l10n.beepOnSwitch, isOn: $settings.beepOnSwitch)
@@ -107,16 +128,17 @@ public struct SettingsView: View {
                     Toggle(l10n.modernOrthography, isOn: $settings.useModernOrthography)
                 }
                 
-                // 5. Workarounds & App Compatibility
+                // 4. Workarounds & App Compatibility
                 Section(header: Label(l10n.sectionAppFixes, systemImage: "wrench.and.screwdriver")) {
                     Toggle(l10n.fixBrowser, isOn: $settings.fixRecommendBrowser)
                     Toggle(l10n.otherLanguage, isOn: $settings.otherLanguage)
                 }
                 
-                // 6. System Section
+                // 5. System Section
                 Section(header: Label(l10n.sectionSystem, systemImage: "gearshape")) {
                     Toggle(l10n.launchAtLogin, isOn: $settings.launchAtLogin)
-                        .onChange(of: settings.launchAtLogin) { oldValue, newValue in
+                        .onChange(of: settings.launchAtLogin) { _, newValue in
+                            guard !ui.isSyncingLaunchAtLogin else { return }
                             handleLaunchAtLoginChange(newValue)
                         }
                     
@@ -158,9 +180,9 @@ public struct SettingsView: View {
                     }
                 }
                 
-                // 7. About & Conversion Provenance
+                // 6. About & Conversion Provenance
                 Section(header: Label(l10n.sectionAbout, systemImage: "info.circle")) {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 6) {
                         HStack(alignment: .firstTextBaseline) {
                             Text(l10n.versionLabel)
                                 .font(.subheadline)
@@ -192,12 +214,12 @@ public struct SettingsView: View {
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 2)
                 }
             }
             .formStyle(.grouped)
         }
-        .frame(width: 500, height: 760)
+        .frame(width: 500, height: 640)
         .onAppear {
             checkLaunchAtLoginStatus()
             setupEscapeMonitor()
@@ -242,10 +264,16 @@ public struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
                 Spacer()
-                Button(l10n.openSystemSettings) {
-                    openAccessibilitySettings()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Button(l10n.openSystemSettings) {
+                        openAccessibilitySettings()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Button(l10n.resetAccessibility) {
+                        resetAccessibilityPermission()
+                    }
+                    .controlSize(.small)
                 }
-                .buttonStyle(.borderedProminent)
             }
             .padding(12)
             .glassEffect(.regular, in: .rect(cornerRadius: 12))
@@ -275,21 +303,35 @@ public struct SettingsView: View {
     }
     
     private func openAccessibilitySettings() {
-        if !settings.isAccessibilityTrusted {
-            let proc = Process()
-            proc.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
-            proc.arguments = ["reset", "Accessibility", "com.tuyenmai.openkey.swift"]
-            try? proc.run()
-            proc.waitUntilExit()
-            EventTapCoordinator.shared.checkAccessibilityAndSetupTap()
-        }
+        EventTapCoordinator.shared.checkAccessibilityAndSetupTap()
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }
     }
     
+    private func resetAccessibilityPermission() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+            proc.arguments = ["reset", "Accessibility", "com.tuyenmai.openkey.swift"]
+            try? proc.run()
+            proc.waitUntilExit()
+            DispatchQueue.main.async {
+                EventTapCoordinator.shared.checkAccessibilityAndSetupTap()
+            }
+        }
+    }
+    
     private func checkLaunchAtLoginStatus() {
-        settings.launchAtLogin = (SMAppService.mainApp.status == .enabled)
+        ui.isSyncingLaunchAtLogin = true
+        let status = SMAppService.mainApp.status
+        settings.launchAtLogin = (status == .enabled)
+        if status == .requiresApproval {
+            ui.launchAtLoginError = l10n.launchAtLoginRequiresApproval
+        } else {
+            ui.launchAtLoginError = nil
+        }
+        ui.isSyncingLaunchAtLogin = false
     }
     
     private func handleLaunchAtLoginChange(_ enabled: Bool) {
@@ -297,43 +339,72 @@ public struct SettingsView: View {
         do {
             if enabled {
                 try SMAppService.mainApp.register()
+                if SMAppService.mainApp.status == .requiresApproval {
+                    ui.launchAtLoginError = l10n.launchAtLoginRequiresApproval
+                }
             } else {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            ui.launchAtLoginError = "Lỗi khi cấu hình tự khởi động: \(error.localizedDescription)"
+            ui.launchAtLoginError = l10n.launchAtLoginError(error.localizedDescription)
+            ui.isSyncingLaunchAtLogin = true
             settings.launchAtLogin = (SMAppService.mainApp.status == .enabled)
+            ui.isSyncingLaunchAtLogin = false
         }
     }
     
     private func startRecordingShortcut() {
         stopRecordingShortcut()
         ui.isRecordingShortcut = true
+        ui.shortcutError = nil
+        ui.recordedModifierFlags = []
         
         ui.localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
-            // Esc cancels recording
             if event.type == .keyDown && event.keyCode == 53 {
                 self.stopRecordingShortcut()
                 return nil
             }
             
-            let flags = event.modifierFlags
-            let needCtrl = flags.contains(.control)
-            let needOpt = flags.contains(.option)
-            let needCmd = flags.contains(.command)
-            let needShift = flags.contains(.shift)
+            let mask: NSEvent.ModifierFlags = [.control, .option, .command, .shift]
+            let flags = event.modifierFlags.intersection(mask)
+            
+            if event.type == .flagsChanged {
+                if !flags.isEmpty {
+                    self.ui.recordedModifierFlags.formUnion(flags)
+                } else if !self.ui.recordedModifierFlags.isEmpty {
+                    let mod = self.ui.recordedModifierFlags
+                    let encoded = HotKeyMatcher.encode(
+                        keyCode: UInt16(HotKeyMatcher.modifierOnlyCode),
+                        control: mod.contains(.control),
+                        option: mod.contains(.option),
+                        command: mod.contains(.command),
+                        shift: mod.contains(.shift)
+                    )
+                    self.ui.shortcutError = nil
+                    self.settings.switchKeyStatus = encoded
+                    self.stopRecordingShortcut()
+                }
+                return event
+            }
             
             if event.type == .keyDown {
-                // Captured regular key + modifiers
+                self.ui.recordedModifierFlags = []
+                let hasModifier = !flags.isEmpty
+                let isFunctionKey = Self.functionKeyCodes.contains(event.keyCode)
+                guard hasModifier || isFunctionKey else {
+                    self.ui.shortcutError = self.l10n.shortcutInvalidHint
+                    return nil
+                }
                 let asciiVal = event.charactersIgnoringModifiers?.uppercased().first?.asciiValue ?? 0
                 let encoded = HotKeyMatcher.encode(
                     keyCode: event.keyCode,
-                    control: needCtrl,
-                    option: needOpt,
-                    command: needCmd,
-                    shift: needShift,
+                    control: flags.contains(.control),
+                    option: flags.contains(.option),
+                    command: flags.contains(.command),
+                    shift: flags.contains(.shift),
                     displayChar: asciiVal
                 )
+                self.ui.shortcutError = nil
                 self.settings.switchKeyStatus = encoded
                 self.stopRecordingShortcut()
                 return nil
@@ -347,6 +418,7 @@ public struct SettingsView: View {
             NSEvent.removeMonitor(monitor)
             ui.localEventMonitor = nil
         }
+        ui.recordedModifierFlags = []
         ui.isRecordingShortcut = false
     }
 }

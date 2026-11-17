@@ -22,6 +22,31 @@ public let KEY_LEFT: UInt16 = 123
 public let KEY_RIGHT: UInt16 = 124
 public let KEY_DOWN: UInt16 = 125
 public let KEY_UP: UInt16 = 126
+public let KEY_HOME: UInt16 = 115
+public let KEY_PAGE_UP: UInt16 = 116
+public let KEY_FORWARD_DELETE: UInt16 = 117
+public let KEY_END: UInt16 = 119
+public let KEY_PAGE_DOWN: UInt16 = 121
+public let KEY_F1: UInt16 = 122
+public let KEY_F2: UInt16 = 120
+public let KEY_F3: UInt16 = 99
+public let KEY_F4: UInt16 = 118
+public let KEY_F5: UInt16 = 96
+public let KEY_F6: UInt16 = 97
+public let KEY_F7: UInt16 = 98
+public let KEY_F8: UInt16 = 100
+public let KEY_F9: UInt16 = 101
+public let KEY_F10: UInt16 = 109
+public let KEY_F11: UInt16 = 103
+public let KEY_F12: UInt16 = 111
+public let KEY_F13: UInt16 = 105
+public let KEY_F14: UInt16 = 107
+public let KEY_F15: UInt16 = 113
+public let KEY_F16: UInt16 = 106
+public let KEY_F17: UInt16 = 64
+public let KEY_F18: UInt16 = 79
+public let KEY_F19: UInt16 = 80
+public let KEY_F20: UInt16 = 90
 
 public let KEY_EMPTY: UInt16 = 256
 public let KEY_A: UInt16 = 0
@@ -251,6 +276,7 @@ public let _consonantD: [[UInt16]] = [
     [KEY_D, KEY_U, KEY_N, KEY_G], [KEY_D, KEY_U, KEY_G | END_CONSONANT_MASK],
     [KEY_D, KEY_U, KEY_N], [KEY_D, KEY_U, KEY_M], [KEY_D, KEY_U, KEY_C], [KEY_D, KEY_U, KEY_O], [KEY_D, KEY_U, KEY_A],
     [KEY_D, KEY_U, KEY_O, KEY_I], [KEY_D, KEY_U, KEY_O, KEY_C], [KEY_D, KEY_U, KEY_O, KEY_N],
+    [KEY_D, KEY_U, KEY_O, KEY_M],
     [KEY_D, KEY_U, KEY_O, KEY_N, KEY_G], [KEY_D, KEY_U, KEY_O, KEY_G | END_CONSONANT_MASK],
     [KEY_D, KEY_U], [KEY_D, KEY_U, KEY_P], [KEY_D, KEY_U, KEY_T], [KEY_D, KEY_U, KEY_I],
     
@@ -258,9 +284,9 @@ public let _consonantD: [[UInt16]] = [
     [KEY_D, KEY_I, KEY_C], [KEY_D, KEY_I, KEY_N, KEY_H], [KEY_D, KEY_I, KEY_H | END_CONSONANT_MASK],
     [KEY_D, KEY_I, KEY_N], [KEY_D, KEY_I], [KEY_D, KEY_I, KEY_A], [KEY_D, KEY_I, KEY_E],
     [KEY_D, KEY_I, KEY_E, KEY_C], [KEY_D, KEY_I, KEY_E, KEY_U], [KEY_D, KEY_I, KEY_E, KEY_N],
-    [KEY_D, KEY_I, KEY_E, KEY_M], [KEY_D, KEY_I, KEY_E, KEY_P], [KEY_D, KEY_I, KEY_T],
+    [KEY_D, KEY_I, KEY_E, KEY_M], [KEY_D, KEY_I, KEY_E, KEY_P], [KEY_D, KEY_I, KEY_T], [KEY_D, KEY_I, KEY_U],
     
-    [KEY_D, KEY_O], [KEY_D, KEY_O, KEY_A], [KEY_D, KEY_O, KEY_A, KEY_N],
+    [KEY_D, KEY_O], [KEY_D, KEY_O, KEY_A], [KEY_D, KEY_O, KEY_A, KEY_N], [KEY_D, KEY_O, KEY_A, KEY_T],
     [KEY_D, KEY_O, KEY_A, KEY_N, KEY_G], [KEY_D, KEY_O, KEY_A, KEY_G | END_CONSONANT_MASK],
     [KEY_D, KEY_O, KEY_A, KEY_N, KEY_H], [KEY_D, KEY_O, KEY_A, KEY_H | END_CONSONANT_MASK],
     [KEY_D, KEY_O, KEY_A, KEY_M], [KEY_D, KEY_O, KEY_E], [KEY_D, KEY_O, KEY_I], [KEY_D, KEY_O, KEY_P],

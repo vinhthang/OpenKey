@@ -17,12 +17,15 @@ public struct OpenKeyL10n: Sendable {
     public var accessMissingTitle: String { isVietnamese ? "Chưa cấp quyền Trợ năng" : "Accessibility Permission Required" }
     public var accessMissingSubtitle: String { isVietnamese ? "Hãy bật quyền cho OpenKeySwift trong Cài đặt Hệ thống." : "Grant permission in System Settings to enable Vietnamese typing." }
     public var openSystemSettings: String { isVietnamese ? "Mở Cài đặt" : "Open Settings" }
+    public var resetAccessibility: String { isVietnamese ? "Đặt lại quyền" : "Reset Permission" }
     
     // Input & Language Section
     public var sectionInput: String { isVietnamese ? "Bộ gõ & Ngôn ngữ" : "Input & Language" }
     public var inputLanguage: String { isVietnamese ? "Chế độ gõ:" : "Input Mode:" }
     public var inputType: String { isVietnamese ? "Kiểu gõ:" : "Input Method:" }
+    public var quickTelex: String { isVietnamese ? "Gõ tắt phụ âm đầu (Quick Telex: cc→ch, tt→tr...)" : "Quick Telex (cc→ch, gg→gi, tt→tr...)" }
     public var smartSwitch: String { isVietnamese ? "Nhớ ngôn ngữ theo từng ứng dụng" : "Remember input mode per application" }
+    public var resetSmartSwitch: String { isVietnamese ? "Đặt lại nhớ ngôn ngữ" : "Reset Smart Switch" }
     
     // Shortcut Section
     public var sectionShortcut: String { isVietnamese ? "Phím tắt chuyển chế độ" : "Toggle Shortcut" }
@@ -30,7 +33,8 @@ public struct OpenKeyL10n: Sendable {
     public var cancelShortcut: String { isVietnamese ? "Hủy (Esc)" : "Cancel (Esc)" }
     public var changeShortcut: String { isVietnamese ? "Đổi phím tắt..." : "Change..." }
     public var defaultShortcut: String { isVietnamese ? "Mặc định (⌥Z)" : "Default (⌥Z)" }
-    public var recordingHint: String { isVietnamese ? "Nhấn tổ hợp phím mới (ví dụ ⌥Z, ⌃Space). Nhấn Esc để hủy." : "Press desired shortcut (e.g. ⌥Z, ⌃Space). Press Esc to cancel." }
+    public var recordingHint: String { isVietnamese ? "Nhấn tổ hợp phím mới (vd ⌥Z, ⌃Space) hoặc nhấn rồi thả phím bổ trợ. Nhấn Esc để hủy." : "Press shortcut (e.g. ⌥Z, ⌃Space) or tap a modifier key. Press Esc to cancel." }
+    public var shortcutInvalidHint: String { isVietnamese ? "Phím tắt cần có phím bổ trợ (⌃, ⌥, ⇧, ⌘) hoặc phím F1–F20." : "Shortcut requires a modifier (⌃, ⌥, ⇧, ⌘) or a function key (F1–F20)." }
     public var beepOnSwitch: String { isVietnamese ? "Phát âm báo khi chuyển chế độ" : "Play sound when switching mode" }
     
     // Orthography Section
@@ -38,21 +42,6 @@ public struct OpenKeyL10n: Sendable {
     public var checkSpelling: String { isVietnamese ? "Kiểm tra chính tả tiếng Việt" : "Enable Vietnamese spell checking" }
     public var autoRestore: String { isVietnamese ? "Tự khôi phục phím khi từ sai chính tả" : "Auto-restore raw keys on invalid words" }
     public var modernOrthography: String { isVietnamese ? "Đặt dấu kiểu mới (oà, uý thay vì òa, úy)" : "Use modern tone placement (oà, uý)" }
-    
-    // Auto Wording & Suggestions Section
-    public var sectionAutoWording: String { isVietnamese ? "Auto Wording & Gợi ý từ" : "Auto Wording & Suggestions" }
-    public var enableAutoWording: String { isVietnamese ? "Bật Auto Wording & Gợi ý từ" : "Enable Auto Wording & suggestions" }
-    public var grammarRepair: String { isVietnamese ? "Tự sửa cụm nguyên âm (ie/ye → iê/yê, uow → ươ)" : "Auto-repair vowel clusters (ie/ye → iê/yê, uow → ươ)" }
-    public var doubleSpacePeriod: String { isVietnamese ? "Gõ 2 phím cách chèn dấu chấm (. )" : "Double-space inserts period (. )" }
-    public var shorthandExpansion: String { isVietnamese ? "Tự bung từ viết tắt khi nhấn Space" : "Expand shorthands on Space (ko → không, dc → được...)" }
-    public var candidateBar: String { isVietnamese ? "Hiện thanh gợi ý từ nổi Liquid Glass" : "Show floating Liquid Glass candidate bar" }
-    public var customShorthandsTitle: String { isVietnamese ? "Từ viết tắt tùy chỉnh:" : "Custom Shorthands:" }
-    public var triggerPlaceholder: String { isVietnamese ? "Viết tắt (vd: cv)" : "Trigger (e.g. cv)" }
-    public var expansionPlaceholder: String { isVietnamese ? "Mở rộng (vd: công việc)" : "Expansion (e.g. công việc)" }
-    public var addButton: String { isVietnamese ? "Thêm" : "Add" }
-    public var learnedFreqTitle: String { isVietnamese ? "Tần suất từ đã học:" : "Learned word frequencies:" }
-    public var learnedFreqSubtitle: String { isVietnamese ? "Thứ tự gợi ý tự thích ứng theo từ bạn chọn." : "Candidate ranking adapts to your accepted words." }
-    public var resetLearnedButton: String { isVietnamese ? "Xóa dữ liệu học" : "Reset Learned Words" }
     
     // App Compatibility Section
     public var sectionAppFixes: String { isVietnamese ? "Tương thích ứng dụng" : "App Compatibility" }
@@ -62,6 +51,10 @@ public struct OpenKeyL10n: Sendable {
     // System Section
     public var sectionSystem: String { isVietnamese ? "Hệ thống" : "System" }
     public var launchAtLogin: String { isVietnamese ? "Khởi động cùng macOS" : "Launch at login" }
+    public var launchAtLoginRequiresApproval: String { isVietnamese ? "Cần phê duyệt OpenKeySwift trong Cài đặt Hệ thống → Mục đăng nhập." : "Requires approval in System Settings → Login Items." }
+    public func launchAtLoginError(_ detail: String) -> String {
+        isVietnamese ? "Lỗi khi cấu hình tự khởi động: \(detail)" : "Failed to configure launch at login: \(detail)"
+    }
     public var debugModeTitle: String { isVietnamese ? "Chế độ Gỡ lỗi (Debug Mode)" : "Debug Mode & Logging" }
     public var debugModeSubtitle: String { isVietnamese ? "Ghi nhật ký chẩn đoán chi tiết ra ~/Library/Logs/OpenKeySwift/openkey-debug.log (Tự dọn dẹp theo bản build, che giấu mật khẩu)" : "Write verbose diagnostics to ~/Library/Logs/OpenKeySwift/openkey-debug.log (Auto-purged per version, keystrokes redacted in password fields)" }
     public var openLogFile: String { isVietnamese ? "Mở tệp nhật ký" : "Open Log File" }
@@ -79,9 +72,15 @@ public struct OpenKeyL10n: Sendable {
     public var licenseFooter: String { isVietnamese ? "Phát hành theo giấy phép mã nguồn mở GNU GPLv3 • Nhấn Esc để đóng cửa sổ" : "Licensed under GNU GPLv3 • Press Esc to close window" }
     
     // Menu items
-    public var menuVietnamese: String { isVietnamese ? "Tiếng Việt (⌥Z)" : "Vietnamese Input (⌥Z)" }
+    public func menuVietnamese(shortcut: String) -> String {
+        isVietnamese ? "Tiếng Việt (\(shortcut))" : "Vietnamese Input (\(shortcut))"
+    }
+    public func menuBypassApp(_ appName: String) -> String {
+        isVietnamese ? "Tắt tiếng Việt trong \(appName)" : "Bypass Vietnamese in \(appName)"
+    }
     public var menuSmartSwitch: String { isVietnamese ? "Nhớ ngôn ngữ theo ứng dụng" : "Remember Language Per App" }
-    public var menuAutoWording: String { isVietnamese ? "Auto Wording & Gợi ý từ" : "Auto Wording & Suggestions" }
+    public var menuResetSmartSwitch: String { isVietnamese ? "Đặt lại nhớ ngôn ngữ" : "Reset Smart Switch" }
+    public var menuAccessibilityMissing: String { isVietnamese ? "Chưa cấp quyền Trợ năng — Mở Cài đặt..." : "Accessibility Required — Open Settings..." }
     public var menuDebugMode: String { isVietnamese ? "Chế độ Gỡ lỗi (Debug Mode)" : "Debug Mode" }
     public var menuOpenLogFile: String { isVietnamese ? "Mở tệp nhật ký gỡ lỗi..." : "Open Debug Log..." }
     public var menuSettings: String { isVietnamese ? "Cài đặt..." : "Settings..." }

@@ -569,5 +569,112 @@ struct OpenKeyEventTapTests {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         #expect(store.language == 1, "store.language must remain 1 after typing 3+ English words")
     }
+
+    // MARK: - Stage 2A RED Tests (MAC-03, MAC-08, MAC-09)
+
+    @Test("MAC-03: SmartSwitchStore handles >255B bundleIds without crashing, preserves read-miss purity, and supports excludedBundleIds + reset")
+    func testMac03SmartSwitchLongBundleAndReadMissPurity() {
+        let store = SmartSwitchStore()
+        let longBundle = "com.example." + String(repeating: "a", count: 260)
+
+        // Setting and serializing a >255-byte UTF-8 bundle ID must not trap/crash
+        store.setAppInputMethodStatus(bundleId: longBundle, language: 0)
+        let neededSize = store.getSmartSwitchKeySaveData(outBuffer: nil, maxBufferSize: 0)
+        var buffer = [UInt8](repeating: 0, count: Int(max(1, neededSize)))
+        _ = store.getSmartSwitchKeySaveData(outBuffer: &buffer, maxBufferSize: neededSize)
+
+        // Read miss must return -1 and MUST NOT insert/mutate smartSwitchData
+        let baselineSize = store.getSmartSwitchKeySaveData(outBuffer: nil, maxBufferSize: 0)
+        #expect(store.getAppInputMethodStatus(bundleId: "com.never.seen.app.1", currentInputMethod: 1) == -1)
+        #expect(store.getAppInputMethodStatus(bundleId: "com.never.seen.app.1", currentInputMethod: 1) == -1)
+        let afterMissSize = store.getSmartSwitchKeySaveData(outBuffer: nil, maxBufferSize: 0)
+        #expect(afterMissSize == baselineSize, "getAppInputMethodStatus read miss must not mutate smartSwitchData")
+
+        // excludedBundleIds and resetSmartSwitchData()
+        store.setExcluded(true, bundleId: "com.example.bypass")
+        #expect(store.isExcluded(bundleId: "com.example.bypass") == true)
+        store.setExcluded(false, bundleId: "com.example.bypass")
+        #expect(store.isExcluded(bundleId: "com.example.bypass") == false)
+
+        store.setAppInputMethodStatus(bundleId: "com.apple.Notes", language: 0)
+        #expect(store.getAppInputMethodStatus(bundleId: "com.apple.Notes", currentInputMethod: 1) == 0)
+        store.resetSmartSwitchData()
+        #expect(store.getAppInputMethodStatus(bundleId: "com.apple.Notes", currentInputMethod: 1) == -1)
+    }
+
+    @Test("MAC-08: EventTapCoordinator clears swallowNextKeyUp, cancels modifier-tap, resets on tapDisabled, toggles synchronously, and bypasses excluded apps")
+    func testMac08HotkeyModifierReleaseAndExtraModifierCancel() {
+        let coordinator = EventTapCoordinator()
+        let optionZ = HotKeyMatcher.defaultHotKey
+
+        // 1. Press Option+Z -> toggles language and arms swallowNextKeyUp
+        let down = KeyEventContext(eventType: .keyDown, keyCode: 6, flags: .maskAlternate, language: 1, switchKeyStatus: optionZ)
+        #expect(coordinator.evaluateKeyEvent(down) == .toggleLanguage(newLanguage: 0))
+
+        // 2. Release Option BEFORE Z keyUp -> must clear swallowNextKeyUp
+        let modUp = KeyEventContext(eventType: .flagsChanged, keyCode: 58, flags: [], language: 0, switchKeyStatus: optionZ)
+        #expect(coordinator.evaluateKeyEvent(modUp) == .passThrough(resetSession: false))
+
+        // 3. Subsequent Z keyUp (with Option re-held in another context) must NOT be swallowed because swallowNextKeyUp was cleared
+        let zUp = KeyEventContext(eventType: .keyUp, keyCode: 6, flags: .maskAlternate, language: 0, switchKeyStatus: optionZ)
+        #expect(coordinator.evaluateKeyEvent(zUp) == .passThrough(resetSession: false))
+
+        // 4. Modifier-only tap (Ctrl): pressing extra modifier (Shift) cancels tap and does NOT toggle language
+        let ctrlTap = HotKeyMatcher.encode(keyCode: 0xFE, control: true, option: false, command: false, shift: false)
+        #expect(coordinator.evaluateKeyEvent(KeyEventContext(eventType: .flagsChanged, keyCode: 59, flags: .maskControl, language: 1, switchKeyStatus: ctrlTap)) == .passThrough(resetSession: false))
+        let extraMod = coordinator.evaluateKeyEvent(KeyEventContext(eventType: .flagsChanged, keyCode: 56, flags: [.maskControl, .maskShift], language: 1, switchKeyStatus: ctrlTap))
+        #expect(extraMod == .passThrough(resetSession: false), "Pressing extra modifier must NOT toggle language")
+        let releaseShift = coordinator.evaluateKeyEvent(KeyEventContext(eventType: .flagsChanged, keyCode: 56, flags: .maskControl, language: 1, switchKeyStatus: ctrlTap))
+        #expect(releaseShift == .passThrough(resetSession: false))
+        let releaseCtrl = coordinator.evaluateKeyEvent(KeyEventContext(eventType: .flagsChanged, keyCode: 59, flags: [], language: 1, switchKeyStatus: ctrlTap))
+        #expect(releaseCtrl == .passThrough(resetSession: false), "Cancelled modifier tap must NOT toggle on final release")
+
+        // 5. resetTapInteractionState() clears pendingModifierTap and swallowNextKeyUp (tapDisabledByTimeout)
+        _ = coordinator.evaluateKeyEvent(KeyEventContext(eventType: .keyDown, keyCode: 6, flags: .maskAlternate, language: 1, switchKeyStatus: optionZ))
+        _ = coordinator.evaluateKeyEvent(KeyEventContext(eventType: .flagsChanged, keyCode: 59, flags: .maskControl, language: 1, switchKeyStatus: ctrlTap))
+        coordinator.resetTapInteractionState()
+        #expect(coordinator.evaluateKeyEvent(KeyEventContext(eventType: .keyUp, keyCode: 6, flags: .maskAlternate, language: 1, switchKeyStatus: optionZ)) == .passThrough(resetSession: false))
+        #expect(coordinator.evaluateKeyEvent(KeyEventContext(eventType: .flagsChanged, keyCode: 59, flags: [], language: 1, switchKeyStatus: ctrlTap)) == .passThrough(resetSession: false))
+
+        // 6. Synchronous language mutation on toggleLanguage without RunLoop race
+        let settings = OpenKeySettingsStore.shared
+        let prevLang = settings.language
+        defer { settings.language = prevLang }
+        settings.language = 1
+        coordinator.handleToggleLanguage(0)
+        #expect(settings.language == 0, "handleToggleLanguage must update settings.language synchronously without RunLoop race")
+
+        // 7. Excluded bundle ID bypasses keystrokes
+        let bypassedCtx = KeyEventContext(
+            eventType: .keyDown,
+            keyCode: 0,
+            language: 1,
+            activeAppBundleId: "com.example.excluded",
+            excludedBundleIds: ["com.example.excluded"]
+        )
+        #expect(coordinator.evaluateKeyEvent(bypassedCtx) == .passThrough(resetSession: true))
+    }
+
+    @Test("MAC-09: HotKeyMatcher.describe formats Space, Tab, Return, and F1-F12 cleanly")
+    func testMac09HotKeyMatcherDescribeSpecialKeys() {
+        let ctrlSpace = HotKeyMatcher.encode(keyCode: 49, control: true, option: false, command: false, shift: false, displayChar: 0x20)
+        #expect(HotKeyMatcher.describe(config: ctrlSpace) == "⌃Space")
+
+        let optTab = HotKeyMatcher.encode(keyCode: 48, control: false, option: true, command: false, shift: false, displayChar: 0x09)
+        #expect(HotKeyMatcher.describe(config: optTab) == "⌥⇥")
+
+        let cmdReturn = HotKeyMatcher.encode(keyCode: 36, control: false, option: false, command: true, shift: false, displayChar: 0x0D)
+        #expect(HotKeyMatcher.describe(config: cmdReturn) == "⌘↩")
+
+        let fKeys: [(UInt16, String)] = [
+            (122, "F1"), (120, "F2"), (99, "F3"), (118, "F4"),
+            (96, "F5"), (97, "F6"), (98, "F7"), (100, "F8"),
+            (101, "F9"), (109, "F10"), (103, "F11"), (111, "F12")
+        ]
+        for (code, label) in fKeys {
+            let cfg = HotKeyMatcher.encode(keyCode: code, control: false, option: true, command: false, shift: false)
+            #expect(HotKeyMatcher.describe(config: cfg) == "⌥\(label)")
+        }
+    }
 }
 }

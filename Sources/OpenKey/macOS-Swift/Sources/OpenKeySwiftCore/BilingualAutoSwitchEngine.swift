@@ -215,6 +215,10 @@ extension VietnameseEngineState {
             return true
         }
 
+        if tryRestoreCompoundToken(breakKeyCode: breakKeyCode, handleCode: handleCode, shouldRestore: shouldRestore, targetKeys: targetKeys, fullKeys: fullKeys, hasAnyDiacritic: hasAnyDiacritic) {
+            return true
+        }
+
         if shouldRestore {
             return emitHookReplacement(handleCode: handleCode, targetKeys: targetKeys, replacementWord: replacementWord, composed: composed, composedLower: composedLower, fullRawStr: fullRawStr, fullRawLower: fullRawLower, breakKeyCode: breakKeyCode, dict: dict)
         } else {
@@ -484,6 +488,9 @@ extension VietnameseEngineState {
                     return fullKeys
                 } else if priority == .englishFirst && dict.isEnglishWord(fullRawLower) {
                     return fullKeys
+                } else if let prev = previousWords.last, prev.composedString.lowercased() == prev.rawString.lowercased(),
+                          dict.englishNextWordBigrams[prev.rawString.lowercased()]?.contains(fullRawLower) == true {
+                    return fullKeys
                 } else if dict.isEnglishWord(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower) {
                     return fullKeys
                 } else if rawCapCount >= 2 {
@@ -582,6 +589,48 @@ extension VietnameseEngineState {
         return true
     }
 
+    private func tryRestoreCompoundToken(
+        breakKeyCode: UInt16,
+        handleCode: UInt8,
+        shouldRestore: Bool,
+        targetKeys: [UInt32],
+        fullKeys: [UInt32],
+        hasAnyDiacritic: Bool
+    ) -> Bool {
+        guard breakKeyCode == KEY_SPACE, !wordStartOk, !compoundSegments.isEmpty else { return false }
+        guard compoundSegments.contains(where: { $0.wasTransformed }) else { return false }
+        guard !hasAnyDiacritic || shouldRestore else { return false }
+
+        var totalBackspace = Int(index)
+        var combinedKeys: [UInt32] = []
+        for seg in compoundSegments {
+            totalBackspace += seg.screenLength + 1
+            combinedKeys.append(contentsOf: seg.rawKeys)
+            combinedKeys.append(seg.separatorKey)
+        }
+        let curKeys = shouldRestore ? targetKeys : fullKeys
+        combinedKeys.append(contentsOf: curKeys)
+        guard combinedKeys.count <= 31, totalBackspace <= 255 else { return false }
+
+        hookOutput.code = handleCode
+        hookOutput.backspaceCount = UInt8(totalBackspace)
+        hookOutput.newCharCount = UInt8(combinedKeys.count)
+        for i in 0..<combinedKeys.count {
+            let k = combinedKeys[i]
+            hookOutput.charData[combinedKeys.count - 1 - i] = (k & PURE_CHARACTER_MASK) != 0 ? k : GET(k)
+        }
+        for i in 0..<curKeys.count where i < maxBuff {
+            typingWord[i] = curKeys[i]
+            keyStates[i] = curKeys[i]
+        }
+        index = UInt8(min(maxBuff, curKeys.count))
+        stateIndex = index
+        tempDisableKey = false
+        compoundSegments.removeAll()
+        autoRestoreUndoState = nil
+        return true
+    }
+
     private func emitHookReplacement(
         handleCode: UInt8,
         targetKeys: [UInt32],
@@ -612,47 +661,36 @@ extension VietnameseEngineState {
         tempDisableKey = false
 
         let targetStr = keysToString(targetKeys)
-        let breakChar = keyCodeToCharacter(UInt32(breakKeyCode) | (isCaps ? CAPS_MASK : 0))
+        let baseBreakChar = keyCodeToCharacter(UInt32(breakKeyCode))
+        let shiftedBreakChar = keyCodeToCharacter(UInt32(breakKeyCode) | (isCaps ? CAPS_MASK : 0))
+        let breakChar: UInt16 = (baseBreakChar != 0) ? (shiftedBreakChar != 0 ? shiftedBreakChar : baseBreakChar) : 0
         let trailingCount = (breakChar != 0) ? 1 : 0
-        let origComposed = (replacementWord != nil && dict.vietnameseTypoCorrections[composedLower] == nil &&
-            dict.vietnameseBigramGrammar.values.allSatisfy({ !$0.hasSuffix(targetStr.lowercased()) })) ? fullRawStr : composed
+        if trailingCount == 1 {
+            let origComposed = (replacementWord != nil && dict.vietnameseTypoCorrections[composedLower] == nil &&
+                dict.vietnameseBigramGrammar.values.allSatisfy({ !$0.hasSuffix(targetStr.lowercased()) })) ? fullRawStr : composed
 
-        autoRestoreUndoState = AutoRestoreUndoSnapshot(
-            originalComposedString: origComposed,
-            originalTypingWord: origTypingWord,
-            originalIndex: origIndex,
-            originalKeyStates: origKeyStates,
-            originalStateIndex: origStateIndex,
-            replacedLengthOnScreen: Int(hookOutput.newCharCount) + trailingCount,
-            rawLowerWord: fullRawLower
-        )
+            autoRestoreUndoState = AutoRestoreUndoSnapshot(
+                originalComposedString: origComposed,
+                originalTypingWord: origTypingWord,
+                originalIndex: origIndex,
+                originalKeyStates: origKeyStates,
+                originalStateIndex: origStateIndex,
+                replacedLengthOnScreen: Int(hookOutput.newCharCount) + trailingCount,
+                rawLowerWord: fullRawLower
+            )
+        } else {
+            autoRestoreUndoState = nil
+        }
 
         let isEng = dict.isEnglishWord(targetStr.lowercased()) || dict.englishContractionGrammar.values.contains(targetStr) || targetStr == "I"
-        if breakKeyCode == KEY_SPACE {
-            previousWords.append(PreviousWordEntry(
-                rawString: targetStr,
-                composedString: targetStr,
-                rawKeys: targetKeys,
-                composedWord: targetKeys,
-                wasRestoredToEnglish: isEng
-            ))
-            if previousWords.count > 2 { previousWords.removeFirst(previousWords.count - 2) }
-            if isEng {
-                consecutiveEnglishWordCount += 1
-                if consecutiveEnglishWordCount >= 3 {
-                    hookOutput.languageSwitchRequest = 0
-                }
-            } else {
-                consecutiveEnglishWordCount = 0
-            }
-        } else {
-            previousWords.removeAll()
-            if breakKeyCode == KEY_COMMA && (isEng || !wordStartOk) {
-                consecutiveEnglishWordCount += 1
-            } else if breakKeyCode != KEY_COMMA || !isEng {
-                consecutiveEnglishWordCount = 0
-            }
-        }
+        appendSlidingWindowEntry(
+            breakKeyCode: breakKeyCode,
+            rawString: targetStr,
+            composedString: targetStr,
+            rawKeys: targetKeys,
+            composedWord: targetKeys,
+            isEng: isEng
+        )
         return true
     }
 
@@ -671,12 +709,30 @@ extension VietnameseEngineState {
         let isUnaccentedNonVn = !hasAnyDiacritic && composedLower.count >= 2 && !dict.isValidVietnameseSyllable(composedLower) && !vietnameseShorthandSet.contains(composedLower)
         let isComposedEng = (dict.isEnglishWord(composedLower) && !hasAnyDiacritic && (!dict.isValidVietnameseSyllable(composedLower) || dict.englishPriorityWords.contains(composedLower))) || composed == "I" || isUnaccentedNonVn
         let isEng = isComposedEng || (dict.isEnglishWord(fullRawLower) && !hasAnyDiacritic && (!dict.isValidVietnameseSyllable(composedLower) || dict.englishPriorityWords.contains(fullRawLower)))
+        appendSlidingWindowEntry(
+            breakKeyCode: breakKeyCode,
+            rawString: isComposedEng ? composed : fullRawStr,
+            composedString: composed,
+            rawKeys: isComposedEng ? stdRawKeys : fullKeys,
+            composedWord: Array(typingWord[0..<Int(index)]),
+            isEng: isEng
+        )
+    }
+
+    private func appendSlidingWindowEntry(
+        breakKeyCode: UInt16,
+        rawString: String,
+        composedString: String,
+        rawKeys: [UInt32],
+        composedWord: [UInt32],
+        isEng: Bool
+    ) {
         if breakKeyCode == KEY_SPACE {
             previousWords.append(PreviousWordEntry(
-                rawString: isComposedEng ? composed : fullRawStr,
-                composedString: composed,
-                rawKeys: isComposedEng ? stdRawKeys : fullKeys,
-                composedWord: Array(typingWord[0..<Int(index)]),
+                rawString: rawString,
+                composedString: composedString,
+                rawKeys: rawKeys,
+                composedWord: composedWord,
                 wasRestoredToEnglish: isEng
             ))
             if previousWords.count > 2 { previousWords.removeFirst(previousWords.count - 2) }
@@ -692,7 +748,7 @@ extension VietnameseEngineState {
             previousWords.removeAll()
             if breakKeyCode == KEY_COMMA && (isEng || !wordStartOk) {
                 consecutiveEnglishWordCount += 1
-            } else {
+            } else if breakKeyCode != KEY_COMMA || !isEng {
                 consecutiveEnglishWordCount = 0
             }
         }
@@ -775,7 +831,9 @@ extension VietnameseEngineState {
                 consecutiveEnglishWordCount = 0
                 var outUTF16 = Array(composedStr.utf16)
                 var shouldSendCtrl = false
-                let breakChar = keyCodeToCharacter(UInt32(keyCode) | ((capsStatus == 1) ? CAPS_MASK : 0))
+                let baseBreakChar = keyCodeToCharacter(UInt32(keyCode))
+                let shiftedBreakChar = keyCodeToCharacter(UInt32(keyCode) | ((capsStatus == 1) ? CAPS_MASK : 0))
+                let breakChar = (baseBreakChar != 0) ? (shiftedBreakChar != 0 ? shiftedBreakChar : baseBreakChar) : 0
                 if breakChar != 0 {
                     outUTF16.append(breakChar)
                 } else {

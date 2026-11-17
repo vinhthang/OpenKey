@@ -1567,5 +1567,385 @@ struct OpenKeyEngineTests {
         #expect(s.text == "kiểu ", "Typing 'kieur ' with grammarRepairEnabled=1 must produce 'kiểu ', got '\(s.text)'")
     }
 
+    @Test("Stage 1: Shared Lexicon, Phonotactics, Pure Buckets & Corpus Integrity")
+    func testStage1CorpusAndPhonotacticsInvariants() {
+        let dict = VietnameseDictionary.shared
+
+        let validSyllables = [
+            "ký", "kỳ", "kỷ", "kỹ", "kỵ",
+            "quỳnh", "gìn", "khuâng",
+            "quờ", "quở", "quớ", "quỡ", "quợ", "quỷnh", "quỵch",
+            "núy", "rúy", "đúy",
+            "xoá", "xóa", "kiểu", "nguyệt", "nguyễn", "thuở", "gì", "cừu", "hươu", "khuơ"
+        ]
+        for w in validSyllables {
+            #expect(dict.isValidVietnameseSyllable(w) == true, "Valid Vietnamese syllable '\(w)' must be accepted")
+        }
+
+        let invalidSyllables = [
+            "web", "bue", "cue", "due", "sue", "true",
+            "gioa", "gioá", "giuố", "bãu", "buổn", "kểu", "boá", "lưong", "giy"
+        ]
+        for w in invalidSyllables {
+            #expect(dict.isValidVietnameseSyllable(w) == false, "Invalid syllable '\(w)' must be rejected")
+        }
+        for w in ["bue", "cue", "due", "sue", "true", "gioa", "web"] {
+            #expect(!VietnameseDictionary.isPhonotacticallyValidVietnameseSyllable(w),
+                    "isPhonotacticallyValidVietnameseSyllable('\(w)') must be false")
+        }
+        #expect(VietnameseDictionary.isPhonotacticallyValidVietnameseSyllable("que"))
+        #expect(VietnameseDictionary.isPhonotacticallyValidVietnameseSyllable("quê"))
+
+        // AC-027.1: Pure stemToWords and telexSignatureToWords bucket invariants
+        for (stem, words) in dict.stemToWords {
+            #expect(words.allSatisfy { VietnameseDictionary.stripVietnameseDiacritics($0) == stem },
+                    "Every word in stem bucket '\(stem)' must satisfy strip(word) == stem")
+        }
+        #expect(!(dict.stemToWords["viet"] ?? []).contains("viên"), "stemToWords['viet'] must not contain 'viên'")
+        #expect(!(dict.stemToWords["tieng"] ?? []).contains("tiện"), "stemToWords['tieng'] must not contain 'tiện'")
+        #expect(!(dict.stemToWords["thanh"] ?? []).contains("thẳng"), "stemToWords['thanh'] must not contain 'thẳng'")
+
+        for (sig, words) in dict.telexSignatureToWords {
+            #expect(words.allSatisfy { String(VietnameseDictionary.stripVietnameseDiacritics($0).sorted()) == sig },
+                    "Every word in signature bucket '\(sig)' must match sorted(strip(word))")
+        }
+
+        // AC-027.2: Phonotactic sanitization invariants
+        let ac027Invalid = [
+            "duờng", "luờng", "huờng", "cuờng", "tuờng", "phuờng", "thuờng", "chuờng", "vuờn", "suờn",
+            "ghuy", "kuy", "byên", "bơng", "bưn", "tưn", "bưm", "bíc", "bẹc", "buển",
+            "dất", "dến", "diểm", "dồng", "dứng", "dể"
+        ]
+        for w in ac027Invalid {
+            #expect(dict.isValidVietnameseSyllable(w) == false, "AC-027.2 invalid syllable '\(w)' must be rejected")
+        }
+
+        // Zero compoundBigrams or priorityMap syllables rejected
+        for (k, values) in dict.compoundBigrams {
+            #expect(VietnameseDictionary.isPhonotacticallyValidVietnameseSyllable(k), "Bigram key '\(k)' must pass phonotactic check")
+            #expect(dict.isValidVietnameseSyllable(k), "Bigram key '\(k)' must be in valid syllableSet")
+            for v in values {
+                for syl in v.split(separator: " ").map(String.init) {
+                    #expect(VietnameseDictionary.isPhonotacticallyValidVietnameseSyllable(syl), "Bigram value '\(syl)' (from '\(v)') must pass phonotactic check")
+                    #expect(dict.isValidVietnameseSyllable(syl), "Bigram value '\(syl)' (from '\(v)') must be in valid syllableSet")
+                }
+            }
+        }
+        for w in VietnameseDictionaryCorpus.priorityMap.keys {
+            #expect(VietnameseDictionary.isPhonotacticallyValidVietnameseSyllable(w), "Priority word '\(w)' must pass phonotactic check")
+            #expect(dict.isValidVietnameseSyllable(w), "Priority word '\(w)' must be in valid syllableSet")
+        }
+    }
+
+    @Test("Stage 1: LEX-04 Homograph Disambiguation in V mode")
+    func testStage1Lex04HomographDisambiguation() {
+        let vnPhrases: [(String, String)] = [
+            ("camr own ", "cảm ơn "),
+            ("raats its ", "rất ít "),
+            ("taams lots ", "tấm lót "),
+            ("low laf ", "lơ là "),
+            ("cais now ", "cái nơ ")
+        ]
+        let enPhrases: [(String, String)] = [
+            ("my own ", "my own "),
+            ("on its ", "on its "),
+            ("its value ", "its value "),
+            ("right now ", "right now "),
+            ("very low ", "very low "),
+            ("it seems ", "it seems ")
+        ]
+
+        // AutoWording OFF
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+        AutoWordingEngine.shared.isEnabled = false
+        AutoWordingEngine.shared.grammarRepairEnabled = false
+        for (input, expected) in vnPhrases + enPhrases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "AutoWording OFF: Typing '\(input)' must produce '\(expected)', got '\(s.text)'")
+        }
+
+        // AutoWording ON
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+        AutoWordingEngine.shared.isEnabled = true
+        AutoWordingEngine.shared.grammarRepairEnabled = true
+        defer {
+            OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+            AutoWordingEngine.shared.isEnabled = false
+            AutoWordingEngine.shared.grammarRepairEnabled = false
+        }
+        for (input, expected) in vnPhrases + enPhrases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "AutoWording ON: Typing '\(input)' must produce '\(expected)', got '\(s.text)'")
+        }
+    }
+
+    // MARK: - Stage 2A RED Tests (MAC-01, MAC-02, PAR-02, MAC-04, MAC-05, MAC-06, MAC-07)
+
+    @Test("MAC-01: Shift+Space and CapsLock+Space emit ASCII space 0x20, never U+0000")
+    func testMac01SpaceWithShiftOrCapsLock() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+
+        // 1. "test" + Shift+Space (capsStatus = 1)
+        OKEngineResetSession()
+        var sShift = VirtualScreen()
+        sShift.typeASCII("test")
+        let snapShift = sShift.typeKey(49, caps: 1)
+        #expect(snapShift.utf16Array.last == 0x0020, "Shift+Space restore must emit 0x20, got \(snapShift.utf16Array)")
+        #expect(!snapShift.utf16Array.contains(0x0000), "Shift+Space must never emit U+0000")
+        #expect(sShift.text == "test ", "Expected 'test ', got '\(sShift.text)'")
+
+        // 2. "TES" + CapsLock+Space (capsStatus = 2)
+        OKEngineResetSession()
+        var sCaps = VirtualScreen()
+        sCaps.typeKey(17, caps: 2) // T
+        sCaps.typeKey(14, caps: 2) // E
+        sCaps.typeKey(1, caps: 2)  // S -> TÉS
+        let snapCaps = sCaps.typeKey(49, caps: 2)
+        #expect(snapCaps.utf16Array.last == 0x0020, "CapsLock+Space restore must emit 0x20, got \(snapCaps.utf16Array)")
+        #expect(!snapCaps.utf16Array.contains(0x0000), "CapsLock+Space must never emit U+0000")
+        #expect(sCaps.text == "TES ", "Expected 'TES ', got '\(sCaps.text)'")
+    }
+
+    @Test("MAC-02: Non-printable navigation/function keys trigger word-break session reset without inserting garbage")
+    func testMac02NonPrintableNavigationAndFunctionKeys() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+
+        let nonPrintableKeys: [UInt16] = [115, 116, 117, 119, 121, 122] // Home, PageUp, ForwardDelete, End, PageDown, F1
+        for key in nonPrintableKeys {
+            OKEngineResetSession()
+            _ = OKEngineHandleKeyEvent(KEY_B, 0, false)
+            _ = OKEngineHandleKeyEvent(KEY_A, 0, false)
+            #expect(OKEngineGetWordContext().composedWord == "ba")
+
+            let snap = OKEngineHandleKeyEvent(key, 0, false)
+            #expect(snap.extCode == 1, "Key \(key) must trigger word-break extCode == 1, got \(snap.extCode)")
+            let ctx = OKEngineGetWordContext()
+            #expect(ctx.charCount == 0 && ctx.composedWord.isEmpty, "Key \(key) must reset typingWord session, got '\(ctx.composedWord)'")
+        }
+    }
+
+    @Test("PAR-02: Stop-coda -c/-p tone rules and quoi (quơi) without over-horning")
+    func testPar02StopCodaTonesAndQuoi() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+
+        // -c / -p stop-coda tone rules: huyền/hỏi/ngã rejected; sắc/nặng allowed
+        OKEngineResetSession()
+        typeKeys([Int(KEY_B), Int(KEY_A), Int(KEY_F), Int(KEY_C)]) // bàc
+        #expect(OKEngineGetWordContext().isWrongSpelling == true, "'bàc' must fail checkSpelling")
+
+        OKEngineResetSession()
+        var sBapr = VirtualScreen()
+        sBapr.typeASCII("bapr ")
+        #expect(sBapr.text == "bapr ", "Invalid tone on -p coda ('bảp') must not compose as valid Vietnamese, got '\(sBapr.text)'")
+
+        OKEngineResetSession()
+        var sBapj = VirtualScreen()
+        sBapj.typeASCII("bapj ")
+        #expect(sBapj.text == "bạp ", "Entering tone (nặng) on -p coda must compose 'bạp ', got '\(sBapj.text)'")
+
+        // VNI tone-before-coda -p hits checkSpelling KEY_P directly (hỏi/huyền rejected, nặng allowed)
+        OKEngineSyncConfig(1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
+        OKEngineResetSession()
+        var sVniBa3p = VirtualScreen()
+        sVniBa3p.typeASCII("ba3p")
+        #expect(OKEngineGetWordContext().isWrongSpelling == true, "VNI 'ba3p' ('bảp') must fail checkSpelling on KEY_P")
+        sVniBa3p.typeKey(Int(KEY_SPACE))
+        #expect(sVniBa3p.text == "ba3p ", "VNI 'ba3p ' must restore to ASCII 'ba3p ', got '\(sVniBa3p.text)'")
+
+        OKEngineResetSession()
+        var sVniBa2p = VirtualScreen()
+        sVniBa2p.typeASCII("ba2p ")
+        #expect(sVniBa2p.text == "ba2p ", "VNI 'ba2p ' must restore to ASCII 'ba2p ', got '\(sVniBa2p.text)'")
+
+        OKEngineResetSession()
+        var sVniBa5p = VirtualScreen()
+        sVniBa5p.typeASCII("ba5p ")
+        #expect(sVniBa5p.text == "bạp ", "VNI 'ba5p ' must compose 'bạp ', got '\(sVniBa5p.text)'")
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+
+        // quơi preserving 'qu' without over-horning to 'qươi'
+        OKEngineResetSession()
+        var sQuoi = VirtualScreen()
+        sQuoi.typeASCII("quowi ")
+        #expect(sQuoi.text == "quơi ", "Typing 'quowi ' must stay 'quơi ', got '\(sQuoi.text)'")
+
+        OKEngineResetSession()
+        var sQuoi2 = VirtualScreen()
+        sQuoi2.typeASCII("quoiw ")
+        #expect(sQuoi2.text == "quơi ", "Typing 'quoiw ' must stay 'quơi ', got '\(sQuoi2.text)'")
+    }
+
+    @Test("MAC-04: checkGrammar with backspaceCount >= 1 preserves emptyCharBreaker for Chrome")
+    func testMac04CheckGrammarPreservesBrowserBreakerStrategy() {
+        OKEngineInit()
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+
+        // "thuow" -> "thuơ", then 'n' -> checkGrammar upgrades "thuơ" to "thươ" with backspaceCount >= 1
+        typeKeys([Int(KEY_T), Int(KEY_H), Int(KEY_U), Int(KEY_O), Int(KEY_W)])
+        let snap = OKEngineHandleKeyEvent(KEY_N, 0, false)
+        #expect(snap.backspaceCount >= 1, "Expected checkGrammar to produce backspaceCount >= 1")
+
+        let chromeStrategy = KeystrokeInjector.determineStrategy(
+            backspaceCount: Int(snap.backspaceCount),
+            fixRecommendBrowser: true,
+            bundleId: "com.google.Chrome",
+            extCode: Int32(snap.extCode)
+        )
+        #expect(chromeStrategy == .emptyCharBreaker(emptyChar: KeystrokeInjector.narrowNoBreakSpace),
+                "Chrome must use emptyCharBreaker when backspaceCount >= 1, got \(chromeStrategy) with extCode=\(snap.extCode)")
+
+        let teamsStrategy = KeystrokeInjector.determineStrategy(
+            backspaceCount: Int(snap.backspaceCount),
+            fixRecommendBrowser: true,
+            bundleId: "com.microsoft.teams2",
+            extCode: Int32(snap.extCode)
+        )
+        #expect(teamsStrategy == .standardBackspace)
+    }
+
+    @Test("MAC-05: Return or Tab after English auto-restore does not arm single-backspace undo")
+    func testMac05ReturnOrTabDoesNotArmAutoRestoreUndo() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+
+        // "test" + Return + Backspace must NOT undo "test\n" into "tét"
+        OKEngineResetSession()
+        typeKeys([Int(KEY_T), Int(KEY_E), Int(KEY_S), Int(KEY_T)]) // "tét"
+        let retSnap = OKEngineHandleKeyEvent(KEY_RETURN, 0, false)
+        #expect(retSnap.decodedString == "test")
+        let bsAfterRet = OKEngineHandleKeyEvent(KEY_DELETE, 0, false)
+        #expect(bsAfterRet.code == HookCodeState.doNothing,
+                "Backspace after Return must not trigger handleSingleBackspaceUndo, got code=\(bsAfterRet.code) chars='\(bsAfterRet.decodedString)'")
+
+        // Same for Tab
+        OKEngineResetSession()
+        typeKeys([Int(KEY_T), Int(KEY_E), Int(KEY_S), Int(KEY_T)]) // "tét"
+        let tabSnap = OKEngineHandleKeyEvent(KEY_TAB, 0, false)
+        #expect(tabSnap.decodedString == "test")
+        let bsAfterTab = OKEngineHandleKeyEvent(KEY_DELETE, 0, false)
+        #expect(bsAfterTab.code == HookCodeState.doNothing,
+                "Backspace after Tab must not trigger handleSingleBackspaceUndo, got code=\(bsAfterTab.code) chars='\(bsAfterTab.decodedString)'")
+
+        // Control: "test " + Backspace still undoes properly to "tét"
+        OKEngineResetSession()
+        var sTest = VirtualScreen()
+        sTest.typeASCII("test ")
+        #expect(sTest.text == "test ")
+        sTest.typeKey(Int(KEY_DELETE))
+        #expect(sTest.text == "tét", "Expected 'test ' + Backspace to undo to 'tét', got '\(sTest.text)'")
+    }
+
+    @Test("MAC-06: Delete key syncs keyStates on modified syllables and Mii/Miin does not swallow second i")
+    func testMac06DeleteKeySyncAndTrailingIConsumption() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+
+        // 1. "ddaats" -> Backspace ("đấ") -> "u" -> Space ("đấu ") and invalid suffix restores cleanly without stale 't'
+        OKEngineResetSession()
+        var sDat = VirtualScreen()
+        sDat.typeASCII("ddaats")
+        #expect(sDat.text == "đất")
+        sDat.typeKey(Int(KEY_DELETE))
+        #expect(sDat.text == "đấ")
+        sDat.typeASCII("u ")
+        #expect(sDat.text == "đấu ", "Expected 'đấu ', got '\(sDat.text)'")
+
+        OKEngineResetSession()
+        var sDatInvalid = VirtualScreen()
+        sDatInvalid.typeASCII("ddaats")
+        sDatInvalid.typeKey(Int(KEY_DELETE)) // "đấ"
+        sDatInvalid.typeASCII("i ")
+        #expect(sDatInvalid.text == "ddaasi ", "Expected 'ddaasi ' without stale deleted 't', got '\(sDatInvalid.text)'")
+
+        // 2. "Mii " and "Miin " preserve both 'i' characters
+        OKEngineResetSession()
+        var sMii = VirtualScreen()
+        sMii.typeASCII("Mii ")
+        #expect(sMii.text == "Mii ", "Expected 'Mii ', got '\(sMii.text)'")
+
+        OKEngineResetSession()
+        var sMiin = VirtualScreen()
+        sMiin.typeASCII("Miin ")
+        #expect(sMiin.text == "Miin ", "Expected 'Miin ', got '\(sMiin.text)'")
+
+        // 3. Unaccented vowel + double-i ('uii ', 'muii ', 'aii ') must NOT consume second 'i' (hasDiacritic == false)
+        for unaccented in ["uii ", "muii ", "aii "] {
+            OKEngineResetSession()
+            var sUnacc = VirtualScreen()
+            sUnacc.typeASCII(unaccented)
+            #expect(sUnacc.text == unaccented, "Unaccented '\(unaccented)' must remain '\(unaccented)', got '\(sUnacc.text)'")
+        }
+
+        // Accented diphthong ending in off-glide 'i' ('thoiwfi ') still consumes redundant trailing 'i'
+        OKEngineResetSession()
+        var sAcc = VirtualScreen()
+        sAcc.typeASCII("thoiwfi ")
+        #expect(sAcc.text == "thời ", "Accented 'thoiwfi ' must produce 'thời ', got '\(sAcc.text)'")
+    }
+
+    @Test("MAC-07: waw/wow/100W/moon.io/foo-bar/đoạt/địu/đượm")
+    func testMac07EngineEdgeCasesAndConsonantD() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+
+        let cases: [(String, String)] = [
+            ("waw", "waw"),
+            ("wow", "wow"),
+            ("100W", "100W"),
+            ("100w", "100w"),
+            ("moon.io ", "moon.io "),
+            ("foo-bar ", "foo-bar "),
+            ("a-s ", "a-s "),
+            ("ddoatj ", "đoạt "),
+            ("ddiuj ", "địu "),
+            ("dduowmj ", "đượm ")
+        ]
+        for (input, expected) in cases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Input '\(input)' must produce '\(expected)', got '\(s.text)'")
+        }
+
+        // Quick Telex OFF (default): "cc" stays "cc"
+        OKEngineResetSession()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0)
+        var sQuickOff = VirtualScreen()
+        sQuickOff.typeASCII("cc")
+        #expect(sQuickOff.text == "cc", "With quickTelex disabled, 'cc' must remain 'cc', got '\(sQuickOff.text)'")
+
+        // Quick Telex ON: cc->ch, gg->gi, kk->kh, nn->ng, pp->ph, qq->qu, tt->tr
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1)
+        defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0) }
+        let quickCases: [(String, String)] = [
+            ("cca", "cha"),
+            ("tt", "tr"),
+            ("tta", "tra"),
+            ("gga", "gia"),
+            ("kko", "kho"),
+            ("nna", "nga"),
+            ("ppa", "pha"),
+            ("qqa", "qua")
+        ]
+        for (input, expected) in quickCases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Quick Telex '\(input)' must produce '\(expected)', got '\(s.text)'")
+        }
+    }
+
 }
 }
