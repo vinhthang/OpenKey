@@ -1,16 +1,16 @@
-# Independent Code Review & Mutation Audit (`review.md`) — Pass 3
+# Independent Code Review & Mutation Audit (`review.md`) — Pass 4
 
-- **Verdict**: **APPROVED** (`0` P0, `0` P1, `2` minor P2 advisories)
+- **Verdict**: **APPROVED** (`0` P0, `0` P1, `1` minor P2 advisory `P2-A`; `P2-B` resolved)
 - **Scope**: `/Users/thanghoang/github/OpenKey` (macOS Swift 6) & `/Users/thanghoang/github/openkey-thanghoang` (Android Kotlin `:openkey-core` + `:app` integrated on top of `origin/main` `b66d86a`)
-- **Review Role**: Independent Code Reviewer & Mutation Auditor (Pass 3 Post-Integration Audit)
+- **Review Role**: Independent Code Reviewer & Mutation Auditor (Pass 4 Focused `:app` Fix Verification)
 - **Git Topology & Backup Check (`openkey-thanghoang`)**:
   - `git merge-base --is-ancestor origin/main HEAD`: PASS (`origin/main` and `HEAD` at `b66d86abd6e5f779a7da0844fd010cb2feea8486`, cleanly fast-forwardable).
   - `backup-0316f3f` branch intact at `0316f3f32f241cf798c9660235e485b3fca26028`.
 - **Shared Lexicon Sync (`diff -rq` & `sync_shared_lexicon.py --check`)**: PASS (`0` diffs between `OpenKey/Sources/OpenKey/shared-data` and `openkey-thanghoang/shared-data`; both `sync_shared_lexicon.py --check` commands exited `0` with `100%` synchronization).
 - **Final Clean Post-Mutation Suite Verification**:
   - macOS Swift (`rtk proxy swift test --package-path /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift`): **`81 / 81` tests passed** across 5 suites (`2.821s`, exit `0`).
-  - Android `:openkey-core:test` (`./gradlew --offline :openkey-core:test --rerun-tasks --console=plain`): **`94 / 94` tests passed** (`AutoWordingEngineTest`: 11, `BilingualAutoSwitchTest`: 28, `ImePipelineAndContextTest`: 18, `PhoneErgonomicsAndGestureTest`: 16, `SmoothArchitectureTest`: 11, `VietnameseEngineTest`: 10; `0` failures, `0` errors, `0` skipped; exit `0`).
-  - Android `:app:testDebugUnitTest`: Not executable locally (no Android SDK installed at `/Users/thanghoang/Library/Android/sdk`); audited statically in full below.
+  - Android `:openkey-core:test` (`./gradlew --offline :openkey-core:test --rerun-tasks --console=plain`): **`94 / 94` tests passed** in Pass 4 (`AutoWordingEngineTest`: 11, `BilingualAutoSwitchTest`: 28, `ImePipelineAndContextTest`: 18, `PhoneErgonomicsAndGestureTest`: 16, `SmoothArchitectureTest`: 11, `VietnameseEngineTest`: 10; `0` failures, `0` errors, `0` skipped; exit `0`).
+  - Android `:app:testDebugUnitTest`: Not executable locally (no Android SDK installed at `/Users/thanghoang/Library/Android/sdk`); Pass 4 focused static audit of `InputConnectionCommitter.kt`, `OpenKeyImeService.kt`, and `OpenKeyAndroidAppTest.kt` passed.
 
 ---
 
@@ -45,7 +45,7 @@ Integration onto `origin/main` (`b66d86a`) preserves all `3f3a2f2..b66d86a` Andr
 ## P2 Issues (Advisory)
 
 1. **P2-A (Swift Test Parity for `buýt`/`ưm`/`ừm`/`quoe`)**: `OpenKeyEngineTests.swift:1574` (`testStage1CorpusAndPhonotacticsInvariants`) does not yet explicitly list `"buýt"`, `"ưm"`, `"ừm"`, `"quoe"`, `"quòe"` as in Kotlin `BilingualAutoSwitchTest.kt:856` (so `MS1` removing `if lower == "buýt" || lower == "ưm" || lower == "ừm"` survived in Swift, though non-equivalent Swift kill rate remains `90.0%`). Adding those 5 syllables to `OpenKeyEngineTests.swift` would bring Swift phonotactic test parity to 100%.
-2. **P2-B (Unused Imports in `OpenKeyImeService.kt`)**: Lines `16`, `18`, and `25` (`BilingualAutoSwitchEngine`, `HookCodeState`, `VietnameseEngineState`) are unused imports in `OpenKeyImeService.kt` (non-blocking).
+2. **P2-B (Resolved in Pass 4 — Unused Imports in `OpenKeyImeService.kt`)**: Unused imports `BilingualAutoSwitchEngine`, `HookCodeState`, and `VietnameseEngineState` were removed cleanly from `OpenKeyImeService.kt` with zero missing imports.
 
 ---
 
@@ -55,13 +55,13 @@ All modified `:app` files in `/Users/thanghoang/github/openkey-thanghoang/app/` 
 
 | File | Verified Details | Status |
 | :--- | :--- | :--- |
-| `OpenKeyImeService.kt` | Uses `SharedPreferencesKeyValueStorage.sharedSettingsStore(this)`, passes `bilingualAutoRestore` to `VietnameseEngine.syncConfig(...)` (matching `VietnameseEngine.kt:1055-1064`), `syncSettingsToEngine(changedKey)` preserves per-app SmartSwitch language except on `KEY_LANGUAGE`, `SystemSpellCheckerBridge`, `getCursorCapsMode`, `onStartInput`/`onFinishInput`. | PASS (P2-B unused imports) |
-| `InputConnectionCommitter.kt` | `deleteSurroundingText >= 5` clamp (`ic.getTextBeforeCursor`), `hasKnownSelection \|\| isCursorAnchorKnown` trackpad guard, `recordSelfDelete(toDelete)`, `sharedSettingsStore(context)` `@Synchronized` singleton, `deleteSelectionIfAny`, `deleteSingleBackward` surrogate pair handling, `sendEnterKey`. | PASS |
+| `OpenKeyImeService.kt` | Uses `SharedPreferencesKeyValueStorage.sharedSettingsStore(this)`, wires single-fire `keyCodeSender = { sendDownUpKeyEvents(it) }` (preventing double-Enter and double-DPAD firing), passes `bilingualAutoRestore` to `VietnameseEngine.syncConfig(...)`, `syncSettingsToEngine(changedKey)` preserves per-app SmartSwitch language except on `KEY_LANGUAGE`, `SystemSpellCheckerBridge`, `getCursorCapsMode`, `onStartInput`/`onFinishInput`; unused imports (`BilingualAutoSwitchEngine`, `HookCodeState`, `VietnameseEngineState`) removed with zero missing imports. | PASS |
+| `InputConnectionCommitter.kt` | Backward-compatible 1-arg (`line 25`) and 2-arg (`lines 27-31`) constructors intact plus optional trailing `keyCodeSender: ((Int) -> Unit)? = null` (`line 22`); single shared helper `dispatchHardwareKeyCode(keyCode, ic)` (`lines 87-100`) used by both `moveCursorBy` (`line 81`) and `sendEnterKey` (`line 166`) with `ic.commitText("\n", 1)` fallback preserved (`line 169`); `deleteSurroundingText >= 5` clamp, `hasKnownSelection \|\| isCursorAnchorKnown` trackpad guard, `recordSelfDelete`, `sharedSettingsStore(context)` `@Synchronized` singleton, `deleteSelectionIfAny`, `deleteSingleBackward` surrogate pair handling. | PASS |
 | `SystemSpellCheckerBridge.kt` | `AtomicLong` generation guard (`requestCounter`) prevents stale `SpellCheckerSession` callbacks from polluting `cache`. | PASS |
 | `KeyButton.kt` | `.pointerInput(key)` (line `415`) precedes `.padding(horizontal = gapH, vertical = gapV)` (line `564`); `try { while (pointer.pressed) ... } finally { isPressed = false; longPressJob?.cancel(); repeatDeleteJob?.cancel(); spacebarTrackpadLabel = null }` (lines `474-533`). | PASS |
 | `KeyboardScreen.kt` & `CandidateStripView.kt` | `onLanguageToggled` dispatches `controller.onKeyAction(KeyAction.SwitchLanguage)` (line `238`); `LiveCandidateStripHost` isolates `AutoWordingEngine` candidate updates; `CandidateStripView.kt` remains clutter-free (`0` settings/gear/one-handed buttons or text). | PASS |
 | `SettingsActivity.kt` | Uses `SharedPreferencesKeyValueStorage.sharedSettingsStore(this)` (line `76`), `doubleSpacePeriodEnabled`, `OpenKeyL10n.Debug.*`, `OpenKeyLogger.shared`; unused `Divider` import removed. | PASS |
-| `OpenKeyAndroidAppTest.kt` | Full-file regex scan confirmed `0` JUnit 5 trailing-message assertions; lines `225-228` match merged `BatchReplacementCoordinator` (`hasKnownSelection == false && isCursorAnchorKnown == true` post-`commitBatch`); lines `663`, `672`, `686` use JUnit 4 message-first order. *Note: `:app:testDebugUnitTest` was not executed locally (no Android SDK installed).* | PASS (static) |
+| `OpenKeyAndroidAppTest.kt` | Zero `.keyCode` inspections on unmocked `KeyEvent` stubs (only static `KeyEvent.KEYCODE_ENTER` and `KeyEvent.KEYCODE_DPAD_LEFT` constants used — safe under `unitTests.isReturnDefaultValues = true`); full-file regex scan confirmed `0` JUnit 5 trailing-message assertions; lines `689-720` and `756` verify `sendEnterKey` fallback (`commitText("\n", 1)`), single-fire `keyCodeSender` dispatch, and `OpenKeyImeService` wiring cleanly against `InputConnectionCommitter` and `MockInputConnection`. *Note: `:app:testDebugUnitTest` was not executed locally (no Android SDK installed).* | PASS (static) |
 | `AndroidManifest.xml` & `.github/workflows/android-ci.yml` | `android:allowBackup="false"`, `android:directBootAware="true"`, zero `INTERNET`/`ACCESS_NETWORK_STATE`; `android-ci.yml` executes `sync_shared_lexicon.py --check`, `:openkey-core:test :app:testDebugUnitTest :app:assembleDebug`, and packages `OpenKey-Android.apk`. | PASS |
 
 ---
