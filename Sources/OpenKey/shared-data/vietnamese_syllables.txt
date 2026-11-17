@@ -73,6 +73,7 @@ buôi
 buôm
 buôn
 buông
+buýt
 buốc
 buối
 buốm
@@ -3005,6 +3006,7 @@ gãy
 gì
 gìn
 gí
+gín
 gò
 gòa
 gòi
@@ -3050,6 +3052,7 @@ găm
 găn
 găng
 gĩ
+gĩn
 gũ
 gũa
 gũi
@@ -3176,7 +3179,9 @@ gặng
 gặp
 gặt
 gỉ
+gỉn
 gị
+gịn
 gọ
 gọa
 gọc
@@ -8632,6 +8637,12 @@ quiện
 quiệng
 quiệp
 quiệt
+quoe
+quoè
+quoé
+quoẹ
+quoẻ
+quoẽ
 quy
 quynh
 quyên
@@ -8710,6 +8721,9 @@ quính
 quíp
 quít
 quíu
+quòe
+quóe
+quõe
 quý
 quých
 quýnh
@@ -8868,6 +8882,8 @@ quịnh
 quịp
 quịt
 quịu
+quọe
+quỏe
 quốc
 quớ
 quờ
@@ -13443,8 +13459,10 @@ yều
 yểm
 yển
 yểu
+yễm
 yễn
 yễu
+yệm
 yện
 yệt
 yệu
@@ -14234,6 +14252,7 @@ yệu
 ư
 ưa
 ưi
+ưm
 ưng
 ưu
 ươi
@@ -14517,6 +14536,7 @@ yệu
 ừ
 ừa
 ừi
+ừm
 ừng
 ừu
 ử

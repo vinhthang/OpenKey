@@ -44,7 +44,9 @@ extension VietnameseDictionary {
     public static func isPhonotacticallyValidVietnameseSyllable(_ word: String) -> Bool {
         let lower = word.lowercased()
         if lower.isEmpty || Phonotactics.FAKE_D_SHADOWS.contains(lower) { return false }
-        if Phonotactics.matches(Phonotactics.NON_VN_CHARS_REGEX, lower) || Phonotactics.matches(Phonotactics.NON_QU_BARE_UE_REGEX, lower) { return false }
+        if Phonotactics.matches(Phonotactics.NON_VN_CHARS_REGEX, lower) { return false }
+        if lower == "buýt" || lower == "ưm" || lower == "ừm" { return true }
+        if Phonotactics.matches(Phonotactics.NON_QU_BARE_UE_REGEX, lower) { return false }
         if Phonotactics.matches(Phonotactics.GIOA_E_GIY_REGEX, lower) || Phonotactics.matches(Phonotactics.GIU_INVALID_REGEX, lower) { return false }
         if Phonotactics.matches(Phonotactics.HALF_HORN_UO_REGEX, lower) || Phonotactics.matches(Phonotactics.UNHORNED_UO_REGEX, lower) { return false }
         if Phonotactics.matches(Phonotactics.GH_NGH_INVALID, lower) || Phonotactics.matches(Phonotactics.G_NG_INVALID, lower) { return false }
@@ -74,7 +76,7 @@ extension VietnameseDictionary {
     static func isValidOeSyllable(_ word: String) -> Bool {
         let stem = stripVietnameseDiacritics(word)
         guard stem.contains("oe") else { return true }
-        let onset = String(stem.prefix(while: { !"aeiouy".contains($0) }))
+        let onset = stem.hasPrefix("qu") ? "qu" : String(stem.prefix(while: { !"aeiouy".contains($0) }))
         return Phonotactics.validOeOnsets.contains(onset)
     }
 }
