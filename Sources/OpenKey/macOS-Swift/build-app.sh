@@ -56,10 +56,11 @@ EOF
     exit 0
 fi
 
-echo "=== Building OpenKeySwift release binary ==="
-swift build -c release --package-path "${SCRIPT_DIR}"
+BUILD_ARCH="${BUILD_ARCH:-arm64}"
+echo "=== Building OpenKeySwift release binary (${BUILD_ARCH}) ==="
+swift build -c release --arch "${BUILD_ARCH}" --package-path "${SCRIPT_DIR}"
 
-BUILD_PRODUCTS_DIR="$(swift build -c release --package-path "${SCRIPT_DIR}" --show-bin-path)"
+BUILD_PRODUCTS_DIR="$(swift build -c release --arch "${BUILD_ARCH}" --package-path "${SCRIPT_DIR}" --show-bin-path)"
 BIN_PATH="${BUILD_PRODUCTS_DIR}/OpenKeySwiftApp"
 
 echo "=== Assembling OpenKeySwift.app bundle ==="
@@ -111,7 +112,7 @@ fi
 echo "=== Build completed successfully: ${APP_BUNDLE} ==="
 
 DEPLOY_DIR="/Applications"
-if [[ -d "${DEPLOY_DIR}" && -w "${DEPLOY_DIR}" ]]; then
+if [[ -z "${GITHUB_ACTIONS:-}" && -d "${DEPLOY_DIR}" && -w "${DEPLOY_DIR}" ]]; then
     echo "=== Deploying to ${DEPLOY_DIR}/OpenKeySwift.app ==="
     if pgrep -x "OpenKeySwift" >/dev/null 2>&1; then
         pkill -x "OpenKeySwift"

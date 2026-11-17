@@ -1,14 +1,14 @@
-# Independent Code Review & Mutation Audit (`review.md`) — Pass 4
+# Independent Code Review & Mutation Audit (`review.md`) — Pass 5
 
 - **Verdict**: **APPROVED** (`0` P0, `0` P1, `1` minor P2 advisory `P2-A`; `P2-B` resolved)
-- **Scope**: `/Users/thanghoang/github/OpenKey` (macOS Swift 6) & `/Users/thanghoang/github/openkey-thanghoang` (Android Kotlin `:openkey-core` + `:app` integrated on top of `origin/main` `b66d86a`)
-- **Review Role**: Independent Code Reviewer & Mutation Auditor (Pass 4 Focused `:app` Fix Verification)
+- **Scope**: `/Users/thanghoang/github/OpenKey` (macOS Swift 6, `.github/workflows/macos-ci.yml`, `Sources/OpenKey/macOS-Swift/build-app.sh`) & `/Users/thanghoang/github/openkey-thanghoang` (Android Kotlin `:openkey-core` + `:app` integrated on top of `origin/main` `b66d86a`)
+- **Review Role**: Independent Code Reviewer & Mutation Auditor (Pass 5 macOS CI & `build-app.sh` Verification)
 - **Git Topology & Backup Check (`openkey-thanghoang`)**:
   - `git merge-base --is-ancestor origin/main HEAD`: PASS (`origin/main` and `HEAD` at `b66d86abd6e5f779a7da0844fd010cb2feea8486`, cleanly fast-forwardable).
   - `backup-0316f3f` branch intact at `0316f3f32f241cf798c9660235e485b3fca26028`.
 - **Shared Lexicon Sync (`diff -rq` & `sync_shared_lexicon.py --check`)**: PASS (`0` diffs between `OpenKey/Sources/OpenKey/shared-data` and `openkey-thanghoang/shared-data`; both `sync_shared_lexicon.py --check` commands exited `0` with `100%` synchronization).
 - **Final Clean Post-Mutation Suite Verification**:
-  - macOS Swift (`rtk proxy swift test --package-path /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift`): **`81 / 81` tests passed** across 5 suites (`2.821s`, exit `0`).
+  - macOS Swift (`rtk proxy swift test --package-path /Users/thanghoang/github/OpenKey/Sources/OpenKey/macOS-Swift`): **`81 / 81` tests passed** across 5 suites (`3.160s` in Pass 5, exit `0`).
   - Android `:openkey-core:test` (`./gradlew --offline :openkey-core:test --rerun-tasks --console=plain`): **`94 / 94` tests passed** in Pass 4 (`AutoWordingEngineTest`: 11, `BilingualAutoSwitchTest`: 28, `ImePipelineAndContextTest`: 18, `PhoneErgonomicsAndGestureTest`: 16, `SmoothArchitectureTest`: 11, `VietnameseEngineTest`: 10; `0` failures, `0` errors, `0` skipped; exit `0`).
   - Android `:app:testDebugUnitTest`: Not executable locally (no Android SDK installed at `/Users/thanghoang/Library/Android/sdk`); Pass 4 focused static audit of `InputConnectionCommitter.kt`, `OpenKeyImeService.kt`, and `OpenKeyAndroidAppTest.kt` passed.
 
@@ -27,6 +27,7 @@ Integration onto `origin/main` (`b66d86a`) preserves all `3f3a2f2..b66d86a` Andr
 | `origin/main` (`3f3a2f2..b66d86a`) Regression Guards | PASS | Never auto-capitalizes `'i'` (`testNeverAutoCapitalizeLowercaseI` & `testEnglishModeNeverAutoCapitalizesIAndProtectsCompoundTokens`), `vBilingualAutoRestore`, `isCursorAnchorKnown`/`pendingExpectedCursors`/`recordSelfDelete`, `sharedSettingsStore`, `deleteSurroundingText >= 5` clamp, `allowBackup="false"`, `android-ci.yml` (`OpenKey-Android.apk`) all verified intact |
 | Static `:app` Audit | PASS | All `:openkey-core`, Compose, and Android API signatures match `minSdk=29`/`compileSdk=35`; `.pointerInput(key)` before `.padding(horizontal = gapH, vertical = gapV)` in `KeyButton.kt`; clutter-free `CandidateStripView.kt`; `Divider` unused import absent in `SettingsActivity.kt`; `0` JUnit 5 trailing-message assertions in `OpenKeyAndroidAppTest.kt` |
 | Spot-Check Mutation Testing (`mutation-guard >= 80%`) | PASS | Swift: `9 / 10` non-equivalent (`90.0%`); Kotlin `:openkey-core`: `9 / 9` Pass 3 spot-checks (`100.0%`), `18 / 19` cumulative (`94.7%`) |
+| Pass 5 macOS CI & `build-app.sh` Audit | PASS | Executor `a8316623` payload `VALID`; YAML (`macos-26-intel`) & `bash -n` valid; `BUILD_ARCH=${BUILD_ARCH:-arm64}` passed to both `swift build` invocations; `GITHUB_ACTIONS` guard skips `/Applications` deploy on CI; `lipo -archs ... \| grep -qx "arm64"` & `codesign --verify --deep --strict` + `.zip`/`.dmg` packaging verified; Swift tests `81/81` passed |
 
 ---
 

@@ -23,8 +23,8 @@ permissions:
 
 jobs:
   build-and-test:
-    name: Build, Test & Package (macOS 26 arm64)
-    runs-on: macos-26
+    name: Build, Test & Package (macOS 26 — Universal Test + arm64 App)
+    runs-on: macos-26-intel
 
     steps:
       - name: Checkout repository
@@ -32,6 +32,8 @@ jobs:
 
       - name: Check Swift & Xcode toolchain
         run: |
+          uname -m
+          sw_vers
           swift --version
           xcodebuild -version
 
@@ -44,6 +46,7 @@ jobs:
       - name: Build and ad-hoc sign OpenKeySwift.app
         run: |
           bash Sources/OpenKey/macOS-Swift/build-app.sh
+          lipo -archs Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app/Contents/MacOS/OpenKeySwift | grep -qx "arm64"
           codesign --verify --deep --strict Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app
 
       - name: Package OpenKeySwift.zip and OpenKeySwift.dmg
