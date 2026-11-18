@@ -1576,7 +1576,8 @@ struct OpenKeyEngineTests {
             "quỳnh", "gìn", "khuâng",
             "quờ", "quở", "quớ", "quỡ", "quợ", "quỷnh", "quỵch",
             "núy", "rúy", "đúy",
-            "xoá", "xóa", "kiểu", "nguyệt", "nguyễn", "thuở", "gì", "cừu", "hươu", "khuơ"
+            "xoá", "xóa", "kiểu", "nguyệt", "nguyễn", "thuở", "gì", "cừu", "hươu", "khuơ",
+            "buýt", "ưm", "ừm", "quoe", "quòe"
         ]
         for w in validSyllables {
             #expect(dict.isValidVietnameseSyllable(w) == true, "Valid Vietnamese syllable '\(w)' must be accepted")
@@ -1595,6 +1596,10 @@ struct OpenKeyEngineTests {
         }
         #expect(VietnameseDictionary.isPhonotacticallyValidVietnameseSyllable("que"))
         #expect(VietnameseDictionary.isPhonotacticallyValidVietnameseSyllable("quê"))
+        for w in ["buýt", "ưm", "ừm", "quoe", "quòe"] {
+            #expect(VietnameseDictionary.isPhonotacticallyValidVietnameseSyllable(w),
+                    "isPhonotacticallyValidVietnameseSyllable('\(w)') must be true")
+        }
 
         // AC-027.1: Pure stemToWords and telexSignatureToWords bucket invariants
         for (stem, words) in dict.stemToWords {

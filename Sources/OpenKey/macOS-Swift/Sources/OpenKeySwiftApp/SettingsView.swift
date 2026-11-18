@@ -15,7 +15,8 @@ import OpenKeySwiftCore
 
 public struct SettingsView: View {
     @Bindable var settings: OpenKeySettingsStore = OpenKeySettingsStore.shared
-    private var ui = SettingsUIModel()
+    private var _ui = State(initialValue: SettingsUIModel())
+    private var ui: SettingsUIModel { _ui.wrappedValue }
     
     private static let functionKeyCodes: Set<UInt16> = [
         122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111, 105, 107, 113, 106, 64, 79, 80, 90
@@ -317,7 +318,7 @@ public struct SettingsView: View {
             try? proc.run()
             proc.waitUntilExit()
             DispatchQueue.main.async {
-                EventTapCoordinator.shared.checkAccessibilityAndSetupTap()
+                EventTapCoordinator.shared.resetAndCheckAccessibility()
             }
         }
     }

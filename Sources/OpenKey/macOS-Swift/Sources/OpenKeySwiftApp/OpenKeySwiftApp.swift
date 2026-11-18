@@ -51,6 +51,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settings.onLanguageChanged = { [weak self] _ in
             self?.updateStatusItemTitle()
         }
+        settings.onStatusChanged = { [weak self] in
+            self?.updateStatusItemTitle()
+        }
     }
     
     func menuNeedsUpdate(_ menu: NSMenu) {

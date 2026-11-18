@@ -49,8 +49,19 @@ import AppKit
         return nil
     }
     public var onLanguageChanged: (@MainActor @Sendable (Int) -> Void)?
+    public var onStatusChanged: (@MainActor @Sendable () -> Void)?
     private var isApplyingSmartSwitch: Bool = false
     private var isBatchUpdatingAutoWording: Bool = false
+
+    private func notifyStatusChanged() {
+        if let callback = onStatusChanged {
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { callback() }
+            } else {
+                DispatchQueue.main.async { callback() }
+            }
+        }
+    }
     
     public var language: Int {
         didSet {
@@ -229,14 +240,22 @@ import AppKit
     }
     
     public var launchAtLogin: Bool = false
-    public var isAccessibilityTrusted: Bool = false
+    public var isAccessibilityTrusted: Bool = false {
+        didSet {
+            notifyStatusChanged()
+        }
+    }
     public var quickTelexEnabled: Bool = false {
         didSet {
             UserDefaults.standard.set(quickTelexEnabled, forKey: Keys.quickTelexEnabled)
             syncToEngine()
         }
     }
-    public var excludedBundleIds: Set<String> = []
+    public var excludedBundleIds: Set<String> = [] {
+        didSet {
+            notifyStatusChanged()
+        }
+    }
     
     public func isAppExcluded(_ bundleId: String?) -> Bool {
         guard let bundleId = bundleId, !bundleId.isEmpty else { return false }

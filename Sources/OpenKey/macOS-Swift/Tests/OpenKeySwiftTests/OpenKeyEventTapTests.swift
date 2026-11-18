@@ -676,5 +676,116 @@ struct OpenKeyEventTapTests {
             #expect(HotKeyMatcher.describe(config: cfg) == "⌥\(label)")
         }
     }
+
+    @Test("MAC-10: resetAndCheckAccessibility tears down cached tap, detects revoked trust, and fires onStatusChanged")
+    @MainActor
+    func testMac10ResetAndCheckAccessibility() {
+        final class Mac10State: @unchecked Sendable {
+            var trusted: Bool = true
+            var tapCreateAllowed: Bool = true
+            var setupCount: Int = 0
+            var statusCount: Int = 0
+        }
+
+        let settings = OpenKeySettingsStore.shared
+        let testBundleId = "com.example.mac10"
+        let origTrusted = settings.isAccessibilityTrusted
+        let origOnStatusChanged = settings.onStatusChanged
+        let origExcluded = settings.isAppExcluded(testBundleId)
+
+        let state = Mac10State()
+        let coord = EventTapCoordinator()
+        coord.promptOnUntrusted = false
+        coord.isTrustedProvider = { [state] in state.trusted }
+        coord.customTapSetup = { [state] in
+            state.setupCount += 1
+            return state.tapCreateAllowed
+        }
+
+        defer {
+            coord.stop()
+            SmartSwitchStore.shared.setExcluded(origExcluded, bundleId: testBundleId)
+            settings.excludedBundleIds = SmartSwitchStore.shared.excludedBundleIds
+            settings.isAccessibilityTrusted = origTrusted
+            settings.onStatusChanged = origOnStatusChanged
+        }
+
+        // (a) onStatusChanged fires synchronously on isAccessibilityTrusted and excludedBundleIds mutations
+        settings.isAccessibilityTrusted = false
+        SmartSwitchStore.shared.setExcluded(false, bundleId: testBundleId)
+        settings.excludedBundleIds = SmartSwitchStore.shared.excludedBundleIds
+
+        settings.onStatusChanged = { [state] in
+            state.statusCount += 1
+        }
+        state.statusCount = 0
+
+        settings.isAccessibilityTrusted = true
+        #expect(state.statusCount == 1, "onStatusChanged must fire synchronously when isAccessibilityTrusted changes false -> true")
+
+        settings.isAccessibilityTrusted = false
+        #expect(state.statusCount == 2, "onStatusChanged must fire synchronously when isAccessibilityTrusted changes true -> false")
+
+        settings.toggleAppExclusion(testBundleId)
+        #expect(settings.isAppExcluded(testBundleId) == true)
+        #expect(state.statusCount == 3, "onStatusChanged must fire synchronously when toggleAppExclusion adds bundleId")
+
+        settings.toggleAppExclusion(testBundleId)
+        #expect(settings.isAppExcluded(testBundleId) == false)
+        #expect(state.statusCount == 4, "onStatusChanged must fire synchronously when toggleAppExclusion removes bundleId")
+
+        // (b) Dedicated EventTapCoordinator trust lifecycle, revoked trust detection, and resetAndCheckAccessibility
+        state.statusCount = 0
+        state.trusted = true
+        coord.checkAccessibilityAndSetupTap()
+        #expect(coord.isRunning == true)
+        #expect(settings.isAccessibilityTrusted == true)
+        #expect(coord.isTrustPollingActive == false)
+        #expect(state.setupCount == 1)
+        #expect(state.statusCount == 1)
+
+        // Flip trusted = false while coord.isRunning is still true (simulating tccutil reset)
+        state.trusted = false
+        coord.checkAccessibilityAndSetupTap()
+        #expect(coord.isRunning == false, "checkAccessibilityAndSetupTap must tear down stale running tap when trust is revoked")
+        #expect(settings.isAccessibilityTrusted == false)
+        #expect(coord.isTrustPollingActive == true)
+        #expect(state.setupCount == 1)
+        #expect(state.statusCount == 2)
+
+        // Re-arm trusted = true -> running, verify resetAndCheckAccessibility tears down cached tap, then test revoked trust reset
+        state.trusted = true
+        coord.checkAccessibilityAndSetupTap()
+        #expect(coord.isRunning == true)
+        #expect(settings.isAccessibilityTrusted == true)
+        #expect(coord.isTrustPollingActive == false)
+        #expect(state.setupCount == 2)
+        #expect(state.statusCount == 3)
+
+        // Calling resetAndCheckAccessibility while running must tear down cached tap first and recreate it
+        coord.resetAndCheckAccessibility()
+        #expect(coord.isRunning == true)
+        #expect(state.setupCount == 3, "resetAndCheckAccessibility must stop() cached tap before re-running setupEventTap")
+
+        // Flip trusted = false (while WindowServer tapCreateAllowed remains true after tccutil reset!) and call resetAndCheckAccessibility()
+        state.trusted = false
+        state.tapCreateAllowed = true
+        coord.resetAndCheckAccessibility()
+        #expect(coord.isRunning == false, "setupEventTap must gate on isTrustedProvider() even after stop() when WindowServer would still allow tapCreate")
+        #expect(settings.isAccessibilityTrusted == false)
+        #expect(coord.isTrustPollingActive == true)
+        #expect(state.setupCount == 3, "setupEventTap must not invoke tapCreate when isTrustedProvider() == false")
+        #expect(state.statusCount == 5)
+
+        // Flip trusted = true and call pollAccessibilityTrustOnce()
+        let beforePollStatusCount = state.statusCount
+        state.trusted = true
+        coord.pollAccessibilityTrustOnce()
+        #expect(coord.isRunning == true)
+        #expect(settings.isAccessibilityTrusted == true)
+        #expect(coord.isTrustPollingActive == false)
+        #expect(state.setupCount == 4)
+        #expect(state.statusCount == beforePollStatusCount + 1, "pollAccessibilityTrustOnce must increment onStatusChanged counter")
+    }
 }
 }

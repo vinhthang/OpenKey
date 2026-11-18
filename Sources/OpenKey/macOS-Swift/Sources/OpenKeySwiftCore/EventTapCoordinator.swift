@@ -29,6 +29,10 @@ public final class EventTapCoordinator: @unchecked Sendable {
     private var modifierTapCancelled: Bool = false
     
     public private(set) var isRunning: Bool = false
+    public var isTrustedProvider: () -> Bool = { AXIsProcessTrusted() }
+    public var customTapSetup: (() -> Bool)? = nil
+    public var promptOnUntrusted: Bool = true
+    public var isTrustPollingActive: Bool { trustPollingTimer != nil }
     
     public init() {
         if let frontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
@@ -63,29 +67,58 @@ public final class EventTapCoordinator: @unchecked Sendable {
         isRunning = false
     }
     
+    public func resetAndCheckAccessibility() {
+        stop()
+        checkAccessibilityAndSetupTap()
+    }
+
+    public func pollAccessibilityTrustOnce() {
+        if setupEventTap() {
+            settings.isAccessibilityTrusted = true
+            trustPollingTimer?.invalidate()
+            trustPollingTimer = nil
+        }
+    }
+
     public func checkAccessibilityAndSetupTap() {
         if setupEventTap() {
             settings.isAccessibilityTrusted = true
             trustPollingTimer?.invalidate(); trustPollingTimer = nil
             return
         }
-        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
+        if promptOnUntrusted {
+            let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+        }
         settings.isAccessibilityTrusted = false
         if trustPollingTimer == nil {
             trustPollingTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-                guard let self = self else { return }
-                if self.setupEventTap() {
-                    self.settings.isAccessibilityTrusted = true
-                    self.trustPollingTimer?.invalidate(); self.trustPollingTimer = nil
-                }
+                self?.pollAccessibilityTrustOnce()
             }
         }
     }
     
     @discardableResult
     private func setupEventTap() -> Bool {
-        guard eventTap == nil else { return true }
+        guard isTrustedProvider() else {
+            if isRunning || eventTap != nil {
+                stop()
+            }
+            return false
+        }
+        if let custom = customTapSetup {
+            if isRunning {
+                return true
+            }
+            if custom() {
+                isRunning = true
+                return true
+            }
+            return false
+        }
+        if eventTap != nil {
+            return true
+        }
         let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue) |
                                      (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.leftMouseDown.rawValue) |
                                      (1 << CGEventType.rightMouseDown.rawValue) | (1 << CGEventType.otherMouseDown.rawValue)
