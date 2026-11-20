@@ -61,10 +61,14 @@ public struct OpenKeyL10n: Sendable {
     public var revealLogInFinder: String { isVietnamese ? "Hiện trong Finder" : "Reveal in Finder" }
     public var clearLog: String { isVietnamese ? "Xóa nhật ký" : "Clear Log" }
     
+    private var bundleShortVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.0.6"
+    }
+
     // About Section
     public var sectionAbout: String { isVietnamese ? "Giới thiệu" : "About" }
     public var versionLabel: String { isVietnamese ? "Phiên bản:" : "Version:" }
-    public var versionValue: String { "v2.0.0 (Build 1) • Pure Swift 6 (macOS 26)" }
+    public var versionValue: String { "v\(bundleShortVersion) • Pure Swift 6 (macOS 26)" }
     public var implementorLabel: String { isVietnamese ? "Thực hiện chuyển đổi & phát triển:" : "Implementor:" }
     public var implementorValue: String { "Antigravity — Gemini 4 Argon (High)" }
     public var originalAuthorLabel: String { isVietnamese ? "Tác giả bản gốc (OpenKey):" : "Original Author (OpenKey):" }
@@ -84,6 +88,6 @@ public struct OpenKeyL10n: Sendable {
     public var menuDebugMode: String { isVietnamese ? "Chế độ Gỡ lỗi (Debug Mode)" : "Debug Mode" }
     public var menuOpenLogFile: String { isVietnamese ? "Mở tệp nhật ký gỡ lỗi..." : "Open Debug Log..." }
     public var menuSettings: String { isVietnamese ? "Cài đặt..." : "Settings..." }
-    public var menuAbout: String { "OpenKeySwift v2.0.0 • Antigravity (Gemini 4 Argon High) & Mai Vũ Tuyên" }
+    public var menuAbout: String { "OpenKeySwift v\(bundleShortVersion) • Antigravity (Gemini 4 Argon High) & Mai Vũ Tuyên" }
     public var menuQuit: String { isVietnamese ? "Thoát OpenKeySwift" : "Quit OpenKeySwift" }
 }

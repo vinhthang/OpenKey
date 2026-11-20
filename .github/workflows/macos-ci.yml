@@ -4,23 +4,13 @@ on:
   push:
     branches: [ "master", "main" ]
     tags: [ "v*" ]
-    paths:
-      - "Sources/OpenKey/macOS-Swift/**"
-      - "Sources/OpenKey/shared-data/**"
-      - "scripts/sync_shared_lexicon.py"
-      - ".github/workflows/macos-ci.yml"
   pull_request:
     branches: [ "master", "main" ]
-    paths:
-      - "Sources/OpenKey/macOS-Swift/**"
-      - "Sources/OpenKey/shared-data/**"
-      - "scripts/sync_shared_lexicon.py"
-      - ".github/workflows/macos-ci.yml"
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') && github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: write
@@ -34,6 +24,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check Swift & Xcode toolchain
         run: |
@@ -72,11 +64,37 @@ jobs:
             Sources/OpenKey/macOS-Swift/build/OpenKeySwift-macOS-arm64.zip
             Sources/OpenKey/macOS-Swift/build/OpenKeySwift.dmg
 
-      - name: Publish GitHub Release on Tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Clean stale non-macOS assets on rolling latest release
+        if: (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/v')) || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          if gh release view latest --repo "$REPO" >/dev/null 2>&1; then
+            STALE_ASSETS="$(gh release view latest --repo "$REPO" --json assets --jq '.assets[].name | select(startswith("OpenKeySwift") | not)')"
+            if [[ -n "$STALE_ASSETS" ]]; then
+              while IFS= read -r asset; do
+                [[ -n "$asset" ]] && gh release delete-asset latest "$asset" --repo "$REPO" --yes
+              done <<< "$STALE_ASSETS"
+            fi
+            gh release edit latest \
+              --repo "$REPO" \
+              --target "$TARGET_SHA" \
+              --title "OpenKey macOS (Apple Silicon) — Latest DMG" \
+              --notes "Automated Apple Silicon (arm64) OpenKeySwift.dmg and ZIP build from master ($TARGET_SHA)."
+          fi
+
+      - name: Publish DMG and ZIP to GitHub Releases
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'latest' }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && format('OpenKey macOS {0}', github.ref_name) || 'OpenKey macOS (Apple Silicon) — Latest DMG' }}
+          generate_release_notes: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          prerelease: false
+          make_latest: true
           files: |
-            Sources/OpenKey/macOS-Swift/build/OpenKeySwift-macOS-arm64.zip
             Sources/OpenKey/macOS-Swift/build/OpenKeySwift.dmg
+            Sources/OpenKey/macOS-Swift/build/OpenKeySwift-macOS-arm64.zip

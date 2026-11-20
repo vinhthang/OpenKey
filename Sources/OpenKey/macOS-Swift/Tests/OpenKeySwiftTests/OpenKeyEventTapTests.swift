@@ -204,6 +204,8 @@ struct OpenKeyEventTapTests {
         #expect(plist != nil, "Info.plist must be valid property list")
         let executableName = plist?["CFBundleExecutable"] as? String
         #expect(executableName == "OpenKeySwift", "CFBundleExecutable must be 'OpenKeySwift'")
+        let shortVersion = plist?["CFBundleShortVersionString"] as? String
+        #expect(shortVersion == "2.0.6", "CFBundleShortVersionString must be '2.0.6'")
         let minSysVersion = plist?["LSMinimumSystemVersion"] as? String
         #expect(minSysVersion == "26.0", "LSMinimumSystemVersion must be '26.0'")
     }
