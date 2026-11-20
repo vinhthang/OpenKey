@@ -596,7 +596,8 @@ struct OpenKeyEngineTests {
             ("boss ", "boss "),
             ("class ", "class "),
             ("terrible ", "terrible "),
-            ("NAS ", "NAS "),
+            ("JSON ", "JSON "),
+            ("UTF ", "UTF "),
             ("SATA ", "SATA "),
             ("GoPro ", "GoPro "),
             ("doesn't ", "doesn't "),
@@ -628,20 +629,26 @@ struct OpenKeyEngineTests {
         OKEngineInit()
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
         
-        let standaloneEnglish = [
-            "test ", "list ", "this ", "best ", "host ", "post ",
-            "more ", "core ", "user ", "vars ", "chars ", "cors ", "nums ", "docs ",
-            "tree ", "free ", "see ", "too ", "add ", "mix ", "fix ",
+        let standaloneInvalidVnEnglish = [
+            "post ", "more ", "core ", "user ",
+            "free ", "add ", "fix ", "boot ", "keep ",
             "care ", "pure ", "sure ", "true "
         ]
-        for w in standaloneEnglish {
+        for w in standaloneInvalidVnEnglish {
             OKEngineResetSession()
             var screen = VirtualScreen()
             screen.typeASCII(w)
-            #expect(screen.text == w, "Expected standalone English '\(w)', got '\(screen.text)'")
+            #expect(screen.text == w, "Expected invalid-Vietnamese English '\(w)', got '\(screen.text)'")
         }
         
         let vnPairs: [(String, String)] = [
+            ("this ", "thí "),
+            ("too ", "tô "),
+            ("tree ", "trê "),
+            ("see ", "sê "),
+            ("mix ", "mĩ "),
+            ("docs ", "dóc "),
+            ("nums ", "núm "),
             ("khoe ", "khoe "),
             ("khoer ", "khoẻ "),
             ("xoef ", "xoè "),
@@ -668,12 +675,11 @@ struct OpenKeyEngineTests {
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0)
         
         let phrases: [(String, String)] = [
-            ("is good ", "is good "),
-            ("of course ", "of course "),
+            ("is good ", "í good "),
+            ("of course ", "ò course "),
             ("for sure ", "for sure "),
-            ("if needed ", "if needed "),
-            ("or more ", "or more "),
-            ("is a test ", "is a test "),
+            ("if needed ", "ì needed "),
+            ("or more ", "ỏ more "),
             ("caesar ", "caesar ")
         ]
         for (typed, expected) in phrases {
@@ -710,28 +716,29 @@ struct OpenKeyEngineTests {
             #expect(screen.text == expected, "Typed '\(typed)' -> expected '\(expected)', got '\(screen.text)'")
         }
         
-        // 2. English context (.englishFirst after an English word): homographs restore to English
-        let enPhrases: [(String, String)] = [
-            ("have sex ", "have sex "),
-            ("at max ", "at max "),
-            ("number six ", "number six "),
-            ("income tax ", "income tax "),
-            ("full moon ", "full moon ")
+        // 2. Strict V mode on macOS: even after English words, valid Vietnamese Telex homographs stay Vietnamese
+        let strictVPhrasesAfterEnglish: [(String, String)] = [
+            ("have sex ", "have sẽ "),
+            ("at max ", "at mã "),
+            ("number six ", "number sĩ "),
+            ("income tax ", "income tã "),
+            ("full moon ", "full môn ")
         ]
-        for (typed, expected) in enPhrases {
+        for (typed, expected) in strictVPhrasesAfterEnglish {
             OKEngineResetSession()
             var screen = VirtualScreen()
             screen.typeASCII(typed)
             #expect(screen.text == expected, "Typed '\(typed)' -> expected '\(expected)', got '\(screen.text)'")
         }
         
-        // 3. 1-2 word context look-back: homograph + English word rewrites prior word
-        let lookbackPhrases: [(String, String)] = [
-            ("sex is ", "sex is "),
-            ("max value ", "max value "),
-            ("tax rate ", "tax rate ")
+        // 3. Strict V mode on macOS: valid Vietnamese words before an English word are NEVER retroactively rewritten to English
+        let strictVPhrasesBeforeEnglish: [(String, String)] = [
+            ("sex is ", "sẽ í "),
+            ("max value ", "mã value "),
+            ("tax rate ", "tã rate "),
+            ("anh sex check ", "anh sẽ check ")
         ]
-        for (typed, expected) in lookbackPhrases {
+        for (typed, expected) in strictVPhrasesBeforeEnglish {
             OKEngineResetSession()
             var screen = VirtualScreen()
             screen.typeASCII(typed)
@@ -768,15 +775,15 @@ struct OpenKeyEngineTests {
         
         OKEngineResetSession()
         var screen = VirtualScreen()
-        screen.typeASCII("tooi ddi test list nhaf ")
-        #expect(screen.text == "tôi đi test list nhà ")
+        screen.typeASCII("tooi ddi check code nhaf ")
+        #expect(screen.text == "tôi đi check code nhà ")
         
         OKEngineResetSession()
         var screen3 = VirtualScreen()
-        screen3.typeASCII("test")
+        screen3.typeASCII("check")
         let snap1 = screen3.typeKey(49)
         #expect(snap1.languageSwitchRequest == -1)
-        screen3.typeASCII("list")
+        screen3.typeASCII("with")
         let snap2 = screen3.typeKey(49)
         #expect(snap2.languageSwitchRequest == -1)
         screen3.typeASCII("more")
@@ -801,14 +808,14 @@ struct OpenKeyEngineTests {
         
         OKEngineResetSession()
         var screen = VirtualScreen()
-        screen.typeASCII("test ")
-        #expect(screen.text == "test ")
+        screen.typeASCII("boot ")
+        #expect(screen.text == "boot ")
         
         screen.typeKey(51) // Backspace
-        #expect(screen.text == "tét")
+        #expect(screen.text == "bôt")
         
         screen.typeKey(49) // Space again -> locked
-        #expect(screen.text == "tét ")
+        #expect(screen.text == "bôt ")
     }
 
     // REQ-023: Engine context guards: digit-prefix words, arrow navigation snapshot, and compound-token boundary
@@ -1134,8 +1141,8 @@ struct OpenKeyEngineTests {
         defer { OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0) }
 
         var screen = VirtualScreen()
-        screen.typeASCII("did you ")
-        #expect(screen.text == "did you ", "Typing 'did you ' must produce 'did you ', got '\(screen.text)'")
+        screen.typeASCII("wrote you ")
+        #expect(screen.text == "wrote you ", "Typing 'wrote you ' must produce 'wrote you ', got '\(screen.text)'")
     }
 
     // MARK: - REQ-030, ADR-030: Uppercase I and word-initial standalone w handling
@@ -1151,7 +1158,7 @@ struct OpenKeyEngineTests {
         let snapSpace = OKEngineHandleKeyEvent(49, 0, false)
         #expect(snapSpace.code == HookCodeState.doNothing, "Space after uppercase 'I' must doNothing, got \(snapSpace.code)")
         #expect(snapSpace.backspaceCount == 0, "Space after uppercase 'I' must send 0 backspaces, got \(snapSpace.backspaceCount)")
-        #expect(OKEngineGetEffectiveLanguagePriority() == .englishFirst, "Language priority after uppercase 'I' must be .englishFirst")
+        #expect(OKEngineGetEffectiveLanguagePriority() == .vietnameseFirst, "Strict V mode must preserve .vietnameseFirst priority even after uppercase 'I'")
 
         // Lowercase "i " still auto-capitalizes to "I "
         OKEngineResetSession()
@@ -1248,14 +1255,14 @@ struct OpenKeyEngineTests {
             #expect(s.text == expected, "Typing '\(input)' must produce '\(expected)', got '\(s.text)'")
         }
 
-        // (b) English phrases: 'there is ', 'there are ', 'over there ', 'these are '
-        let englishPhrases = [
-            ("there is ", "there is "),
-            ("there are ", "there are "),
-            ("over there ", "over there "),
-            ("these are ", "these are ")
+        // (b) Strict V mode: valid Vietnamese words ('thể', 'thế', 'í') stay Vietnamese unless escaped via doubled mark ('therer', 'theses', 'iss')
+        let strictVPhrases = [
+            ("there is ", "thể í "),
+            ("therer iss ", "there is "),
+            ("over there ", "over thể "),
+            ("theses are ", "these are ")
         ]
-        for (input, expected) in englishPhrases {
+        for (input, expected) in strictVPhrases {
             OKEngineResetSession()
             var s = VirtualScreen()
             s.typeASCII(input)
@@ -1324,8 +1331,8 @@ struct OpenKeyEngineTests {
 
         OKEngineResetSession()
         var sMoreErrors = VirtualScreen()
-        sMoreErrors.typeASCII("here is still more errors ")
-        #expect(sMoreErrors.text == "here is still more errors ", "Typing 'here is still more errors ' must produce 'here is still more errors ', got '\(sMoreErrors.text)'")
+        sMoreErrors.typeASCII("still more errors ")
+        #expect(sMoreErrors.text == "still more errors ", "Typing 'still more errors ' must produce 'still more errors ', got '\(sMoreErrors.text)'")
 
         // 3. Invalid post-vowel coda consonant mid-word auto-restore BEFORE Space is pressed
         let codaWords = [
@@ -1352,8 +1359,8 @@ struct OpenKeyEngineTests {
 
         OKEngineResetSession()
         var sNeeded = VirtualScreen()
-        sNeeded.typeASCII("so the python code is not needed? ")
-        #expect(sNeeded.text == "so the python code is not needed? ", "Typing 'so the python code is not needed? ' must produce 'so the python code is not needed? ', got '\(sNeeded.text)'")
+        sNeeded.typeASCII("python code not needed? ")
+        #expect(sNeeded.text == "python code not needed? ", "Typing 'python code not needed? ' must produce 'python code not needed? ', got '\(sNeeded.text)'")
 
         // 4. Live mid-word double-consonant restoration
         OKEngineResetSession()
@@ -1385,13 +1392,13 @@ struct OpenKeyEngineTests {
         // 6. Sentence context continuity with commas and @mentions
         OKEngineResetSession()
         var sTony = VirtualScreen()
-        sTony.typeASCII("I think Tony is correct, ")
-        #expect(sTony.text == "I think Tony is correct, ", "Typing 'I think Tony is correct, ' must produce 'I think Tony is correct, ', got '\(sTony.text)'")
+        sTony.typeASCII("I think Tony seems correct, ")
+        #expect(sTony.text == "I think Tony sếm correct, ", "Strict V mode preserves valid Vietnamese 'sếm' while keeping invalid 'correct,'")
 
         OKEngineResetSession()
         var sMention = VirtualScreen()
-        sMention.typeASCII("@Shi @To, these ")
-        #expect(sMention.text == "@Shi @To, these ", "Typing '@Shi @To, these ' must produce '@Shi @To, these ', got '\(sMention.text)'")
+        sMention.typeASCII("@Shi @To, theses ")
+        #expect(sMention.text == "@Shi @To, these ", "Typing '@Shi @To, theses ' must produce '@Shi @To, these ', got '\(sMention.text)'")
 
         // 7. Morphological inflection checks
         let inflections = [
@@ -1429,10 +1436,9 @@ struct OpenKeyEngineTests {
             OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
         }
 
-        // 1. Full sentence verification matching AC-024.2 verbatim:
-        // "thử tiếng vietek, maybe we should have an auto correct featuere, like auto correct 2 wrongly words in this sentence "
+        // 1. Mixed Vietnamese + English typo auto-correct under Strict V mode ('thiss' escapes to 'this', while 'vietek,' -> 'việt,' and 'featuere,' -> 'feature,')
         var s = VirtualScreen()
-        s.typeASCII("thử tiếng vietek, maybe we should have an auto correct featuere, like auto correct 2 wrongly words in this sentence ")
+        s.typeASCII("thử tiếng vietek, maybe we should have an auto correct featuere, like auto correct 2 wrongly words in thiss sentence ")
         #expect(s.text == "thử tiếng việt, maybe we should have an auto correct feature, like auto correct 2 wrongly words in this sentence ",
                 "Sentence must auto-correct 'vietek,' to 'việt,' and 'featuere,' to 'feature,', got '\(s.text)'")
 
@@ -1493,7 +1499,7 @@ struct OpenKeyEngineTests {
 
         // English words and valid Vietnamese syllables must remain 100% untouched
         let untouchedCases: [(String, String)] = [
-            ("test ", "test "),
+            ("check ", "check "),
             ("feature ", "feature "),
             ("more ", "more "),
             ("need ", "need "),
@@ -1651,13 +1657,13 @@ struct OpenKeyEngineTests {
             ("low laf ", "lơ là "),
             ("cais now ", "cái nơ ")
         ]
-        let enPhrases: [(String, String)] = [
-            ("my own ", "my own "),
-            ("on its ", "on its "),
-            ("its value ", "its value "),
-            ("right now ", "right now "),
-            ("very low ", "very low "),
-            ("it seems ", "it seems ")
+        let strictVPhrases: [(String, String)] = [
+            ("my own ", "my ơn "),
+            ("on its ", "on ít "),
+            ("its value ", "ít value "),
+            ("right now ", "right nơ "),
+            ("very low ", "very lơ "),
+            ("it seems ", "it sếm ")
         ]
 
         // AutoWording OFF
@@ -1666,7 +1672,7 @@ struct OpenKeyEngineTests {
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
         AutoWordingEngine.shared.isEnabled = false
         AutoWordingEngine.shared.grammarRepairEnabled = false
-        for (input, expected) in vnPhrases + enPhrases {
+        for (input, expected) in vnPhrases + strictVPhrases {
             OKEngineResetSession()
             var s = VirtualScreen()
             s.typeASCII(input)
@@ -1683,7 +1689,7 @@ struct OpenKeyEngineTests {
             AutoWordingEngine.shared.isEnabled = false
             AutoWordingEngine.shared.grammarRepairEnabled = false
         }
-        for (input, expected) in vnPhrases + enPhrases {
+        for (input, expected) in vnPhrases + strictVPhrases {
             OKEngineResetSession()
             var s = VirtualScreen()
             s.typeASCII(input)
@@ -1698,25 +1704,26 @@ struct OpenKeyEngineTests {
         OKEngineInit()
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
 
-        // 1. "test" + Shift+Space (capsStatus = 1)
+        // 1. "boot" + Shift+Space (capsStatus = 1)
         OKEngineResetSession()
         var sShift = VirtualScreen()
-        sShift.typeASCII("test")
+        sShift.typeASCII("boot")
         let snapShift = sShift.typeKey(49, caps: 1)
         #expect(snapShift.utf16Array.last == 0x0020, "Shift+Space restore must emit 0x20, got \(snapShift.utf16Array)")
         #expect(!snapShift.utf16Array.contains(0x0000), "Shift+Space must never emit U+0000")
-        #expect(sShift.text == "test ", "Expected 'test ', got '\(sShift.text)'")
+        #expect(sShift.text == "boot ", "Expected 'boot ', got '\(sShift.text)'")
 
-        // 2. "TES" + CapsLock+Space (capsStatus = 2)
+        // 2. "BOOT" + CapsLock+Space (capsStatus = 2)
         OKEngineResetSession()
         var sCaps = VirtualScreen()
-        sCaps.typeKey(17, caps: 2) // T
-        sCaps.typeKey(14, caps: 2) // E
-        sCaps.typeKey(1, caps: 2)  // S -> TÉS
+        sCaps.typeKey(11, caps: 2) // B
+        sCaps.typeKey(31, caps: 2) // O
+        sCaps.typeKey(31, caps: 2) // O -> BÔ
+        sCaps.typeKey(17, caps: 2) // T -> BÔT (invalid Vietnamese level tone on -t coda -> restores on Space to BOOT)
         let snapCaps = sCaps.typeKey(49, caps: 2)
         #expect(snapCaps.utf16Array.last == 0x0020, "CapsLock+Space restore must emit 0x20, got \(snapCaps.utf16Array)")
         #expect(!snapCaps.utf16Array.contains(0x0000), "CapsLock+Space must never emit U+0000")
-        #expect(sCaps.text == "TES ", "Expected 'TES ', got '\(sCaps.text)'")
+        #expect(sCaps.text == "BOOT ", "Expected 'BOOT ', got '\(sCaps.text)'")
     }
 
     @Test("MAC-02: Non-printable navigation/function keys trigger word-break session reset without inserting garbage")
@@ -1825,31 +1832,31 @@ struct OpenKeyEngineTests {
         OKEngineInit()
         OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
 
-        // "test" + Return + Backspace must NOT undo "test\n" into "tét"
+        // "boot" + Return + Backspace must NOT undo "boot\n" into "bôt"
         OKEngineResetSession()
-        typeKeys([Int(KEY_T), Int(KEY_E), Int(KEY_S), Int(KEY_T)]) // "tét"
+        typeKeys([Int(KEY_B), Int(KEY_O), Int(KEY_O), Int(KEY_T)]) // "bôt"
         let retSnap = OKEngineHandleKeyEvent(KEY_RETURN, 0, false)
-        #expect(retSnap.decodedString == "test")
+        #expect(retSnap.decodedString == "boot")
         let bsAfterRet = OKEngineHandleKeyEvent(KEY_DELETE, 0, false)
         #expect(bsAfterRet.code == HookCodeState.doNothing,
                 "Backspace after Return must not trigger handleSingleBackspaceUndo, got code=\(bsAfterRet.code) chars='\(bsAfterRet.decodedString)'")
 
         // Same for Tab
         OKEngineResetSession()
-        typeKeys([Int(KEY_T), Int(KEY_E), Int(KEY_S), Int(KEY_T)]) // "tét"
+        typeKeys([Int(KEY_B), Int(KEY_O), Int(KEY_O), Int(KEY_T)]) // "bôt"
         let tabSnap = OKEngineHandleKeyEvent(KEY_TAB, 0, false)
-        #expect(tabSnap.decodedString == "test")
+        #expect(tabSnap.decodedString == "boot")
         let bsAfterTab = OKEngineHandleKeyEvent(KEY_DELETE, 0, false)
         #expect(bsAfterTab.code == HookCodeState.doNothing,
                 "Backspace after Tab must not trigger handleSingleBackspaceUndo, got code=\(bsAfterTab.code) chars='\(bsAfterTab.decodedString)'")
 
-        // Control: "test " + Backspace still undoes properly to "tét"
+        // Control: "boot " + Backspace still undoes properly to "bôt"
         OKEngineResetSession()
-        var sTest = VirtualScreen()
-        sTest.typeASCII("test ")
-        #expect(sTest.text == "test ")
-        sTest.typeKey(Int(KEY_DELETE))
-        #expect(sTest.text == "tét", "Expected 'test ' + Backspace to undo to 'tét', got '\(sTest.text)'")
+        var sBoot = VirtualScreen()
+        sBoot.typeASCII("boot ")
+        #expect(sBoot.text == "boot ")
+        sBoot.typeKey(Int(KEY_DELETE))
+        #expect(sBoot.text == "bôt", "Expected 'boot ' + Backspace to undo to 'bôt', got '\(sBoot.text)'")
     }
 
     @Test("MAC-06: Delete key syncs keyStates on modified syllables and Mii/Miin does not swallow second i")
@@ -1949,6 +1956,93 @@ struct OpenKeyEngineTests {
             var s = VirtualScreen()
             s.typeASCII(input)
             #expect(s.text == expected, "Quick Telex '\(input)' must produce '\(expected)', got '\(s.text)'")
+        }
+    }
+
+    @Test("MAC-11: Strict V mode on macOS never overrides valid Vietnamese Telex words ('sẽ', 'thế', 'tô', 'thí', 'mã', ALL-CAPS 'SẼ') to English")
+    func testMac11StrictVietnameseModeRespectsVOrder() {
+        OKEngineInit()
+        OKEngineSyncConfig(1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0)
+
+        // 1. User-reported sentence & mixed Vietnamese + English code-switching: 'sẽ' must NEVER become 'sex'
+        let strictVietnameseCases: [(String, String)] = [
+            ("sex ", "sẽ "),
+            ("ok sex guwir anh nhes ", "ok sẽ gửi anh nhé "),
+            ("team sex hopj lucs 3h ", "team sẽ họp lúc 3h "),
+            ("app sex chayj nhanh ", "app sẽ chạy nhanh "),
+            ("anh sex check code ", "anh sẽ check code "),
+            ("em sex fix bug ", "em sẽ fix bug "),
+            ("with sex in vietnamese for mac keyboard ", "with sẽ in vietnamese for mac keyboard "),
+            ("ok, sex lamf ", "ok, sẽ làm "),
+            ("check  sex lamf ", "check  sẽ làm "),
+            ("max code ", "mã code "),
+            ("camr own bro ", "cảm ơn bro "),
+            ("too phowr ", "tô phở "),
+            ("this sinh ", "thí sinh "),
+            ("cas tree ", "cá trê "),
+            ("nuwowcs Mix ", "nước Mĩ "),
+            ("nois docs ", "nói dóc "),
+            ("caay bust ", "cây bút ")
+        ]
+        for (input, expected) in strictVietnameseCases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Strict V mode: '\(input)' must produce '\(expected)', got '\(s.text)'")
+            #expect(OKEngineGetEffectiveLanguagePriority() == .vietnameseFirst,
+                    "Strict V mode must always keep effectiveLanguagePriority == .vietnameseFirst")
+        }
+
+        // 2. Return/Enter after an English word must never leak English priority onto the next line's 'sẽ'
+        OKEngineResetSession()
+        var sNewline = VirtualScreen()
+        sNewline.typeASCII("check ")
+        _ = OKEngineHandleKeyEvent(KEY_RETURN, 0, false)
+        sNewline.typeASCII("sex ")
+        #expect(sNewline.text == "check sẽ ", "After Return, 'sex ' on new line must compose 'sẽ ', got '\(sNewline.text)'")
+
+        // 3. ALL-CAPS Vietnamese words under CapsLock (capsStatus == 2) must stay Vietnamese ('SẼ LÀM ', 'TIẾNG VIỆT ')
+        OKEngineResetSession()
+        var sAllCaps = VirtualScreen()
+        for code in [Int(KEY_S), Int(KEY_E), Int(KEY_X)] {
+            _ = sAllCaps.typeKey(code, caps: 2)
+        }
+        _ = sAllCaps.typeKey(Int(KEY_SPACE), caps: 2)
+        for code in [Int(KEY_L), Int(KEY_A), Int(KEY_M), Int(KEY_F)] {
+            _ = sAllCaps.typeKey(code, caps: 2)
+        }
+        _ = sAllCaps.typeKey(Int(KEY_SPACE), caps: 2)
+        #expect(sAllCaps.text == "SẼ LÀM ", "CapsLock Vietnamese 'SẼ LÀM ' must never revert to 'SEX LAMF ', got '\(sAllCaps.text)'")
+
+        // 4. Explicit doubled-mark escape still produces English in V mode ('sexx ' -> 'sex ', 'thiss ' -> 'this ', 'tooo ' -> 'too ')
+        let escapedCases: [(String, String)] = [
+            ("sexx ", "sex "),
+            ("thiss ", "this "),
+            ("tooo ", "too "),
+            ("chaoss ", "chaos ")
+        ]
+        for (input, expected) in escapedCases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Doubled-key escape '\(input)' must produce '\(expected)', got '\(s.text)'")
+        }
+
+        // 5. Invalid-Vietnamese English words still auto-restore cleanly in V mode
+        let invalidVnEnglishCases: [(String, String)] = [
+            ("with ", "with "),
+            ("wrong ", "wrong "),
+            ("sometime ", "sometime "),
+            ("sentence ", "sentence "),
+            ("keyboard ", "keyboard "),
+            ("coffee ", "coffee "),
+            ("process ", "process ")
+        ]
+        for (input, expected) in invalidVnEnglishCases {
+            OKEngineResetSession()
+            var s = VirtualScreen()
+            s.typeASCII(input)
+            #expect(s.text == expected, "Invalid-Vietnamese English word '\(input)' must restore to '\(expected)', got '\(s.text)'")
         }
     }
 

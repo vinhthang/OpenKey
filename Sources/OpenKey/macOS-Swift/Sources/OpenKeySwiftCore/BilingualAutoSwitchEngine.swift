@@ -58,12 +58,6 @@ extension VietnameseEngineState {
     nonisolated(unsafe) private static var enKeys: [UInt32] = []
     
     func effectiveLanguagePriority() -> LanguagePriority {
-        if let last = previousWords.last {
-            return last.wasRestoredToEnglish ? .englishFirst : .vietnameseFirst
-        }
-        if consecutiveEnglishWordCount > 0 {
-            return .englishFirst
-        }
         return (vLanguage == 1) ? .vietnameseFirst : .englishFirst
     }
     
@@ -477,32 +471,26 @@ extension VietnameseEngineState {
         } else if dict.isEnglishWord(composedLower) && !hasAnyDiacritic {
             return (false, fullKeys)
         } else if isTransformed {
+            let isValidVn = dict.isValidVietnameseSyllable(composedLower)
             let restoreKeys: [UInt32]? = {
                 if isTrailingDoubledToneEscape {
                     return Array(fullKeys.dropLast())
                 } else if !wordStartOk {
                     return fullKeys
-                } else if !droppedKeys.isEmpty && dict.isEnglishWord(fullRawLower) && !dict.isEnglishWord(composedLower) {
-                    return fullKeys
-                } else if dict.englishPriorityWords.contains(fullRawLower) {
-                    return fullKeys
-                } else if priority == .englishFirst && dict.isEnglishWord(fullRawLower) {
-                    return fullKeys
-                } else if let prev = previousWords.last, prev.composedString.lowercased() == prev.rawString.lowercased(),
-                          dict.englishNextWordBigrams[prev.rawString.lowercased()]?.contains(fullRawLower) == true {
-                    return fullKeys
-                } else if dict.isEnglishWord(fullRawLower) && !dict.isValidVietnameseSyllable(composedLower) {
-                    return fullKeys
-                } else if rawCapCount >= 2 {
-                    return fullKeys
                 } else if breakKeyCode == KEY_QUOTE && fullRawLower.hasSuffix("n") {
                     return fullKeys
                 } else if breakKeyCode == KEY_MINUS && fullRawLower.hasPrefix("w") {
                     return fullKeys
-                } else if hasDigitPrefix && !dict.isValidVietnameseSyllable(composedLower) {
+                } else if !isValidVn && !droppedKeys.isEmpty && dict.isEnglishWord(fullRawLower) && !dict.isEnglishWord(composedLower) {
+                    return fullKeys
+                } else if !isValidVn && dict.isEnglishWord(fullRawLower) {
+                    return fullKeys
+                } else if !isValidVn && rawCapCount >= 2 {
+                    return fullKeys
+                } else if !isValidVn && hasDigitPrefix {
                     return fullKeys
                 } else if tempDisableKey && (hasAnyDiacritic || !droppedKeys.isEmpty) {
-                    return dict.isEnglishWord(fullRawLower) ? fullKeys : Array(keyStates[0..<Int(stateIndex)])
+                    return (!isValidVn && dict.isEnglishWord(fullRawLower)) ? fullKeys : Array(keyStates[0..<Int(stateIndex)])
                 }
                 return nil
             }()
@@ -535,7 +523,7 @@ extension VietnameseEngineState {
         handleCode: UInt8,
         dict: VietnameseDictionary
     ) -> Bool {
-        guard breakKeyCode == KEY_SPACE, currentIsEnglish, wordStartOk, !previousWords.isEmpty else { return false }
+        guard vLanguage == 0, breakKeyCode == KEY_SPACE, currentIsEnglish, wordStartOk, !previousWords.isEmpty else { return false }
         var firstRewriteIdx: Int? = nil
         for idx in 0..<previousWords.count {
             let prev = previousWords[idx]

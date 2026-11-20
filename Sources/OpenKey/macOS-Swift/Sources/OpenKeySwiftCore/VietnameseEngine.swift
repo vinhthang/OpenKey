@@ -580,6 +580,7 @@ extension VietnameseEngineState {
             specialChar.removeAll()
             typingStates.removeAll()
             previousWords.removeAll()
+            consecutiveEnglishWordCount = 0
             compoundSegments.removeAll()
             wordStartOk = true
         } else {
@@ -606,6 +607,7 @@ extension VietnameseEngineState {
                 }
                 wordStartOk = false
                 previousWords.removeAll()
+                consecutiveEnglishWordCount = 0
             } else {
                 compoundSegments.removeAll()
                 wordStartOk = true
@@ -656,6 +658,7 @@ extension VietnameseEngineState {
             }
         } else if spaceCount > 1 {
             previousWords.removeAll()
+            consecutiveEnglishWordCount = 0
         }
         wordStartOk = true
         hasDigitPrefix = false
@@ -914,6 +917,17 @@ extension VietnameseEngineState {
             }
         }
         
+        // 3b. Standalone word-initial 'w' + 'r' + English vowel ("wrong", "wrote", "write", "wrist", "wreck") while keeping 2-key "wr " -> "ử "
+        if vInputType == 0 && !tempDisableKey && index == 1 && CHR(0) == KEY_U &&
+           typingWord[0].isStandaloneW && (typingWord[0] & MARK3_MASK) != 0 && Int(rawStateIndex) == 3 {
+            let raw0 = UInt16(rawKeyStates[0] & CHAR_MASK)
+            let raw1 = UInt16(rawKeyStates[1] & CHAR_MASK)
+            if raw0 == KEY_W && raw1 == KEY_R && [KEY_O, KEY_E, KEY_I, KEY_Y].contains(keyCode) {
+                restoreWordFromRawKeys(oldScreenLength: Int(index))
+                return true
+            }
+        }
+
         // 4. Invalid Post-Vowel Coda Consonant Mid-Word Auto-Restore ("needed", "good", "book", "feel", "work", "word", "part", "start", "sort", "soft", "left", "text", "next")
         if !tempDisableKey && index >= 2 {
             findAndCalculateVowel()
