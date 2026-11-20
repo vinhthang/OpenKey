@@ -1,65 +1,61 @@
 # [OpenKeySwift](https://github.com/vinhthang/OpenKey)
 
 [![macOS CI/CD](https://github.com/vinhthang/OpenKey/actions/workflows/macos-ci.yml/badge.svg)](https://github.com/vinhthang/OpenKey/actions/workflows/macos-ci.yml)
+[![Download v2.0.6 DMG](https://img.shields.io/badge/Download-OpenKeySwift%20v2.0.6%20(.dmg)-blue?logo=apple&logoColor=white)](https://github.com/vinhthang/OpenKey/releases/download/v2.0.6/OpenKeySwift.dmg)
+[![Download Latest DMG](https://img.shields.io/badge/Rolling%20Master-OpenKeySwift.dmg-success?logo=apple&logoColor=white)](https://github.com/vinhthang/OpenKey/releases/download/latest/OpenKeySwift.dmg)
+[![Agent Guide](https://img.shields.io/badge/Guide-AGENTS.md-informational)](AGENTS.md)
 
 > [!NOTE]
-> **OpenKeySwift — 100% Pure Swift 6 Conversion (macOS 26 Tahoe)**
-> **OpenKeySwift** là bản chuyển đổi **100% bằng ngôn ngữ Swift 6 nguyên bản** (nhắm tới **macOS 26 Tahoe**) từ bộ gõ tiếng Việt mã nguồn mở [**OpenKey**](https://github.com/tuyenvm/OpenKey) (C++/Objective-C++) của tác giả **Mai Vũ Tuyên**. Toàn bộ state machine xử lý Telex/VNI, bảng luật âm vị học tiếng Việt, cơ chế ghi nhớ ngôn ngữ theo ứng dụng (`SmartSwitchKey`), cùng hệ thống **Auto Wording & Ngữ pháp thông minh** và giao diện **SwiftUI Liquid Glass** đã được thiết kế và viết lại hoàn toàn bằng Swift 6 hiện đại, không còn phụ thuộc vào bất kỳ thành phần C++ hay Objective-C++ nào.
+> **OpenKeySwift `v2.0.6` — 100% Pure Swift 6 Vietnamese IME for macOS (`arm64`)**
+> **OpenKeySwift** là bộ gõ tiếng Việt ngoại tuyến (**100% offline, zero telemetry**) viết hoàn toàn bằng **Swift 6 nguyên bản** cho **macOS 26 Tahoe** (Apple Silicon `arm64`), kế thừa và tái kiến trúc từ bộ gõ mã nguồn mở [**OpenKey**](https://github.com/tuyenvm/OpenKey) của tác giả **Mai Vũ Tuyên**.
 >
-> Bản gốc Copyright © 2019–2026 **Mai Vũ Tuyên**. Phát hành theo giấy phép **GNU General Public License v3.0 (GPLv3)**.
+> - **Phiên bản Android độc lập (Samsung One UI 6/7 Keyboard)**: Xem tại repository riêng [`1quachuoi9vang/openkey-thanghoang`](https://github.com/1quachuoi9vang/openkey-thanghoang).
+> - Bản gốc Copyright © 2019–2026 **Mai Vũ Tuyên**. Phát hành theo giấy phép **GNU General Public License v3.0 (GPLv3)**.
 
 ---
 
-## 1. Điểm nổi bật (Key Highlights)
+## 1. Tải về & Cài đặt nhanh (Direct Download)
 
-- **100% Pure Swift 6 & Kiến trúc Module hóa (`OpenKeySwiftCore` & `OpenKeySwiftApp`)**:
-  - Loại bỏ hoàn toàn cầu nối C++/Objective-C++ (`OpenKeyEngineBridge`) và các mã nguồn cũ không còn sử dụng.
-  - Toàn bộ bộ máy ghép vần tiếng Việt (`VietnameseEngine`, `VietnameseEngine+SpellingAndGrammar`, `VietnameseEngine+MarkAndTone`, `VietnameseEngine+KeyEventDispatcher`, `VietnameseData`, `VietnameseUnicodeTable`, `SmartSwitchStore`) hoạt động trực tiếp trên kiểu dữ liệu Swift 6 an toàn bộ nhớ, sử dụng hệ thống thuộc tính bitmask rõ nghĩa (`baseKey`, `isCaps`, `hasToneMark`, `hasCircumflexOrStroke`, `hasHornOrBreve`, `hasAnyDiacritic`) với mỗi file nguồn dưới 500 dòng.
-  - Tương thích 100% ngữ nghĩa C++ cho ranh giới nguyên âm `gi-` / `qu-` (`"giới"`, `"gièo"`, `"giường"`, `"giười"`), hoàn tác hai lần phím `w` (`gioiww`, `giowisw`), và tính toán chính xác độ lùi `Backspace` khi chèn nguyên âm đơn `ư`/`ơ`.
-- **Unsandboxed Quartz Event Tap (`CGEventTap`)**:
-  - Sử dụng kỹ thuật `Backspace` qua `kCGSessionEventTap` để loại bỏ triệt để lỗi gạch chân (underline) của bộ gõ mặc định macOS.
-  - Tối ưu đường nóng **Zero-IPC O(1)**, tự động khôi phục khi máy thức dậy (`didWakeNotification`) hoặc khi `CGEventTap` bị timeout, và gắn thẻ sự kiện nội bộ (`0xBEEF`) để tránh lặp vô hạn.
-  - Đảm bảo tính toàn vẹn trạng thái bộ đệm (`typingWord`, `keyStates`, `typingStates`) khi nhấn `Delete` nhiều lần liên tiếp trên từ có dấu hoặc xóa qua ranh giới từ rồi nhập ký tự mới.
-- **Giao diện macOS 26 Tahoe & Liquid Glass**:
-  - Quản lý trạng thái bằng `@Observable` (`Observation` framework), biểu tượng thanh menu `V` / `E` monochrome sắc nét được tạo sẵn trong bộ nhớ đệm.
-  - Cửa sổ cài đặt SwiftUI `.formStyle(.grouped)` hỗ trợ đóng nhanh bằng phím **`Esc`**, bộ chuyển đổi ngôn ngữ hiển thị gọn gàng **`VI | EN`** (`OpenKeyL10n` hiển thị một ngôn ngữ duy nhất thay vì ghép song ngữ dài dòng), và thanh gợi ý từ nổi (**Floating Candidate Bar**) sử dụng hiệu ứng **Liquid Glass** (`.glassEffect`) không chiếm quyền điều khiển bàn phím (`nonactivatingPanel`, `level: .popUpMenu`).
-- **Auto Wording, Tự sửa âm vị & Gợi ý từ thông minh (`AutoWordingEngine`)**:
-  - **Độc lập & Zero-Overhead khi tắt**: Module `AutoWordingEngine` tách biệt hoàn toàn khỏi `VietnameseEngineState` thông qua `OKWordContext` và hook âm vị học; khi tắt Auto Wording, đường nóng gõ phím không chịu bất kỳ chi phí xử lý phụ nào.
-  - **Tự sửa cụm nguyên âm (`Phonotactic Syllable Repair`)**: Tự động chuyển `ie`/`ye` + phụ âm cuối khi có dấu thanh thành `iê`/`yê` (ví dụ: `tiengs` → `tiếng`, `viets` → `viết`) và chuẩn hóa `uow`/`uwo` thành `ươ` (`truowngf` → `trường`) mà không cần gõ đúp phím nguyên âm.
-  - **Từ điển tiếng Việt > 5.000 mục từ (`VietnameseDictionary` & `VietnameseDictionaryCorpus`)**: Tra cứu dưới `1ms` với hơn 3.500 âm tiết đơn và 1.500 từ ghép hai âm tiết, tự động phân biệt:
-    - **Sửa lỗi gõ sai / đảo phím (`.correction`)**: Gợi ý sửa các từ sai quy tắc âm vị hoặc đảo thứ tự phím Telex (`tineg` → `tiếng`, `veit` → `việt`), chọn nhanh bằng `Tab` hoặc `Ctrl + 1..3`.
-    - **Hoàn thiện dấu & Gợi ý từ ghép tiếp theo (`.stemCompletion` / `.nextWord`)**: Gợi ý từ có dấu khi gõ không dấu (`thanh` → `thành`, `thánh`, `thanh`) và từ ghép sau khi nhấn `Space` (`thành` → `phố`, `công`, `viên`), chọn bằng `Ctrl + 1..3` mà không chiếm phím `Tab` dùng để thụt lề/di chuyển ô.
-  - **Học tần suất từ theo thói quen người dùng (`Adaptive Learning`)**: Tự động ưu tiên xếp hạng `#1` cho các từ/cụm từ bạn thường xuyên chọn.
-  - **Gõ tắt thông minh & Tùy biến (`Shorthand Expansion`)**: Tự động bung từ viết tắt thông dụng khi nhấn `Space` (`ko`/`k` → `không`, `dc`/`đc` → `được`, `trc` → `trước`, `ng` → `người`, `j` → `gì`, `cty` → `công ty`, `mn` → `mọi người`, `nv` → `nhân viên`, `gd` → `gia đình`, `sdt` → `số điện thoại`, `bh` → `bây giờ`, `tks` → `cảm ơn`, `vn` → `Việt Nam`, `hn` → `Hà Nội`, `tphcm` → `TP. Hồ Chí Minh`, v.v.) có giữ nguyên kiểu chữ hoa/thường và hỗ trợ người dùng tự thêm/xóa từ viết tắt riêng.
-- **Tương thích hệ sinh thái & Bảo mật (`SystemEnvironmentDetector` & `CaretPositionResolver`)**:
-  - **Bảo vệ ô nhập mật khẩu (`Secure Input Protection`)**: Tự động phát hiện `IsSecureEventInputEnabled()` và `AXSecureTextField` để tạm ngắt bộ gõ tiếng Việt và ẩn thanh gợi ý từ khi nhập mật khẩu.
-  - **Tự động bỏ qua Launcher, Terminal & Máy ảo**: Không can thiệp phím khi mở **Spotlight**, **Raycast**, **Alfred**, các trình **Terminal** (`Terminal.app`, `iTerm2`, `Warp`, `Ghostty`, `Alacritty`, `Kitty`, `WezTerm`, `Hyper`) và **VM / Remote Desktop** (`VMware Fusion`, `Parallels`, `UTM`, `VirtualBox`, `Microsoft Remote Desktop`).
-  - **Định vị con trỏ văn bản chính xác trên Electron/Chromium & Đa màn hình**: Tự động kích hoạt `AXManualAccessibility` cho ứng dụng Chromium/Electron, hỗ trợ con trỏ độ rộng bằng `0` (`width == 0 && height > 0`), giới hạn thời gian truy vấn Accessibility ở `40ms` trên luồng nền và tự động kẹp khung hiển thị theo màn hình đang hoạt động.
+- **Bản phát hành ổn định (`v2.0.6`)**:
+  - [**OpenKeySwift.dmg**](https://github.com/vinhthang/OpenKey/releases/download/v2.0.6/OpenKeySwift.dmg) (khuyên dùng — kéo thả `OpenKeySwift.app` vào `/Applications`)
+  - [**OpenKeySwift-macOS-arm64.zip**](https://github.com/vinhthang/OpenKey/releases/download/v2.0.6/OpenKeySwift-macOS-arm64.zip)
+- **Bản build tự động mới nhất từ nhánh `master` (`latest`)**:
+  - [**OpenKeySwift.dmg (Rolling Latest)**](https://github.com/vinhthang/OpenKey/releases/download/latest/OpenKeySwift.dmg)
+
+### Các bước cài đặt lần đầu
+1. Mở tệp **`OpenKeySwift.dmg`** và kéo **`OpenKeySwift.app`** vào thư mục **`/Applications`**.
+2. Nếu macOS Gatekeeper cảnh báo ứng dụng chưa qua Apple Developer ID notarization, chạy lệnh sau một lần trong Terminal để gỡ cờ cách ly tải về:
+   ```bash
+   xattr -cr /Applications/OpenKeySwift.app
+   open /Applications/OpenKeySwift.app
+   ```
+3. Vào **System Settings → Privacy & Security → Accessibility** và bật quyền cho **OpenKeySwift**. Ứng dụng tự động nhận quyền ngay lập tức mà không cần khởi động lại (biểu tượng thanh menu chuyển từ `V!` sang `V`).
+
+> [!IMPORTANT]
+> Khi sử dụng `OpenKeySwift`, hãy để nguồn nhập mặc định của macOS ở **ABC / U.S.** và tắt các bộ gõ tiếng Việt khác để tránh xung đột sự kiện bàn phím.
 
 ---
 
-## 2. Tính năng chi tiết (Features)
+## 2. Điểm nổi bật & Quy ước gõ (Key Highlights & IME Conventions)
 
-### Kiểu gõ & Bảng mã
-- **Kiểu gõ hỗ trợ**: **Telex** và **VNI**.
-- **Bảng mã**: Chuẩn hóa 100% trên **Unicode dựng sẵn (Precomposed Unicode)** để đảm bảo tương thích tuyệt đối với các ứng dụng hiện đại.
-
-### Kiểm tra chính tả & Tự khôi phục từ tiếng Anh
-- **Đặt dấu kiểu mới (`Modern Orthography`)**: Tùy chọn đặt dấu `oà, uý` hoặc kiểu truyền thống `òa, úy`.
-- **Kiểm tra chính tả & Tự khôi phục phím (`Auto-Restore`)**: Khi gõ các từ tiếng Anh không hợp lệ với âm vị tiếng Việt (bao gồm cả từ chứa `d...d` tạo thành `đ` như `"dead"`, `"added"` hoặc các từ như `"window"`, `"function"`, `"project"`), OpenKeySwift tự động khôi phục nguyên vẹn chuỗi ký tự ASCII gốc khi nhấn phím ngắt từ (`Space`, `Return`, `Tab`) mà không làm nuốt phím điều khiển cuối.
-- **Sửa lỗi Autocomplete trên trình duyệt & IDE**: Sử dụng ký tự ngắt thích ứng theo ứng dụng (`U+200C` cho Sublime Text, `U+202F` cho Chrome, Safari, Arc, Firefox, VS Code, Xcode,...) trước khi gửi chuỗi `Backspace`.
-
-### Chuyển ngữ thông minh & Phím tắt
-- **Nhớ ngôn ngữ theo từng ứng dụng (`SmartSwitchKey`)**: Bật/tắt nhanh ngay trên thanh menu hoặc trong Cài đặt. Tự động chuyển đổi giữa Tiếng Việt (`V`) và Tiếng Anh (`E`) khi chuyển đổi qua lại giữa các ứng dụng, hoặc dùng chung một ngôn ngữ toàn cục.
-- **Phím tắt chuyển chế độ tùy chỉnh**: Mặc định là `Option + Z` (`⌥Z`). Hỗ trợ trình ghi phím tắt tương tác (`Đổi phím tắt...`) cho cả tổ hợp phím và phím bổ trợ đơn (`Modifier-only tap`), chống lặp phím khi nhấn giữ và tự nuốt sự kiện `keyUp` tương ứng.
-- **Tự động bỏ qua bố cục bàn phím khác (`vOtherLanguage`)**: Tự động tạm ngưng xử lý tiếng Việt khi chuyển sang bàn phím không phải tiếng Anh hoặc bố cục `Dvorak`, `Colemak`, `AZERTY` (có bộ nhớ đệm theo thông báo hệ thống `kTISNotifySelectedKeyboardInputSourceChanged`).
-
-### Phím tắt thanh gợi ý từ (Candidate Bar Shortcuts)
-Khi thanh gợi ý từ Liquid Glass đang hiển thị dưới con trỏ văn bản:
-- `Tab`: Chọn nhanh gợi ý số `#1` khi từ đang gõ bị sai chính tả / đảo phím (`.correction`).
-- `Ctrl + 1` / `Ctrl + 2` / `Ctrl + 3`: Chọn từ gợi ý số `#1` / `#2` / `#3` cho mọi loại gợi ý (`.correction`, `.stemCompletion`, `.nextWord`).
-- `Esc`: Đóng thanh gợi ý từ hiện tại.
-- Nhấp chuột trực tiếp vào từng viên nang (pill) gợi ý trên thanh nổi.
+- **100% Offline, Riêng tư tuyệt đối & Bảo vệ Mật khẩu (`REQ-001`, `REQ-017`)**:
+  - Không có bất kỳ kết nối mạng hay thu thập dữ liệu nào (`Zero Network & Zero Telemetry`).
+  - Tự động phát hiện `IsSecureEventInputEnabled()` và `AXSecureTextField` để bỏ qua bộ gõ tiếng Việt và che giấu tuyệt đối phím nhấn trong nhật ký gỡ lỗi khi nhập mật khẩu/PIN.
+- **Ưu tiên Tiếng Việt nghiêm ngặt ở chế độ `V` (`Strict V Mode — MAC-11`)**:
+  - Khi thanh menu đang ở **`V`**, mọi âm tiết tiếng Việt hợp lệ gõ bằng Telex (`"sẽ"`, `"thế"`, `"tô"`, `"thí"`, `"mã"`, `"sĩ"`, `"ơn"`, `"ít"`, `"cây bút"`, `"kiểu"`, `"xoá"`, kể cả chữ IN HOA `Caps Lock` như `"SẼ LÀM"`, `"TIẾNG VIỆT"`) **luôn giữ nguyên tiếng Việt** — không bao giờ tự đổi hay lùi xóa thành từ tiếng Anh (`"sex"`, `"max"`, `"too"`, `"this"`) ngay cả khi gõ câu pha trộn Anh–Việt (`"ok sẽ gửi"`, `"anh sẽ check"`, `"with sẽ"`).
+  - Các từ tiếng Anh không phải âm tiết tiếng Việt hợp lệ (`"with"`, `"wrong"`, `"sometime"`, `"sentence"`, `"keyboard"`, `"coffee"`, `"process"`) vẫn tự động khôi phục nguyên vẹn về tiếng Anh khi ngắt từ (`Space`, `Return`, `Tab`), hỗ trợ nhấn `Backspace` một lần sau `Space` để hoàn tác nếu muốn giữ nguyên.
+  - Hỗ trợ **gõ lặp phím dấu để thoát nhanh sang tiếng Anh** ngay trong chế độ `V` (`"sexx "` → `"sex "`, `"thiss "` → `"this "`, `"tooo "` → `"too "`, `"chaoss "` → `"chaos "`).
+- **Trải nghiệm macOS Gọn nhẹ, Không làm phiền**:
+  - Loại bỏ thanh gợi ý nổi / Auto Wording gây xao nhãng trên macOS; chỉ giữ lại cơ chế chuẩn hóa cụm nguyên âm âm vị học chạy ngầm (`tiengs` → `tiếng`, `truowngf` → `trường`, `quowi` → `quơi`).
+  - Tùy chọn bật/tắt **Gõ tắt phụ âm đầu (`Quick Telex`)** trong Cài đặt (`cc → ch`, `gg → gi`, `kk → kh`, `nn → ng`, `pp → ph`, `qq → qu`, `tt → tr`; mặc định **Tắt**).
+  - Bảng mã **Precomposed Unicode** dựng sẵn 100%, hỗ trợ tùy chọn đặt dấu kiểu mới (`oà, uý`) hoặc truyền thống (`òa, úy`), cùng cơ chế chèn ký tự ngắt thích ứng (`U+202F` / `U+200C`) chống nuốt chữ trên thanh địa chỉ Chrome, Safari, Arc, Firefox, VS Code, Sublime Text.
+- **Thanh Menu Trực quan & Nhớ ngôn ngữ theo Ứng dụng (`SmartSwitchStore`)**:
+  - Biểu tượng thanh trạng thái phân biệt rõ 3 trạng thái: đang bật (`V` / `E`), đang tạm ngắt cho ứng dụng hiện tại (`V·` / `E·`), và thiếu quyền Trợ năng (`V!` / `E!`) — tự cập nhật tức thì khi đổi quyền hoặc đổi ứng dụng.
+  - Menu hỗ trợ **"Tắt tiếng Việt trong \<Ứng dụng\>"** (`excludedBundleIds`), **"Nhớ ngôn ngữ theo ứng dụng"**, **"Đặt lại nhớ ngôn ngữ"**, khởi động cùng macOS (`SMAppService`), và nút **"Đặt lại quyền Trợ năng"** (`tccutil reset` + kiểm tra trực tiếp `AXIsProcessTrusted()`).
+  - Trình ghi phím tắt chuyển ngữ tương tác (mặc định `⌥Z`), hỗ trợ cả tổ hợp phím (`Space`, `Tab`, `Return`, `F1`–`F12`) lẫn nhấn nhả phím bổ trợ đơn (`⌃⇧`, `⌘⇧`, `⌥⇧`) và tự từ chối phím chữ đơn không có phím bổ trợ.
+  - Tự động bỏ qua **Spotlight**, **Raycast**, **Alfred**, các trình **Terminal** (`Terminal.app`, `iTerm2`, `Warp`, `Ghostty`, `Alacritty`, `Kitty`, `WezTerm`, `Hyper`), **VM / Remote Desktop**, và các bố cục bàn phím khác (`Dvorak`, `Colemak`, `AZERTY`, CJK).
+- **Từ điển Nguồn đơn Đồng bộ Đa nền tảng (`Sources/OpenKey/shared-data/`)**:
+  - Kho âm tiết tiếng Việt đã chuẩn hóa âm vị học (`VietnameseDictionary+Phonotactics.swift`) được biên dịch tất định sang `VietnameseDictionaryCorpus.swift` qua `scripts/sync_shared_lexicon.py` và kiểm tra chống lệch tự động trên CI.
 
 ---
 
@@ -68,107 +64,97 @@ Khi thanh gợi ý từ Liquid Glass đang hiển thị dưới con trỏ văn b
 ```text
 OpenKey/
 ├── .github/workflows/
-│   └── macos-ci.yml                   # GitHub Actions macOS 26 CI/CD (test, build, sign, .zip & .dmg)
-├── Sources/OpenKey/macOS-Swift/
-│   ├── Package.swift                  # Swift 6 Package (macOS 26.0+)
-│   ├── Info.plist                     # Bundle metadata & copyright attribution
-│   ├── OpenKeySwift.entitlements      # Unsandboxed CGEventTap & Accessibility entitlements
-│   ├── build-app.sh                   # Build, bundle & code-signing script (--setup-cert)
-│   ├── Scripts/
-│   │   └── real-system-load-test.swift # End-to-end real-system load & stress test suite
-│   ├── Sources/
-│   │   ├── OpenKeySwiftCore/          # Pure Swift 6 IME Core Library (< 500 lines per file)
-│   │   │   ├── VietnameseData.swift                     # Keycodes, bitmasks, syllable helpers & vowel/consonant rules
-│   │   │   ├── VietnameseUnicodeTable.swift             # Precomposed Unicode code table
-│   │   │   ├── VietnameseEngine.swift                   # Core state buffer, session management & public C-style API
-│   │   │   ├── VietnameseEngine+SpellingAndGrammar.swift# Phonotactic validation, grammar repair & auto-restore
-│   │   │   ├── VietnameseEngine+MarkAndTone.swift       # Modern/old tone placement, circumflex, horn & breve
-│   │   │   ├── VietnameseEngine+KeyEventDispatcher.swift# Key event phase handlers (Space, Delete, Character, Break)
-│   │   │   ├── SmartSwitchStore.swift                   # Per-app language memory & safe binary serialization
-│   │   │   ├── VietnameseDictionary.swift               # Sub-millisecond stem, anagram & bigram lookup engine
-│   │   │   ├── VietnameseDictionaryCorpus.swift         # 5,000+ syllable & compound word corpus data
-│   │   │   ├── AutoWordingEngine.swift                  # Phonotactic repair, shorthands, candidate ranking & learning
-│   │   │   ├── AutoWordingTypes.swift                   # WordCandidate, CandidateKind & default shorthand tables
-│   │   │   ├── EventTapCoordinator.swift                # Quartz CGEventTap lifecycle & deterministic evaluateKeyEvent
-│   │   │   ├── SystemEnvironmentDetector.swift          # Secure input, Spotlight/Raycast/Alfred, Terminal & VM detection
-│   │   │   ├── KeystrokeInjector.swift                  # Batched UTF-16 injection & browser autocomplete breaker
-│   │   │   ├── CaretPositionResolver.swift              # Async 40ms Accessibility caret bounds & Electron support
-│   │   │   ├── InputSourceGuard.swift                   # Notification-cached TIS keyboard layout guard
-│   │   │   ├── HotKeyMatcher.swift                      # Shortcut matching & modifier-only tap state machine
-│   │   │   └── OpenKeySettingsStore.swift               # @Observable UserDefaults persistence & batch sync
-│   │   └── OpenKeySwiftApp/           # macOS 26 SwiftUI Application Target
-│   │       ├── OpenKeySwiftApp.swift      # Status bar item, menu & wake/app-switch observers
-│   │       ├── OpenKeyL10n.swift          # Single-language UI localization catalog (VI | EN)
-│   │       ├── SettingsView.swift         # Grouped Form UI, Esc-to-close, VI|EN toggle & custom shorthands
-│   │       └── CandidateBarController.swift # Non-activating Liquid Glass floating NSPanel
-│   └── Tests/
-│       └── OpenKeySwiftTests/         # Modular Swift Testing suite
-│           ├── OpenKeyEngineTests.swift     # Telex/VNI syllable composition, Delete & auto-restore tests
-│           ├── OpenKeyEventTapTests.swift   # Pure event routing, Secure Input, Launcher & HotKey tests
-│           ├── OpenKeyAutoWordingTests.swift# Phonotactic repair, shorthand, dictionary & learning tests
-│           ├── OpenKeyLoadTests.swift       # High-volume multi-session stress & latency tests
-│           └── OpenKeyTestHelpers.swift     # Shared simulated screen buffer & keystroke helpers
-└── docs/specs/                        # 5-Document Architecture specifications & verification reports
-    ├── INDEX.md
-    ├── 2026-10-26-macos-swift-ime/
-    ├── 2026-10-26-auto-wording/
-    └── 2026-10-27-ime-intelligence-and-ecosystem/
+│   └── macos-ci.yml                                    # GitHub Actions CI/CD & tự động phát hành .dmg/.zip (latest & v*)
+├── AGENTS.md                                           # Tài liệu kiến trúc & bất biến kỹ thuật
+├── scripts/
+│   └── sync_shared_lexicon.py                          # Trình sinh mã & kiểm tra đồng bộ từ điển nguồn đơn
+├── Sources/OpenKey/
+│   ├── shared-data/                                    # Dữ liệu từ vựng nguồn đơn (1 mục/dòng, đồng bộ với bản Android)
+│   │   ├── vietnamese_syllables.txt
+│   │   ├── vietnamese_priorities.tsv
+│   │   ├── vietnamese_compound_bigrams.tsv
+│   │   ├── english_words.tsv
+│   │   ├── english_next_word_bigrams.tsv
+│   │   └── typo_and_grammar_rules.tsv
+│   └── macOS-Swift/
+│       ├── Package.swift                               # Swift 6 Package (macOS 26.0+)
+│       ├── Info.plist                                  # Metadata ứng dụng (v2.0.6)
+│       ├── OpenKeySwift.entitlements                   # Quyền CGEventTap & Accessibility (unsandboxed)
+│       ├── build-app.sh                                # Script build, ký mã, cài vào /Applications & khởi chạy lại
+│       ├── Sources/
+│       │   ├── OpenKeySwiftCore/                       # Thư viện lõi Pure Swift 6
+│       │   │   ├── VietnameseEngine.swift              # State machine Telex/VNI & điều phối phím
+│       │   │   ├── VietnameseEngine+Phonotactics.swift # Kiểm tra chính tả âm vị học, dấu thanh & phụ âm cuối
+│       │   │   ├── BilingualAutoSwitchEngine.swift     # Ưu tiên Strict V-mode & tự khôi phục từ tiếng Anh sai âm vị
+│       │   │   ├── AutoWordingEngine.swift             # Sửa cụm nguyên âm âm vị học & API gợi ý từ
+│       │   │   ├── VietnameseDictionary.swift          # Tra cứu âm tiết & từ điển (< 550 dòng)
+│       │   │   ├── VietnameseDictionary+Phonotactics.swift # Bộ lọc âm vị học âm tiết tiếng Việt hợp lệ
+│       │   │   ├── VietnameseDictionaryCorpus.swift    # Dữ liệu từ điển sinh tự động từ shared-data/
+│       │   │   ├── VietnameseData.swift                # Bảng mã phím, bitmask & bảng Unicode dựng sẵn
+│       │   │   ├── EventTapCoordinator.swift           # Vòng đời CGEventTap, kiểm tra AXIsProcessTrusted & bypass app
+│       │   │   ├── KeystrokeInjector.swift             # Chèn chuỗi UTF-16 & ký tự ngắt trình duyệt/IDE
+│       │   │   ├── HotKeyMatcher.swift                 # Nhận diện tổ hợp phím tắt & nhấn nhả phím bổ trợ
+│       │   │   ├── InputSourceGuard.swift              # Bộ gác bố cục bàn phím TIS có cache theo thông báo hệ thống
+│       │   │   ├── CaretPositionResolver.swift         # Truy vấn tọa độ con trỏ Accessibility bất đồng bộ
+│       │   │   ├── OpenKeySettingsStore.swift          # Lưu trữ cấu hình @Observable & đồng bộ trạng thái thanh menu
+│       │   │   ├── SmartSwitchStore.swift              # Nhớ ngôn ngữ & danh sách loại trừ theo Bundle ID
+│       │   │   └── OpenKeyLogger.swift                 # Nhật ký gỡ lỗi lazy @autoclosure có tự xóa khi đổi phiên bản
+│       │   └── OpenKeySwiftApp/                        # Ứng dụng thanh menu macOS SwiftUI
+│       │       ├── OpenKeySwiftApp.swift               # AppDelegate, biểu tượng trạng thái V/E/V·/V! & menu
+│       │       ├── SettingsView.swift                  # Cửa sổ Cài đặt SwiftUI (.formStyle(.grouped), Esc đóng nhanh)
+│       │       └── OpenKeyL10n.swift                   # Danh mục bản địa hóa giao diện đơn ngữ (VI | EN)
+│       └── Tests/
+│           └── OpenKeySwiftTests/                      # 83 bài kiểm thử đơn vị & chịu tải (Swift Testing)
+│               ├── OpenKeyEngineTests.swift
+│               ├── OpenKeyEventTapTests.swift
+│               ├── OpenKeyAutoWordingTests.swift
+│               ├── OpenKeyLoadTests.swift
+│               └── OpenKeyTestHelpers.swift
+└── docs/specs/                                         # Đặc tả kiến trúc 5 tài liệu
 ```
 
 ---
 
-## 4. Hướng dẫn Build & Cài đặt (Build & Installation)
+## 4. Hướng dẫn Build từ mã nguồn & Kiểm thử (Build from Source & Testing)
 
 ### Yêu cầu hệ thống (Prerequisites)
-- **macOS 26.0 (Tahoe)** trở lên.
+- **macOS 26.0 (Tahoe)** trở lên (`arm64`).
 - **Swift 6.0+** (Xcode 26 hoặc Command Line Tools tương ứng).
 
-### Bước 1: Tạo chứng chỉ ký mã nội bộ (Khuyên dùng)
-Để macOS (`tccd`) ghi nhớ quyền **Accessibility** qua các lần build lại mà không cần cấp quyền lại từ đầu, hãy tạo chứng chỉ tự ký `OpenKey Local Signer` vào Keychain cá nhân (chỉ cần chạy 1 lần):
+### Bước 1: Tạo chứng chỉ ký mã nội bộ (Khuyên dùng — chạy 1 lần)
+Để macOS (`tccd`) giữ nguyên quyền **Accessibility** sau mỗi lần tự build lại mà không hỏi lại quyền:
 
 ```bash
-cd Sources/OpenKey/macOS-Swift
-./build-app.sh --setup-cert
+bash Sources/OpenKey/macOS-Swift/build-app.sh --setup-cert
 ```
 
-### Bước 2: Build ứng dụng `OpenKeySwift.app`
-Chạy script đóng gói và ký mã tự động:
+### Bước 2: Build, Ký mã & Cài đặt vào `/Applications`
+Script `build-app.sh` tự động biên dịch bản Release `arm64`, ký bằng chứng chỉ `OpenKey Local Signer` (hoặc ad-hoc `-` nếu chưa tạo chứng chỉ), chép vào `/Applications/OpenKeySwift.app` và khởi động lại ứng dụng:
 
 ```bash
-cd Sources/OpenKey/macOS-Swift
-./build-app.sh
+bash Sources/OpenKey/macOS-Swift/build-app.sh
 ```
 
-Sau khi hoàn tất, gói ứng dụng sẽ nằm tại `Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app`. Bạn có thể copy trực tiếp vào `/Applications`:
-
+### Kiểm tra đồng bộ từ điển & Chạy kiểm thử (`83` tests)
 ```bash
-cp -R Sources/OpenKey/macOS-Swift/build/OpenKeySwift.app /Applications/
-open /Applications/OpenKeySwift.app
+# Kiểm tra hoặc cập nhật từ điển từ Sources/OpenKey/shared-data/
+python3 scripts/sync_shared_lexicon.py --check
+python3 scripts/sync_shared_lexicon.py --write
+
+# Chạy toàn bộ 83 bài kiểm thử đơn vị & kiểm thử chịu tải
+swift test --package-path Sources/OpenKey/macOS-Swift
 ```
 
-### Bước 3: Cấp quyền Accessibility
-Khi mở `OpenKeySwift.app` lần đầu, vào **System Settings → Privacy & Security → Accessibility** và bật quyền cho **OpenKeySwift**. Ứng dụng sẽ tự động kích hoạt bộ gõ ngay lập tức mà không cần khởi động lại.
-
-> [!IMPORTANT]
-> Khi sử dụng `OpenKeySwift`, hãy chuyển bộ gõ mặc định của macOS về **ABC / U.S.** và tắt các bộ gõ tiếng Việt thứ ba khác để tránh xung đột sự kiện bàn phím.
-
-### Chạy bộ kiểm thử tự động (Running Tests)
-```bash
-cd Sources/OpenKey/macOS-Swift
-swift test
-```
-
-### Tích hợp liên tục & Đóng gói tự động (GitHub Actions CI/CD)
-Dự án đi kèm workflow [`.github/workflows/macos-ci.yml`](.github/workflows/macos-ci.yml) chạy trên runner **`macos-26` (`arm64`, Xcode 26)**:
-- **Kiểm tra cấu trúc & Chất lượng mã (`REQ-009`)**: Tự động xác minh mọi file `.swift` trong `Sources/` và `Tests/` đều dưới `500` dòng.
-- **Kiểm thử tự động (`swift test`)**: Chạy toàn bộ bộ kiểm thử đơn vị và kiểm thử chịu tải (`OpenKeySwiftTests`).
-- **Đóng gói & Ký mã (`build-app.sh`)**: Biên dịch bản Release `OpenKeySwift.app`, kiểm tra chữ ký số nghiêm ngặt (`codesign --verify --deep --strict`), và đóng gói thành `OpenKeySwift-macOS-arm64.zip` cùng ảnh đĩa `OpenKeySwift.dmg`.
-- **Phát hành tự động (Artifacts & Releases)**: Tự động tải lên gói cài đặt trong mục **Actions → Artifacts** ở mỗi lần push/PR và tự động tạo **GitHub Release** khi đẩy tag phiên bản `v*` (ví dụ: `git tag v2.0.0 && git push origin v2.0.0`).
+### Tích hợp liên tục & Phát hành tự động (GitHub Actions CI/CD)
+Workflow [`.github/workflows/macos-ci.yml`](.github/workflows/macos-ci.yml) tự động thực thi trên mỗi lần push/PR và khi đẩy tag `v*`:
+- Kiểm tra đồng bộ từ điển nguồn đơn (`sync_shared_lexicon.py --check`) và chạy đầy đủ `83` bài kiểm thử Swift 6.
+- Biên dịch chéo gói ứng dụng Apple Silicon (`BUILD_ARCH=arm64`), xác minh `lipo -archs` == `arm64` và chữ ký `codesign --verify --deep --strict`.
+- Đóng gói `OpenKeySwift.dmg` + `OpenKeySwift-macOS-arm64.zip`, tải lên **Actions Artifacts**, đồng thời **tự động phát hành lên GitHub Releases** ở cả nhánh `master` ([`latest`](https://github.com/vinhthang/OpenKey/releases/tag/latest)) lẫn các tag phiên bản `v*` ([`v2.0.6`](https://github.com/vinhthang/OpenKey/releases/tag/v2.0.6)).
 
 ---
 
 ## 5. Nguồn gốc & Giấy phép (Attribution & License)
 
 - **Tác giả bản gốc (`OpenKey` C++/Objective-C++)**: **Mai Vũ Tuyên** ([`tuyenvm/OpenKey`](https://github.com/tuyenvm/OpenKey)) — Email: `maivutuyen.91@gmail.com`.
-- **Chuyển đổi Pure Swift 6 & Phát triển tính năng mới (`OpenKeySwift v2.0.0`)**: **Sam Hoang** ([`vinhthang/OpenKey`](https://github.com/vinhthang/OpenKey)) & **Antigravity (Gemini 4 Argon High)**.
-- **Giấy phép**: Dự án được phân phối dưới giấy phép [GNU General Public License v3.0 (GPLv3)](LICENSE).
+- **Chuyển đổi Pure Swift 6 & Phát triển (`OpenKeySwift v2.0.6`)**: **Sam Hoang** ([`vinhthang/OpenKey`](https://github.com/vinhthang/OpenKey)) & **Antigravity**.
+- **Giấy phép**: Phân phối dưới giấy phép [GNU General Public License v3.0 (GPLv3)](LICENSE).
